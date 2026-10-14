@@ -91,12 +91,16 @@ const SLOTS = [
   { s: 'C', rank: 'TSgt', pub: '16 years in, seen it all, a bit salty', pool: 'upper' },
   { s: 'D', rank: 'Civ.', pub: 'Runs the budget / admin', pool: 'upper' },
 ];
-// Fictional fallback names. The real cadet roster is NOT stored in this public
-// file: the GM pastes it into the console once (saved in that browser only).
-const POOL_UPPER = ['Archer', 'Baxter', 'Caldwell', 'Dawson', 'Ellis', 'Fowler', 'Garrison', 'Hayes',
-  'Irving', 'Jensen', 'Keller', 'Lawson', 'Maddox', 'Norris', 'Ortega', 'Pierce'];
-const POOL_LOWER = ['Quinn', 'Reyes', 'Sawyer', 'Tate', 'Underwood', 'Vance', 'Walsh', 'Young',
-  'Zimmer', 'Brooks', 'Carver', 'Dalton', 'Easton', 'Finch', 'Graves', 'Holt'];
+// NPC name pools (last names only). Upper = POC: TSgt, Civilian, Squadron CC.
+// Lower = AS200/250/500: SSgt, A1C. Edit these lists to update the roster.
+const POOL_UPPER = ['Helle', 'Bourek', 'Barszcz', 'Marschang', 'Donahoe', 'Luhring', 'Hyman', 'Ashbacker',
+  'Cooper', 'Coulthard', 'Davis', 'Figueroa-Baca', 'Metz', 'Plassman', 'Alt', 'Collier', 'Gaul',
+  'Van Devander', 'Kingery', 'Albert', 'Cerfogli', 'Chien', 'Edwardson', 'Salas', 'Hader', 'Tu',
+  'Warner', 'Gross', 'Bradlee', 'Curtis', 'Davila', 'Humiston', 'Jalodia'];
+const POOL_LOWER = ['Brady', 'Estes', 'Martinez', 'Condon-Matzke', 'Bendinger', 'Hutchinson', 'Jordan',
+  'McNamara', 'Ramsey', 'Reed', 'Reid', 'Schnute', 'Budde', 'Fennel', 'Moreno', 'Mueller', 'Sanderson',
+  'Urbanowicz', 'Utterback', 'Dybvig', 'Hemauer', 'Hoang', 'Kasparek', 'Wenthold', 'Bennett', 'Call',
+  'Jons', 'Peter', 'States', 'Tjaden'];
 
 // bp = Breaking Point effect, applied automatically when loyalty hits 0
 const TRAITS = [

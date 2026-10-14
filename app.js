@@ -207,14 +207,14 @@ function isAlly(n) { return n.loy >= 5 || (n.trait === 'cynic' && n.revealed && 
 function loadBoard() { try { return JSON.parse(localStorage.getItem('sq_leaderboard') || '[]'); } catch (e) { return []; } }
 function saveBoard(b) { try { localStorage.setItem('sq_leaderboard', JSON.stringify(b)); } catch (e) { } }
 function sortBoard(b) { return b.slice().sort((x, y) => (x.gameOver - y.gameOver) || (y.score - x.score) || (y.low - x.low) || (y.stars - x.stars)); }
-/* NPC roster: pasted once by the GM and kept in this browser, so real cadet
-   names never live in the public files. Falls back to fictional names. */
+/* NPC roster: the built-in lists in data.js, unless the GM saved an override
+   in this browser (handy for a different class without re-uploading). */
 function getRoster() {
   try {
     const r = JSON.parse(localStorage.getItem('sq_roster') || 'null');
     if (r && r.upper && r.upper.length >= 3 && r.lower && r.lower.length >= 2) return r;
   } catch (e) { }
-  return { upper: POOL_UPPER, lower: POOL_LOWER, fallback: true };
+  return { upper: POOL_UPPER, lower: POOL_LOWER, builtin: true };
 }
 function parseNames(t) { return String(t || '').split(/[,\n]+/).map(s => s.trim()).filter(Boolean); }
 function loadGrades() { try { return JSON.parse(localStorage.getItem('sq_grades') || '[]'); } catch (e) { return []; } }
@@ -973,11 +973,11 @@ function gmTitle() {
   let saved = null; try { saved = JSON.parse(localStorage.getItem('sq_run') || 'null'); } catch (e) { }
   const b = sortBoard(loadBoard());
   const R = getRoster();
-  const rosterCard = `<div class="gcard"><h3>NPC roster (saved in this browser only, never uploaded)</h3>
-    <p class="${R.fallback ? 'warnline' : 'note'}">${R.fallback ? 'No roster saved: NPCs will use fictional names. Paste the lines from your private roster.txt below.' : `Saved: ${R.upper.length} upper (POC) and ${R.lower.length} lower (AS200/250/500) names.`}</p>
-    <div class="note">Upper: TSgt, Civilian, Squadron CC</div><textarea id="rosterUp">${esc(R.fallback ? '' : R.upper.join(', '))}</textarea>
-    <div class="note">Lower: SSgt, A1C</div><textarea id="rosterLo">${esc(R.fallback ? '' : R.lower.join(', '))}</textarea>
-    <div class="row">${B('saveRoster', '💾 Save roster')} ${R.fallback ? '' : B('clearRoster', 'Clear', { cls: 'sm' })}</div></div>`;
+  const rosterCard = `<div class="gcard"><h3>NPC roster</h3>
+    <p class="note">${R.builtin ? `Using the built-in roster from data.js: ${R.upper.length} upper (POC) and ${R.lower.length} lower (AS200/250/500) names. Edit below and save to override it in this browser only.` : `Using a custom roster saved in this browser: ${R.upper.length} upper and ${R.lower.length} lower names.`}</p>
+    <div class="note">Upper: TSgt, Civilian, Squadron CC</div><textarea id="rosterUp">${esc(R.upper.join(', '))}</textarea>
+    <div class="note">Lower: SSgt, A1C</div><textarea id="rosterLo">${esc(R.lower.join(', '))}</textarea>
+    <div class="row">${B('saveRoster', '💾 Save override')} ${R.builtin ? '' : B('clearRoster', 'Back to built-in roster', { cls: 'sm' })}</div></div>`;
   return `<div class="gcard"><h2>Welcome, Game Master</h2>
     <p>1. Click <b>Open player screen</b> and drag that window onto the projector (press F11 there for full screen). Click it once so sound can play.<br>
     2. Start a new run for each party. The console autosaves, so a closed tab can be resumed.</p>
@@ -993,7 +993,7 @@ act('saveRoster', () => {
   if (upper.length < 3 || lower.length < 2) { alert('Need at least 3 upper and 2 lower names.'); return false; }
   localStorage.setItem('sq_roster', JSON.stringify({ upper, lower }));
 });
-act('clearRoster', () => { if (!confirm('Clear the saved roster?')) return false; localStorage.removeItem('sq_roster'); });
+act('clearRoster', () => { if (!confirm('Go back to the built-in roster from data.js?')) return false; localStorage.removeItem('sq_roster'); });
 function boardTable(b) {
   if (!b.length) return '<p class="note">No runs yet.</p>';
   let rank = 0;
