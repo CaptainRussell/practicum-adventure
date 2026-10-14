@@ -86,6 +86,8 @@ function onTap(e) {
     case 'roll': b.disabled = true; return phSend({ t: 'roll' });
     case 'act': b.disabled = true; return phSend({ t: 'act', v: arg });
     case 'p3roll': b.disabled = true; return phSend({ t: 'p3roll' });
+    case 'boost': case 'unboost': case 'safe': return phSend({ t: a, v: arg });
+    case 'roller': return phSend({ t: 'roller', v: +arg });
     case 'req': phSend({ t: 'req', v: arg }); phToast('Request sent to the GM'); return;
   }
 }
@@ -166,7 +168,8 @@ function phGame(v, me) {
       const who = v.party.find(p => p.av === k); const mine = me.av === k;
       return `<button class="ph-av ${mine ? 'sel' : ''}" data-p="av" data-a="${k}" ${who && !mine ? 'disabled' : ''}><img src="${presetAvatar(k)}"><span>${k + 1}${who && !mine ? ' · ' + esc(rankName(who)) : ''}</span></button>`; }).join('')}</div>`;
     case 'unit': return v.unit ? `<div class="ph-card ph-center">${UNITS.find(x => x.id === v.unit).icon} ${UNITS.find(x => x.id === v.unit).name}<br>${UNITS.find(x => x.id === v.unit).sq}</div>` : `<div class="ph-card ph-center">The Flight Commander rolls a d6 for your squadron. Look up!</div>`;
-    case 'manifest': return `<div class="ph-h">YOUR SQUADRON</div><div class="ph-card"><b>Commander:</b> ${esc(v.cc)}<br>${mt(esc(UNITS.find(x => x.id === v.unit).quirk))}</div>${phCrew(v)}`;
+    case 'manifest': { const u = UNITS.find(x => x.id === v.unit);
+      return `<div class="ph-h">YOUR SQUADRON</div><div class="ph-card"><b>Commander:</b> ${esc(v.cc)}<br>${mt(esc(u.quirk))}<br><br><b>⚠️ Tendency: ${esc(u.drain.name)}</b><br><small>${esc(u.drain.text)}: ${meterTag(u.drain.k)} −1 every ${DIFFICULTY.drainEvery} stops. Plan for it!</small></div>${phCrew(v)}`; }
     case 'map': {
       const votes = v.votes || {};
       return `<div class="ph-h">YOUR ROUTE</div>${phRoute(v)}<div class="ph-h">VOTE: WHERE TO NEXT?</div>` + (v.avail || []).map(key => {
@@ -235,14 +238,26 @@ function phNode(v, me) {
   if (c.step === 'roll') {
     const mine = c.roller === v.you;
     const who = v.party[c.roller] ? rankName(v.party[c.roller]) : '?';
-    return top + (mine && !offline
-      ? `<div class="ph-card ph-center">YOUR ROLL${c.check && c.check.stat && c.check.stat !== 'LOYB' ? ` · ${c.check.stat} +${CLASS[me.cls].stats[c.check.stat]}` : ''}</div>${pbtn('roll', null, '🎲 ROLL THE d20!', { cls: 'ph-big ph-roll', dis: v.spinning })}`
-      : `<div class="ph-card ph-center">🎲 ${esc(who)} is rolling...</div>`);
+    const st = c.check && c.check.stat;
+    let h = `<div class="ph-card ph-center">🎲 CHECK: <b>${st === 'LOYB' ? "the A1C's loyalty" : st || 'pure luck'}</b><br><b style="color:var(--gold)">${esc(c.odds || '')}</b><br><small>Roller: ${esc(who)}</small></div>`;
+    // the 👑 holder picks who rolls
+    if (v.tokenHolder === v.you && c.stats && !offline) h += `<div class="ph-h">👑 WHO ROLLS? (you decide)</div><div class="ph-row">${v.party.map((p, i) => pbtn('roller', i, `${esc(rankName(p))}<br><small>${st} ${c.stats[i] >= 0 ? '+' : ''}${c.stats[i]}</small>`, { cls: c.roller === i ? 'sel' : '', dis: v.offline === i })).join('')}</div>`;
+    // any cadet can spend meters on the roll, or play it safe
+    if (!offline) {
+      const n = Object.values(c.boost || {}).reduce((a, b) => a + b, 0);
+      h += `<div class="ph-h">💪 BOOST IT? (team, max ${DIFFICULTY.boostMax} · ${n} used)</div><div class="ph-row">${['res', 'mor', 'tru'].map(k => pbtn('boost', k, `${METER[k].icon} −1 ${METER[k].label}<br><b>+2</b>${c.boost[k] ? ` <small>×${c.boost[k]}</small>` : ''}`, { cls: c.boost[k] ? 'sel' : '', dis: !c.canBoost[k] })).join('')}</div>
+        ${n ? pbtn('unboost', null, '↩️ Clear boosts') : ''}
+        ${pbtn('safe', null, `🛡️ PLAY IT SAFE ${c.safe ? '(ON)' : ''}<br><small>No die: it counts as ${DIFFICULTY.safeRoll}. No crit, no fumble.</small>`, { cls: c.safe ? 'sel' : '' })}`;
+    }
+    h += mine && !offline
+      ? pbtn('roll', null, c.safe ? `🛡️ LOCK IN THE SAFE ${DIFFICULTY.safeRoll}` : '🎲 ROLL THE d20!', { cls: 'ph-big ph-roll', dis: v.spinning })
+      : `<div class="ph-card ph-center">⏳ Waiting for ${esc(who)} to roll...</div>`;
+    return top + h;
   }
   if (c.step === 'stars') return top + `<div class="ph-card ph-center">🎤 ACT IT OUT!<br>The GM plays the NPC and rates you 1-3 stars.</div>`;
   if (c.step === 'done') {
     const r = c.roll;
-    const res = r ? `🎲 ${r.d20} → ${r.total} vs ${r.dc}: ${r.nat === 20 ? 'CRITICAL!' : r.nat === 1 ? 'FUMBLE!' : r.pass ? 'SUCCESS' : 'FAILED'}` : c.stars ? `🎤 ${'⭐'.repeat(c.stars)}` : 'Decision locked in';
+    const res = r ? `${r.safe ? '🛡️ SAFE' : '🎲'} ${r.d20} → ${r.total} vs ${r.dc}: ${r.nat === 20 ? 'CRITICAL!' : r.nat === 1 ? 'FUMBLE!' : r.pass ? 'SUCCESS' : 'FAILED'}` : c.stars ? `🎤 ${'⭐'.repeat(c.stars)}` : 'Decision locked in';
     return top + `<div class="ph-card ph-center">${v.spinning ? '🎲 ...' : esc(res)}</div>`;
   }
   // brief: vote
@@ -263,7 +278,13 @@ function phInject(v) {
   if (i.stage === 'trigger' || v.spinning) return `<div class="ph-card ph-center">📡 Inject check... look up!</div>`;
   if (i.stage === 'clear') return `<div class="ph-card ph-center">✅ ALL CLEAR</div>`;
   if (i.stage === 'murphy') return `<div class="ph-card ph-center">🌪️ INJECT INCOMING!</div>`;
-  return `<div class="ph-card ph-center">🌪️ <b>${esc(i.name || '')}</b>${i.effHtml ? `<div style="margin-top:6px">${i.effHtml}</div>` : ''}${i.note ? `<br><small>${esc(i.note)}</small>` : ''}</div>`;
+  const head = `<div class="ph-card ph-center">🌪️ <b>${esc(i.name || '')}</b>${i.text ? `<br><small>${esc(i.text)}</small>` : ''}${i.effHtml ? `<div style="margin-top:6px">${i.effHtml}</div>` : ''}${i.note ? `<br><small style="color:var(--gold)">${esc(i.note)}</small>` : ''}</div>`;
+  if (i.stage !== 'result' || !i.options) return head;
+  const votes = v.votes || {};
+  return head + `<div class="ph-h">🗳️ HOW DO YOU RESPOND?</div><div class="ph-note">Vote as a team; the GM locks in the winner.</div>` + i.options.map((o, k) => {
+    const voters = Object.keys(votes).filter(s => votes[s] === k).map(s => v.party[+s] && rankName(v.party[+s])).filter(Boolean);
+    return pbtn('vote', k, `<b>${esc(o.t)}</b><br><small>${o.html}</small>${voters.length ? `<div class="ph-voters">🗳️ ${voters.map(esc).join(', ')}</div>` : ''}`, { cls: votes[v.you] === k ? 'sel' : '' });
+  }).join('');
 }
 
 function phBoss(v, me) {

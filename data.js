@@ -6,6 +6,20 @@
    Text placeholders: {A} {B} {C} {D} {CC} are swapped for drawn names.
    ===================================================================== */
 
+/* ---------------- difficulty knobs ----------------
+   Turn these down if parties are getting crushed, up if it's too easy. */
+const DIFFICULTY = {
+  dcPlus: 2,       // added to every check target: Normal 13 → 15, Hard 16 → 18
+  injectOn: 7,     // inject check: a d10 roll of 1-7 means Murphy strikes
+  drainEvery: 2,   // the squadron's tendency (weak spot) hits after every 2nd stop
+  safeRoll: 8,     // "play it safe" skips the d20 and counts it as this number
+  boostMax: 2,     // meter points the team can spend on one roll (+2 each)
+  bossHp: 22,      // Inspector General hit points
+  bossAttack: 3,   // the IG hits your weakest meter this hard after each phase
+  examDC: 14,      // No-Notice Exercise target (3 lower if The Witness was handled)
+};
+const DC_NORMAL = 13 + DIFFICULTY.dcPlus, DC_HARD = 16 + DIFFICULTY.dcPlus;
+
 const METERS = [
   { k: 'mis', name: 'MISSION',   label: 'Mission',   icon: '🎯', color: '#ff5d5d' },
   { k: 'mor', name: 'MORALE',    label: 'Morale',    icon: '❤️', color: '#ff7ae0' },
@@ -69,26 +83,35 @@ const CLASSES = [
 ];
 const CLASS = Object.fromEntries(CLASSES.map(c => [c.id, c]));
 
-/* ---------------- units ---------------- */
+/* ---------------- units ----------------
+   start   starting meters (every squadron has a weak spot)
+   drain   the squadron's tendency: that meter drops 1 after every DIFFICULTY.drainEvery stops
+   quirk   the commander's special rule */
 const UNITS = [
   { id: 'wk', name: 'WRENCH KINGS', sq: 'Aircraft Maintenance Squadron', icon: '🔧', color: '#ff9f43',
-    start: { mis: 6, mor: 4, tru: 5, res: 5 }, ccRank: 'Lt Col', q: 'late',
+    start: { mis: 6, mor: 3, tru: 5, res: 3 }, ccRank: 'Lt Col', q: 'late',
+    drain: { k: 'res', name: 'OPS TEMPO', text: 'Jets break faster than parts arrive' },
     quirk: 'Hates surprises: any ⭐ loss from bad news delivered late is doubled.' },
   { id: 'gg', name: 'GATE GUARDIANS', sq: 'Security Forces Squadron', icon: '🛡️', color: '#3fd8ff',
-    start: { mis: 5, mor: 4, tru: 6, res: 5 }, ccRank: 'Lt Col', q: 'hardmis',
-    quirk: 'Standards first: every 🎯 check is Hard (16).' },
-  { id: 'pp', name: 'PACKET PUSHERS', sq: 'Communications Squadron', icon: '📡', color: '#7dff6b',
-    start: { mis: 5, mor: 5, tru: 5, res: 5 }, ccRank: 'Maj', q: 'idea',
+    start: { mis: 6, mor: 3, tru: 5, res: 4 }, ccRank: 'Lt Col', q: 'hardmis',
+    drain: { k: 'mor', name: '12-HOUR SHIFTS', text: 'Nights, weekends and holidays on the gate wear people down' },
+    quirk: `Standards first: every 🎯 check is Hard (${DC_HARD}).` },
+  { id: 'pp', name: 'PACKET PUSHERS', sq: 'Communications (Cyber) Squadron', icon: '📡', color: '#7dff6b',
+    start: { mis: 3, mor: 6, tru: 4, res: 5 }, ccRank: 'Maj', q: 'idea',
+    drain: { k: 'mis', name: 'TICKET BACKLOG', text: 'Comfy chairs, slow tickets: the queue keeps growing' },
     quirk: "Innovation fan: adopting a subordinate's idea gives +1 ⭐." },
   { id: 'sr', name: 'SUPPLY RAIDERS', sq: 'Logistics Readiness Squadron', icon: '🚚', color: '#ffd23f',
-    start: { mis: 5, mor: 5, tru: 5, res: 3 }, ccRank: 'Lt Col', q: 'wallet',
+    start: { mis: 5, mor: 5, tru: 4, res: 3 }, ccRank: 'Lt Col', q: 'wallet',
+    drain: { k: 'tru', name: 'LATE DELIVERIES', text: 'Every unit on base blames supply' },
     quirk: 'Tight wallet: every 📦 gain is reduced by 1.' },
   { id: 'sa', name: 'SHADOW ANALYSTS', sq: 'Intelligence Squadron', icon: '🔍', color: '#b18cff',
-    start: { mis: 5, mor: 5, tru: 4, res: 6 }, ccRank: 'Lt Col', q: 'xo2',
+    start: { mis: 5, mor: 4, tru: 3, res: 5 }, ccRank: 'Lt Col', q: 'xo2',
+    drain: { k: 'mor', name: 'WINDOWLESS VAULT', text: 'No sunlight, no phones, no talking about work at home' },
     quirk: "Quiet professional: ⭐ starts low, but the Executive Officer's ability can be used twice." },
   { id: 'ch', name: 'CHOW HALL HEROES', sq: 'Force Support Squadron', icon: '🍔', color: '#ff7ae0',
-    start: { mis: 4, mor: 6, tru: 5, res: 5 }, ccRank: 'Maj', q: 'people',
-    quirk: 'People person: every ❤️ gain is +1, but every 🎯 check is Hard (16).' },
+    start: { mis: 3, mor: 6, tru: 4, res: 4 }, ccRank: 'Maj', q: 'people',
+    drain: { k: 'res', name: 'SHORT-STAFFED', text: 'Never enough hands at the dining facility' },
+    quirk: `People person: every ❤️ gain is +1, but every 🎯 check is Hard (${DC_HARD}).` },
 ];
 
 /* ---------------- NPCs ---------------- */
@@ -122,7 +145,7 @@ const TRAITS = [
   { id: 'overach',  icon: '🏃', name: 'Over-Achiever',      what: 'Volunteers for everything',                reward: '+2 🎯 when workload is shared',          bpText: 'Collapses: out for 1 node',              bp: { mor: -2, out: 1 } },
   { id: 'mentor',   icon: '🎓', name: 'Mentor-in-Waiting',  what: 'Wants to train others',                    reward: '+1 🎯 and +1 ❤️ once empowered',         bpText: 'Disengages',                             bp: { mor: -1 } },
   { id: 'coaster',  icon: '😴', name: 'The Coaster',        what: 'Bored, doing the minimum',                 reward: '+2 🎯 if given a challenge',             bpText: 'Drags others down',                      bp: { mis: -1 } },
-  { id: 'witness',  icon: '🕵️', name: 'The Witness',        what: 'Knows about a problem in the unit',        reward: "Reveals the IG's weakness (Phase 3 target 10)", bpText: 'Reports it to the IG: boss HP 23', bp: { flag: 'WITNESS_IG' } },
+  { id: 'witness',  icon: '🕵️', name: 'The Witness',        what: 'Knows about a problem in the unit',        reward: `Reveals the IG's weakness (Phase 3 target ${DIFFICULTY.examDC - 3})`, bpText: `Reports it to the IG: boss HP ${DIFFICULTY.bossHp + 3}`, bp: { flag: 'WITNESS_IG' } },
 ];
 const TRAIT = Object.fromEntries(TRAITS.map(t => [t.id, t]));
 
@@ -136,6 +159,9 @@ const TRAIT = Object.fromEntries(TRAITS.map(t => [t.id, t]));
      check {stat, dc, m (meter tie), pass, fail}   stat 'LOYB' = d20 + A1C loyalty, null = plain d20
      stars [one, two, three]
      ifClass {cls:[...], then:{...choice}, else:{...choice}}
+   mission fields: home ['gg', ...] = a squadron's signature mission (4x as likely there);
+     only: true = it can ONLY appear in those squadrons
+   check dc is the base target; DIFFICULTY.dcPlus is added on top in the game.
    effect fields: meters, loy:{A:-1}, flag, ach, reveal:'A', next:{...} (applied at the
      start of the next node), set:{mis:3}, traitLoy:{trait,d}, traitAny:{trait, eff}, loot:true
 */
@@ -287,6 +313,153 @@ const MISSIONS = [
       { t: 'Borrow people from another flight', show: [['mis', 1], ['tru', -1]], kind: 'fx',
         eff: { mis: 2, mor: 1, res: -2, tru: -1 } },
     ] },
+
+  /* ---- from cadet feedback. The person in serious trouble is always an unnamed
+     Airman, never a roster name, since NPC names are real classmates. ---- */
+  { id: 'M13', title: 'DUI AT 0200', sob: 'Accountability · Care for Airmen', icon: '🚔',
+    text: '0200: the city police call. A Senior Airman from your flight was arrested for DUI downtown. They never called the safe-ride program. Their supervisor, {A}, takes the call with you: "Can we keep this off the CC\'s desk? They\'re a good kid."',
+    choices: [
+      { t: 'Keep it quiet; {A} handles it', trap: true, show: [['mor', 1], ['tru', 1]], kind: 'fx',
+        eff: { mor: 1, tru: 1, flag: 'HID_DUI' } },
+      { t: 'Notify the CC and First Sergeant tonight', show: [['tru', 1], ['mor', -1]], kind: 'fx',
+        eff: { tru: 2, mor: -1, loy: { A: -1 }, ach: 'hardright' } },
+      { t: 'Report it, then counsel the Airman in the morning', mic: true, show: [['tru', 1], ['mor', '?']], kind: 'stars', pre: { tru: 1, ach: 'hardright' },
+        stars: [ { mor: -2 }, { mor: 1 }, { mor: 2, loy: { A: 1 } } ] },
+      { t: 'Report it + restrict the whole flight to base for a month', lock: true, show: [['tru', 1], ['mor', -2]], kind: 'fx',
+        eff: { tru: 1, mor: -3, loy: { A: -1, B: -1 }, ach: 'hardright', why: 'Everyone punished for one person' } },
+    ] },
+  { id: 'M14', title: 'DORM PARTY', sob: 'Standards · Discipline', icon: '🍺',
+    text: 'Saturday night dorm walk-through. {B} (age 20) is holding a beer at a party. A Senior Airman bought the alcohol. The music stops and everyone looks at you.',
+    choices: [
+      { t: 'Pour it out, everyone to bed, no paperwork', show: [['mor', 1], ['tru', '?']], kind: 'fx',
+        eff: { mor: 1, next: { tru: -2, why: 'Photos of the party reached the CC' } } },
+      { t: 'Report both: underage drinking + supplying alcohol', show: [['tru', 2], ['mor', -1]], kind: 'fx',
+        eff: { tru: 2, mor: -2, loy: { B: -2 }, ach: 'hardright' } },
+      { t: 'Report it, then talk with {B} one-on-one', mic: true, show: [['tru', 1], ['mor', '?']], kind: 'stars', pre: { tru: 1, ach: 'hardright' },
+        stars: [ { mor: -1, loy: { B: -1 } }, { mor: 1 }, { mor: 1, loy: { B: 2 }, reveal: 'B' } ] },
+      { t: 'Skip the paperwork, launch a dorm alcohol program', show: [['mor', 1], ['res', -1]], kind: 'check',
+        check: { stat: 'CHA', dc: 13, m: 'mor', pass: { mor: 2, res: -2 }, fail: { res: -2, mor: -1, tru: -2, why: 'The CC asks why nobody was held accountable' } } },
+    ] },
+  { id: 'M15', title: 'FIGHT CLUB', sob: 'Standards · Initiative', icon: '🥊',
+    text: 'A Snapchat video is going around: Senior Airmen running a "fight club" behind the dorms every Friday night. {B} shows up Monday with a black eye. Rule #1 is you don\'t talk about it. Everyone is talking about it.',
+    choices: [
+      { t: 'Pretend you never saw the video', trap: true, show: [['mor', 1], ['res', 1]], kind: 'fx',
+        eff: { mor: 1, res: 1, flag: 'IGNORED_FIGHT' } },
+      { t: 'Shut it down and report it to the CC', show: [['tru', 2], ['mor', -2]], kind: 'fx',
+        eff: { tru: 2, mor: -2, mis: -1, ach: 'hardright' } },
+      { t: 'Report it, then talk to {B} about the eye', mic: true, show: [['tru', 1], ['mor', '?']], kind: 'stars', pre: { tru: 1, ach: 'hardright' },
+        stars: [ { mor: -1 }, { mor: 1, reveal: 'B' }, { mor: 2, reveal: 'B', loy: { B: 2 } } ] },
+      { t: 'Report it, then start an official combatives club', show: [['mor', 2], ['res', -1]], kind: 'check', pre: { tru: 1, ach: 'hardright' },
+        check: { stat: 'CHA', dc: 13, m: 'mor', pass: { mor: 3, res: -2 }, fail: { mor: -1, res: -2, why: 'Nobody signed up' } } },
+    ] },
+  { id: 'M16', title: 'FRIENDLY FIRE', sob: 'Feedback · Creative Thinking', icon: '🔫', home: ['gg'],
+    text: 'During a base-defense exercise, {B} brought a personal paintball gun and "neutralized" every senior NCO in the command post. The video is hilarious. The Chiefs are not laughing. {B}: "The exercise said to engage the enemy!"',
+    choices: [
+      { t: 'Laugh it off: it was just an exercise', show: [['mor', 1], ['tru', -2]], kind: 'fx',
+        eff: { mor: 2, tru: -3, loy: { C: -2 } } },
+      { t: 'Paperwork for {B} (Letter of Reprimand)', lock: true, show: [['tru', 1], ['mor', -1]], kind: 'fx',
+        eff: { tru: 1, mis: 1, mor: -2, loy: { B: -2 } } },
+      { t: 'Counsel {B}: right instinct, wrong way', mic: true, show: [['mor', 1], ['tru', '?']], kind: 'stars',
+        stars: [ { mor: -1, tru: -1 }, { mor: 1, tru: 1 }, { mor: 2, tru: 1, loy: { B: 2 }, reveal: 'B' } ] },
+      { t: 'Make {B} the official enemy force next exercise', tags: ['idea'], show: [['mis', 1], ['tru', '?']], kind: 'check',
+        check: { stat: 'INS', dc: 13, m: 'mis', pass: { mis: 2, mor: 2, tru: -1, ach: 'ideas' }, fail: { tru: -2, mor: 1, ach: 'ideas' } } },
+    ] },
+  { id: 'M17', title: 'ASLEEP AT THE WHEEL', sob: 'Accountability · Fatigue', icon: '🛻', home: ['gg', 'wk', 'sr'], only: true,
+    text: 'Hour 14 of a 12-hour shift. {B} fell asleep driving on the flightline and rear-ended a parked aircraft. Nobody was hurt, but the jet is grounded for repairs. {C}: "Write it up as a brake failure. That truck\'s ancient anyway."',
+    choices: [
+      { t: 'Write it up as a brake failure', trap: true, show: [['tru', 1], ['mor', 1]], kind: 'fx',
+        eff: { tru: 1, mor: 1, flag: 'FALSE_MISHAP' } },
+      { t: 'Report it and put it all on {B}: they were driving', show: [['tru', 1], ['mor', -2]], kind: 'fx',
+        eff: { tru: 1, mor: -3, loy: { B: -3 }, ach: 'hardright' } },
+      { t: 'Brief the CC: the crash AND the 14-hour shifts behind it', mic: true, show: [['tru', '?'], ['mis', -1]], kind: 'stars', pre: { mis: -1, ach: 'hardright' },
+        stars: [ { tru: -2 }, { tru: 1 }, { tru: 2, mor: 1, ach: 'buck' } ] },
+      { t: 'Report it and fix the shift schedule', show: [['mor', 1], ['mis', -1]], kind: 'check', pre: { ach: 'hardright' },
+        check: { stat: 'INS', dc: 13, m: 'mor', pass: { mor: 2, mis: -1, res: -1, tru: 1 }, fail: { mis: -2, res: -1 } } },
+    ] },
+  { id: 'M18', title: 'ROUND IN THE CEILING', sob: 'Character · Accountability', icon: '💥', home: ['gg'], only: true,
+    text: 'A Senior Airman took an M4 back to the dorms after shift and fired a round through the ceiling while "clearing it." Nobody was hit. Strangely, the armory log says the rifle was turned in on time, and {C} signed the log.',
+    choices: [
+      { t: 'Fix the armory log and patch the ceiling', trap: true, show: [['tru', 1], ['mor', 1]], kind: 'fx',
+        eff: { tru: 1, mor: 1, flag: 'FALSE_ARMORY' } },
+      { t: 'Secure the weapon, call investigators, notify the CC', show: [['tru', 2], ['mis', -2]], kind: 'fx',
+        eff: { tru: 2, mis: -2, mor: -1, ach: 'hardright' } },
+      { t: 'Report it, then ask {C} how the log got signed', mic: true, show: [['tru', 1], ['mor', '?']], kind: 'stars', pre: { tru: 1, ach: 'hardright' },
+        stars: [ { loy: { C: -2 }, mor: -1 }, { mis: 1 }, { mis: 1, reveal: 'C', loy: { C: 1 } } ] },
+      { t: 'Report it + armory-wide accountability stand-down', show: [['tru', 1], ['res', -2]], kind: 'check', pre: { ach: 'hardright' },
+        check: { stat: 'GRIT', dc: 16, m: 'mis', pass: { mis: 2, tru: 2, res: -2, mor: -1 }, fail: { res: -3, mor: -2, tru: 1 } } },
+    ] },
+  { id: 'M19', title: 'THROUGH THE WALL', sob: 'Care for Airmen · Duty to Report', icon: '🏠',
+    text: '{C} pulls you aside: "I live next to one of our Staff Sergeants. Last night: yelling, then something breaking. This morning their spouse had a bruise on their arm. They say it was nothing. Please don\'t make this a thing; they\'re up for promotion."',
+    choices: [
+      { t: 'Keep it quiet to protect the promotion', trap: true, show: [['mor', 1], ['mis', 1]], kind: 'fx',
+        eff: { mor: 1, mis: 1, flag: 'COVERED_DV' } },
+      { t: "Stay out of it: it's their private life", show: [['res', 1], ['tru', '?']], kind: 'fx',
+        eff: { res: 1, next: { tru: -3, mor: -1, why: 'The police were called the next time' } } },
+      { t: 'Notify the First Sergeant and CC; bring in Family Advocacy', show: [['tru', 2], ['mis', -1]], kind: 'fx',
+        eff: { tru: 2, mis: -1, loy: { C: -1 }, ach: 'hardright' } },
+      { t: 'Report it, then thank {C} for speaking up', mic: true, show: [['tru', 1], ['mor', '?']], kind: 'stars', pre: { tru: 1, ach: 'hardright' },
+        stars: [ { loy: { C: -2 } }, { mor: 1 }, { mor: 2, loy: { C: 2 }, reveal: 'C' } ] },
+    ] },
+  { id: 'M20', title: 'MISSED MOVEMENT', sob: 'Accountability · Decision Making', icon: '🚌',
+    text: "0500, deployment day. The bus to the jet leaves at 0600 sharp. {B} isn't here and isn't answering their phone. Missing a movement is a crime under the UCMJ (Article 87). The clock is running.",
+    choices: [
+      { t: 'Race to the dorms to find them', show: [['mis', '?'], ['res', -1]], kind: 'check', pre: { res: -1 },
+        check: { stat: 'GRIT', dc: 13, m: 'mis', pass: { mis: 1, loy: { B: 1 }, reveal: 'B' }, fail: { mis: -2, tru: -1 } } },
+      { t: 'Ask the CC to hold the bus 30 minutes', lock: true, show: [['tru', '?'], ['mis', 1]], kind: 'check',
+        check: { stat: 'CHA', dc: 16, m: 'tru', pass: { mis: 1, tru: -1 }, fail: { tru: -3, mis: -1 } } },
+      { t: 'Send the backup Airman and report it', show: [['tru', 1], ['res', -2]], kind: 'fx',
+        eff: { tru: 1, mis: -1, res: -2, mor: -1 } },
+      { t: 'Call the First Sergeant for a welfare check', show: [['mor', 1], ['mis', -1]], kind: 'fx',
+        eff: { mor: 1, mis: -2, loy: { B: 1 }, reveal: 'B', why: 'Turns out something really was wrong' } },
+    ] },
+  { id: 'M21', title: 'GATE RUNNER', sob: 'Decisions Under Pressure', icon: '🚓', home: ['gg'], only: true,
+    text: 'A car fleeing city police blows through the main gate at 70 mph. {B} was alone on the gate. The car is somewhere on base now, near base housing and the youth center. Every radio in the command post is going off.',
+    choices: [
+      { t: 'Lock down the base; coordinate with city police', lock: true, show: [['mis', 2], ['res', -1]], kind: 'fx',
+        eff: { mis: 2, res: -2, mor: -1, tru: 1 } },
+      { t: 'Let {B} chase them alone', show: [['mis', '?']], kind: 'check',
+        check: { stat: 'LOYB', dc: 14, m: 'mis', pass: { mis: 2, loy: { B: 1 } }, fail: { mis: -2, tru: -2, loy: { B: -1 }, why: 'A solo pursuit with no backup' } } },
+      { t: 'Run it from the command post: calm, clear orders', mic: true, show: [['mis', '?'], ['tru', 1]], kind: 'stars',
+        stars: [ { mis: -1, tru: -1 }, { mis: 1, tru: 1 }, { mis: 2, tru: 2, mor: 1 } ] },
+      { t: "Let the city police handle it: it's their chase", show: [['res', 1], ['tru', -1]], kind: 'fx',
+        eff: { res: 1, tru: -2, mis: -2 } },
+    ] },
+  { id: 'M22', title: '"NOT GONNA HAPPEN"', sob: 'Authority · Feedback', icon: '🙅',
+    text: 'In front of the whole flight, {C} refuses your direct order to redo a failed inspection item: "With respect, I\'m not doing that. It\'s a waste of time." Every Airman in the room is watching to see what you do.',
+    choices: [
+      { t: 'Pull {C} aside right now', mic: true, show: [['mis', '?'], ['tru', 1]], kind: 'stars',
+        stars: [ { tru: -1, loy: { C: -1 } }, { mis: 1, tru: 1 }, { mis: 1, tru: 1, loy: { C: 2 }, reveal: 'C' } ] },
+      { t: 'Dress {C} down on the spot', show: [['mis', 1], ['mor', -2]], kind: 'fx',
+        eff: { mis: 1, mor: -3, loy: { C: -2 } } },
+      { t: 'Let it slide this once', show: [['mor', 1], ['tru', -1]], kind: 'fx',
+        eff: { mor: 1, tru: -2, next: { mis: -2, why: 'Now nobody follows orders' } } },
+      { t: "Hear {C} out: maybe there's a better way", tags: ['idea'], show: [['mis', '?'], ['mor', 1]], kind: 'check',
+        check: { stat: 'INS', dc: 13, m: 'mis', pass: { mis: 2, mor: 1, loy: { C: 1 }, ach: 'ideas' }, fail: { tru: -2, mis: -1, why: 'Looked like you caved' } } },
+    ] },
+  { id: 'M23', title: 'WAKE ME UP LATER', sob: 'Standards · Motivation', icon: '💤', home: ['pp'],
+    text: 'Middle of a wing exercise. A Chief knocks on a government truck\'s window and finds {B} asleep inside. {B} cracks the window: "Hey, can you wake me up later?" The Chief is now standing in YOUR office.',
+    choices: [
+      { t: 'Own it to the Chief, then handle {B}', mic: true, show: [['tru', '?']], kind: 'stars',
+        stars: [ { tru: -2 }, { tru: 1 }, { tru: 2, loy: { B: 1 }, ach: 'buck' } ] },
+      { t: '"I\'ll make an example of {B}."', show: [['tru', 1], ['mor', -2]], kind: 'fx',
+        eff: { tru: 1, mor: -3, loy: { B: -2 } } },
+      { t: 'Check the schedule: had they been up 20 hours?', show: [['mor', 1], ['tru', '?']], kind: 'check',
+        check: { stat: 'INS', dc: 13, m: 'mor', pass: { mor: 2, tru: 1, reveal: 'B' }, fail: { tru: -2, why: 'Sounded like excuses' } } },
+      { t: 'Laugh it off with the Chief', show: [['mor', 1], ['tru', -2]], kind: 'fx',
+        eff: { mor: 1, tru: -3 } },
+    ] },
+  { id: 'M24', title: 'THE WORST CALL', sob: 'Care for Airmen · Warning Signs', icon: '🕯️',
+    text: 'OSI calls: an Airman in your squadron has been arrested in connection with the death of their spouse. Neighbors had reported concerns months ago. {C}: "Honestly... we all kind of knew something was off at home." Your flight is in shock.',
+    choices: [
+      { t: 'Say nothing and let OSI handle it', show: [['res', 1], ['mor', -2]], kind: 'fx',
+        eff: { res: 1, mor: -3, next: { mor: -1, why: 'Rumors filled the silence' } } },
+      { t: 'Gather the flight: facts only, bring in the chaplain and mental health', mic: true, show: [['mor', 1], ['res', -1]], kind: 'stars', pre: { res: -1 },
+        stars: [ { mor: -1 }, { mor: 1 }, { mor: 2, tru: 1 } ] },
+      { t: 'Cooperate fully with OSI; no speculating', show: [['tru', 1], ['mis', -1]], kind: 'fx',
+        eff: { tru: 2, mis: -2, mor: -1 } },
+      { t: 'Fix how warning signs get reported in your flight', show: [['tru', 1], ['mor', '?']], kind: 'check',
+        check: { stat: 'INS', dc: 13, m: 'tru', pass: { tru: 1, mor: 1, mis: -1, reveal: 'C' }, fail: { mor: -2, mis: -1 } } },
+    ] },
 ];
 
 /* ---------------- crisis events (a meter hit 0) ---------------- */
@@ -310,26 +483,39 @@ const CRISES = {
 };
 
 /* ---------------- Murphy wheel ---------------- */
+// Most injects come with a choice: the team votes on HOW to respond (options).
 const MURPHY = [
-  { type: 'bad',   name: 'NETWORK DOWN',            eff: { res: -2 } },
-  { type: 'bad',   name: 'EMERGENCY LEAVE',          eff: { mis: -1 }, special: 'leave', text: 'A random NPC is out for 2 nodes.' },
-  { type: 'bad',   name: 'EXERCISE RECALL AT 0400',  eff: { mor: -2 } },
-  { type: 'bad',   name: 'BUDGET CUT',               eff: { res: -3 } },
-  { type: 'bad',   name: 'PRIORITIES CHANGED',       eff: { mis: -2 }, text: 'The CC wants something else now.' },
-  { type: 'bad',   name: 'RUMOR MILL',               eff: { mor: -1, tru: -1 } },
-  { type: 'bad',   name: 'WEATHER GROUNDS EVERYTHING', eff: { mis: -1, res: -1 } },
-  { type: 'bad',   name: 'IG COMPLAINT FILED',       eff: { tru: -2 }, text: 'Unfounded. Still a headache.' },
-  { type: 'mixed', name: 'PULLED INTO A MEETING',    eff: {}, special: 'meeting', text: "One random cadet is offline next node: they can't speak or roll." },
-  { type: 'mixed', name: "THE CC'S PET PROJECT",     eff: { tru: 2, res: -2 } },
+  { type: 'bad',   name: 'NETWORK DOWN', eff: {}, text: 'No email, no systems, all day.',
+    options: [ { t: 'Wait for the comm squadron', eff: { res: -2 } }, { t: 'Go old-school: paper and runners', eff: { mis: -1, mor: -1 } } ] },
+  { type: 'bad',   name: 'EMERGENCY LEAVE', eff: {}, special: 'leave', text: 'A family emergency: a random NPC is out for 2 stops.',
+    options: [ { t: 'Approve it on the spot', eff: { mis: -2, mor: 1 } }, { t: 'Ask if it can wait a day', eff: { mis: -1, mor: -2, tru: -1 } } ] },
+  { type: 'bad',   name: 'EXERCISE RECALL AT 0400', eff: {}, text: 'The phone tree lights up before dawn.',
+    options: [ { t: 'Everyone shows up, no exceptions', eff: { mor: -2, mis: 1 } }, { t: 'Recall the essentials only', eff: { mor: -1, tru: -1 } } ] },
+  { type: 'bad',   name: 'BUDGET CUT', eff: {}, text: 'Group just took 30% of your budget.',
+    options: [ { t: 'Absorb it', eff: { res: -3 } }, { t: 'Cancel training to cover it', eff: { res: -1, mis: -2 } } ] },
+  { type: 'bad',   name: 'PRIORITIES CHANGED', eff: {}, text: 'The CC wants something else now.',
+    options: [ { t: 'Drop everything and pivot', eff: { mis: -1, mor: -2 } }, { t: 'Push back with the CC', eff: { mis: -2, tru: -1 } } ] },
+  { type: 'bad',   name: 'RUMOR MILL', eff: {}, text: '"I heard the whole flight is getting deployed."',
+    options: [ { t: 'Address it at roll call', eff: { res: -1, mor: -1 } }, { t: 'Ignore it', eff: { mor: -2, tru: -1 } } ] },
+  { type: 'bad',   name: 'WEATHER GROUNDS EVERYTHING', eff: {}, text: 'Three days of storms.',
+    options: [ { t: 'Wait it out', eff: { mis: -2 } }, { t: 'Pay overtime to catch up', eff: { res: -2, mor: -1 } } ] },
+  { type: 'bad',   name: 'IG COMPLAINT FILED', eff: {}, text: 'Unfounded. Still a headache.',
+    options: [ { t: 'Cooperate fully', eff: { tru: -1, res: -2 } }, { t: 'Find out who filed it', eff: { tru: -3, mor: -1, why: 'That looks like reprisal' } } ] },
+  { type: 'mixed', name: 'PULLED INTO A MEETING',    eff: {}, special: 'meeting', text: "One random cadet is offline next stop: they can't speak or roll." },
+  { type: 'mixed', name: "THE CC'S PET PROJECT", eff: {}, text: 'The CC wants volunteers for their new initiative.',
+    options: [ { t: 'Take it on', eff: { tru: 2, res: -2 } }, { t: 'Politely decline', eff: { tru: -1, res: 1 } } ] },
   { type: 'mixed', name: 'QUICK FAVOR',              eff: {}, special: 'favor', text: 'Another unit wants to borrow your best person. Party decides.',
     options: [ { t: 'Accept', eff: { tru: 1, mis: -1 } }, { t: 'Decline', eff: { mis: 1, tru: -1 } } ] },
-  { type: 'mixed', name: 'SURPRISE TASKER',          eff: { mis: 2, mor: -2 }, text: 'Due tomorrow.' },
-  { type: 'good',  name: 'YEAR-END MONEY',           eff: { res: 3 } },
-  { type: 'good',  name: 'WING CC SHOUT-OUT',        eff: { tru: 2 } },
+  { type: 'mixed', name: 'SURPRISE TASKER', eff: {}, text: 'Due tomorrow.',
+    options: [ { t: 'All hands tonight', eff: { mis: 2, mor: -2 } }, { t: 'Ask for an extension', eff: { tru: -1, mis: -1 } } ] },
+  { type: 'good',  name: 'YEAR-END MONEY', eff: {}, text: 'Use it or lose it!',
+    options: [ { t: 'Bank it', eff: { res: 3 } }, { t: 'Spend it on the troops', eff: { res: 1, mor: 2 } } ] },
+  { type: 'good',  name: 'WING CC SHOUT-OUT', eff: {}, text: 'The Wing CC praises your flight in the staff meeting.',
+    options: [ { t: 'Take the credit', eff: { tru: 2, mor: -1 } }, { t: 'Credit your Airmen by name', eff: { tru: 1, mor: 2 } } ] },
   { type: 'good',  name: 'THE IDEA WORKED',          eff: { mis: 2 } },
   { type: 'good',  name: 'GREAT FAMILY DAY',         eff: { mor: 2 } },
 ];
-const INJECT_CHANCE = 0.6;
+const INJECT_CHANCE = DIFFICULTY.injectOn / 10;
 
 /* ---------------- GM cards ---------------- */
 const GM_CARDS = [
@@ -393,7 +579,7 @@ const NODE_TYPES = {
 };
 
 /* ---------------- boss ---------------- */
-const BOSS = { name: 'LT COL CACIC', title: 'THE INSPECTOR GENERAL', hp: 20 };
+const BOSS = { name: 'LT COL CACIC', title: 'THE INSPECTOR GENERAL', hp: DIFFICULTY.bossHp };
 const BOSS_QUESTIONS = [
   'Walk me through how your Airmen know what is expected of them.',
   'Tell me about the last time you gave someone hard feedback.',
@@ -402,11 +588,16 @@ const BOSS_QUESTIONS = [
   "What's an idea from a junior Airman you actually implemented?",
   'Tell me about a time you had to choose between the mission and doing the right thing.',
 ];
-const TRAP_FLAGS = ['FALSIFIED_RECORDS', 'COVERED_UP', 'FALSE_RECEIPT'];
+const TRAP_FLAGS = ['FALSIFIED_RECORDS', 'COVERED_UP', 'FALSE_RECEIPT', 'HID_DUI', 'IGNORED_FIGHT', 'FALSE_MISHAP', 'FALSE_ARMORY', 'COVERED_DV'];
 const FLAG_TEXT = {
   FALSIFIED_RECORDS: 'Falsified training records (M2)',
   COVERED_UP: 'Covered up an OPSEC incident (M6)',
   FALSE_RECEIPT: 'Signed a false receipt (M8)',
+  HID_DUI: 'Hid a DUI arrest from the commander (M13)',
+  IGNORED_FIGHT: 'Ignored a known fight club with injuries (M15)',
+  FALSE_MISHAP: 'Falsified a vehicle mishap report (M17)',
+  FALSE_ARMORY: 'Altered an armory log after a weapons incident (M18)',
+  COVERED_DV: 'Covered up a domestic violence report (M19)',
 };
 
 /* ---------------- achievements ---------------- */
@@ -441,9 +632,9 @@ const INTRO_STEPS = [
   ['🧑‍✈️', 'You are a leadership team', 'Your party runs a flight in a randomly rolled squadron. You win or lose TOGETHER against the scenario (and the GM).'],
   ['🗺️', 'Follow the route', 'Travel 6 stops on the route map, then face the final boss: the Inspector General.'],
   ['🔀', 'Make choices', 'Every choice helps some meters and hurts others. You can never max them all, so balance them.'],
-  ['🎲', 'Roll the dice', 'Risky choices need a d20 roll plus your class stat. A natural 20 is a crit; a natural 1 is a fumble.'],
+  ['🎲', 'Roll the dice', 'Risky choices need a d20 roll plus your class stat. Before you roll, spend meter points for +2 each, or play it safe and skip the die.'],
   ['🎤', 'Act it out', 'Some choices make you play the scene. The GM plays the NPC and rates you 1-3 stars.'],
-  ['🌪️', 'Murphy strikes', 'Random injects hit after every stop, some good and some bad. Roll with the punches.'],
+  ['🌪️', 'Murphy strikes', 'Injects hit after most stops, and your squadron has a weak spot that keeps draining. You vote on how to respond.'],
 ];
 const INTRO_WIN = 'WIN: keep all 4 meters balanced (your WEAKEST meter counts most), beat the IG, earn achievements. Top 3 teams on the leaderboard earn extra credit.';
 const INTRO_LOSE = 'LOSE: one integrity violation = instant GAME OVER. No respawns.';
@@ -452,8 +643,8 @@ const LEGEND = [
   ['❤️', 'MORALE', 'Are your people motivated and heard?'],
   ['⭐', 'TRUST', 'Does your commander have confidence in you?'],
   ['📦', 'RESOURCES', 'Budget, people-hours, time, supplies'],
-  ['<span class="up">▲</span> / <span class="dn">▼</span>', 'ARROWS', 'Green raises a meter, red lowers it. Doubled arrows are bigger swings.'],
-  ['❔', 'DEPENDS', 'The result depends on your roll or your performance'],
+  ['<span class="up">▲</span> <span class="dn">▼</span> ❔', 'ARROWS', 'Green raises a meter, red lowers it. Doubled = bigger swing. ❔ = depends on your roll or performance'],
+  ['💪 🛡️', 'BOOST / SAFE', `Before a roll: spend a 📦, ❤️ or ⭐ point for +2 (max ${DIFFICULTY.boostMax}), or play it safe: no die, it counts as ${DIFFICULTY.safeRoll}`],
   ['🔒', 'LOCKED', 'Only the Command Token holder can make this call'],
   ['🎤', 'ACT IT OUT', 'Dialogue encounter: the GM rates you 1-3 stars'],
   ['👑', 'COMMAND TOKEN', 'Starts with the Flight Commander. Authority can be delegated; responsibility cannot.'],
@@ -496,6 +687,8 @@ const DECODER = [
   ['NPC hidden traits', "Every Airman has a story you don't know until you ask"],
   ['🎤 Dialogue Encounters', 'Feedback, counseling, and briefings: the actual job of a leader'],
   ['Murphy Wheel', "Real life. You don't control it; you control your response."],
+  ['Squadron tendency', 'Every unit has a chronic weak spot (SF morale, cyber backlog...). Leaders plan around it instead of being surprised by it.'],
+  ['💪 Boosts', 'Throwing money, people or political capital at a problem works, but it is never free.'],
   ['The Inspector General', 'UEI / IG inspections, and every commander who will ask "How do you know?"'],
   ['Lowest-meter scoring', "Leadership is balance: you're judged by your weakest area"],
 ];

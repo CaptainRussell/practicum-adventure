@@ -92,8 +92,19 @@ function onClient(conn, d) {
       else if (S.phase === 'node' && c && c.step === 'choose' && (c.type === 'rest' || c.type === 'depot'))
         ok = (c.type === 'rest' ? restOptions() : depotOptions()).some(o => o.key === String(d.v) && !o.dis);
       else if (S.phase === 'node' && c && c.step === 'brief' && curMission()) ok = !!curMission().choices[d.v];
+      else if (S.inject && S.inject.stage === 'result' && S.inject.idx != null && !spinning()) ok = !!(MURPHY[S.inject.idx].options || [])[d.v];
       if (!ok) return netSendTo(cid);
       return apply(() => { S.votes = S.votes || {}; S.votes[slot] = d.v; });
+    }
+    // before a d20 check: any cadet can add a boost or toggle "play it safe"; the 👑 holder picks the roller
+    case 'boost': case 'unboost': case 'safe': case 'roller': {
+      const c = S.cur;
+      if (S.phase !== 'node' || !c || c.step !== 'roll' || spinning() || S.offline === slot) return netSendTo(cid);
+      if (d.t === 'boost') { if (!canBoost(d.v)) return netSendTo(cid); return apply(() => { c.boost = c.boost || {}; c.boost[d.v] = (c.boost[d.v] || 0) + 1; sfx('click'); }); }
+      if (d.t === 'unboost') return apply(() => { c.boost = {}; });
+      if (d.t === 'safe') return apply(() => { c.safe = !c.safe; sfx('click'); });
+      if (slot !== S.tokenHolder || !S.party[d.v] || S.offline === +d.v || c.spec.check.stat === 'LOYB') return netSendTo(cid);
+      return apply(() => { c.roller = +d.v; sfx('click'); });
     }
     case 'act': {
       // the cadet whose turn it is presses their roll/spin button
@@ -153,15 +164,22 @@ function publicView(slot) {
     v.options = (S.cur.type === 'rest' ? restOptions() : depotOptions()).map(o => ({ key: o.key, html: mt(esc(o.label)), dis: !!o.dis }));
   if (c && S.phase === 'node') {
     v.cur = { type: c.type, step: c.step, choice: c.choice, roller: c.roller ?? S.tokenHolder, result: c.result || null, stars: c.stars || null,
-      roll: c.rollRes ? { d20: c.rollRes.d20, total: c.rollRes.total, dc: c.rollRes.dc, pass: c.rollRes.pass, nat: c.rollRes.nat } : null,
+      roll: c.rollRes ? { d20: c.rollRes.d20, total: c.rollRes.total, dc: c.rollRes.dc, pass: c.rollRes.pass, nat: c.rollRes.nat, safe: !!c.rollRes.safe } : null,
       check: c.step === 'roll' && c.spec && c.spec.check ? { stat: c.spec.check.stat } : null };
+    if (c.step === 'roll' && c.spec && c.spec.check) {
+      const p = rollPreview(), st = c.spec.check.stat;
+      Object.assign(v.cur, { boost: c.boost || {}, safe: !!c.safe, odds: rollOdds(p, c.safe),
+        canBoost: Object.fromEntries(BOOST_METERS.map(k => [k, canBoost(k)])),
+        stats: st && st !== 'LOYB' ? S.party.map((_, i) => statOf(i, st)) : null });
+    }
     if (m) v.mission = { title: m.title, icon: m.icon, sob: m.sob, text: fill(S, m.text),
       choices: m.choices.map(ch => ({ t: fill(S, ch.t), show: ch.show || null, lock: !!ch.lock, mic: !!ch.mic, intel: c.intel ? specText(S, ch) : null })) };
   }
   if (S.phase === 'inject' && S.inject) {
     const mm = S.inject.idx != null && !spinning() ? MURPHY[S.inject.idx] : null;
-    v.inject = { stage: S.inject.stage, name: mm ? mm.name : null, note: S.inject.note || null,
-      effHtml: mm ? (mm.options ? mm.options.map(o => `${esc(o.t)}: ${effHtml(effText(S, o.eff))}`).join('<br>') : effHtml(effText(S, mm.eff))) : null };
+    v.inject = { stage: S.inject.stage, name: mm ? mm.name : null, text: mm ? mm.text || '' : '', note: S.inject.note || null, type: mm ? mm.type : null,
+      effHtml: mm && !mm.options ? effHtml(effText(S, mm.eff)) : null,
+      options: mm && mm.options ? mm.options.map(o => ({ t: o.t, html: effHtml(effText(S, o.eff)) })) : null };
   }
   if (S.boss) v.boss = { phase: S.boss.phase, hp: S.boss.hp, max: S.boss.max, who: S.boss.p2.who, q: S.boss.p2.who ? S.boss.p2.q.map(i => BOSS_QUESTIONS[i]) : null,
     stats: S.boss.p3.rows.map(r => r.stat), rolls: S.boss.p3.rows.map(r => r.d20 || null), allies: S.boss.p3.rows.map(r => !!r.ally),

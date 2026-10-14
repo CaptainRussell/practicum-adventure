@@ -318,11 +318,13 @@ body.player.reality .mtag{color:#1c2430}
 .sitem b{font-family:var(--pixel);font-weight:400;font-size:9px;color:var(--gold)}
 /* unit roll + big squadron names */
 .unitgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px 18px;flex:1;align-content:space-evenly}
-.unitcard{background:var(--panel);border:4px solid var(--c);padding:18px 16px;display:grid;grid-template-columns:auto auto 1fr;grid-template-rows:auto auto;column-gap:16px;align-items:center}
-.unitcard .un{grid-row:1/3;font-family:var(--pixel);font-size:44px;color:var(--gold)}
-.unitcard .ui{grid-row:1/3;font-size:56px}
-.unitcard .unm{font-family:var(--pixel);font-size:22px;color:var(--c);line-height:1.4}
-.unitcard .usq{font-size:34px;line-height:1.05}
+.unitcard{background:var(--panel);border:4px solid var(--c);padding:10px 16px;display:grid;grid-template-columns:auto auto 1fr;grid-template-rows:auto;column-gap:16px;align-items:center}
+.unitcard .un{grid-row:1/5;font-family:var(--pixel);font-size:44px;color:var(--gold)}
+.unitcard .ui{grid-row:1/5;font-size:56px}
+.unitcard .unm{font-family:var(--pixel);font-size:20px;color:var(--c);line-height:1.4}
+.unitcard .usq{font-size:28px;line-height:1.05}
+.unitcard .ustart{font-size:24px;margin-top:2px}
+.unitcard .tendency{font-size:22px;margin-top:0}
 .unitsq{font-family:var(--pixel);font-size:30px;color:#fff;text-align:center;line-height:1.4;text-shadow:3px 3px 0 #000}
 .statlegend{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 14px;font-size:18px;color:var(--dim);line-height:1.1}
 .statlegend b{font-family:var(--pixel);font-weight:400;font-size:10px;color:var(--good)}
@@ -374,6 +376,31 @@ body.phone{font-family:var(--vt);font-size:22px;line-height:1.15;min-height:100v
 .ph-arw{font-size:22px;margin-top:4px}
 .ph-intel{font-size:18px;color:var(--good);border-top:2px dashed var(--line);margin-top:6px;padding-top:4px}
 .ph-voters{font-size:18px;color:var(--gold);margin-top:4px}
+.ph-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:6px}
+.ph-row .ph-btn{margin:2px 0;padding:8px 6px;text-align:center;font-size:18px}
+.ph-row .ph-btn small{font-size:16px}
+/* projector: boost / safe status under the roll banner */
+.boostline{font-size:22px;text-align:center;color:var(--text);margin-top:-8px;line-height:1.1}
+.mcard.compact{gap:12px}
+.mcard.compact .situ{font-size:25px;padding:10px 16px}
+/* auto-fit steps (player.js fitCard) */
+.mcard.dense{gap:10px}
+.mcard.dense .mhead .ic{font-size:42px}
+.mcard.dense .situ{font-size:25px;padding:9px 14px}
+.mcard.dense .choices{gap:10px}
+.mcard.dense .choice{padding:8px 12px}
+.mcard.dense .choice .ct{font-size:23px}
+.mcard.dense .choice .arrows{font-size:20px;margin-top:3px}
+.mcard.dense .powerups{margin-top:0;padding:6px 8px}
+.mcard.dense .powerups .pu{font-size:18px}
+.mcard.denser{gap:7px}
+.mcard.denser .situ{font-size:22px}
+.mcard.denser .choice .ct{font-size:21px}
+.mcard.denser .powerups .hint{display:none}
+.mcard.denser > .sub{display:none}
+.boostline b{color:var(--gold)}
+.tendency{font-size:15px;color:var(--warn);margin-top:4px;line-height:1.1}
+.ustart{font-size:15px;margin-top:4px;line-height:1.2}
 .ph-avgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .ph-av{background:var(--panel);border:4px solid var(--line);padding:6px;color:var(--text);font-family:var(--pixel);font-size:9px}
 .ph-av img{width:100%;aspect-ratio:1;image-rendering:pixelated;display:block;margin-bottom:4px}

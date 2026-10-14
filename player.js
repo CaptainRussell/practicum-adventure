@@ -164,14 +164,14 @@ function multiDiceOverlay(f) {
 function rollOverlay(f) {
   const r = f.r;
   const verdict = r.nat === 20 ? 'CRITICAL HIT!' : r.nat === 1 ? 'FUMBLE!' : r.pass ? 'SUCCESS' : 'FAILED';
-  const rm = overlay(`<div class="bigcard rollcard"><h2>${esc(f.who)} ROLLS THE d20</h2>
+  const rm = overlay(`<div class="bigcard rollcard"><h2>${esc(f.who)} ${r.safe ? 'PLAYS IT SAFE 🛡️' : 'ROLLS THE d20'}</h2>
     ${dieHtml(20, '?', 'big')}
     <div class="after" style="visibility:hidden">
     <div class="rollline">${r.parts.length ? r.parts.map(p => `<span class="${p[1] >= 0 ? 'up' : 'dn'}">${sign(p[1])}</span> ${mt(esc(p[0]))}`).join(' &nbsp; ') : 'no modifiers'}</div>
     <div class="rollline">= <b>${r.total}</b> vs target <b>${r.dc}</b></div>
     <div class="verdict ${r.pass ? 'pass' : 'fail'}">${verdict}</div></div></div>`, 'solid');
   const ov = document.querySelectorAll('.ovl'); const d = ov[ov.length - 1];
-  tumble(d.querySelector('.die'), 20, r.d20, 1800, () => {
+  tumble(d.querySelector('.die'), 20, r.d20, r.safe ? 300 : 1800, () => {
     d.querySelector('.after').style.visibility = 'visible';
     d.querySelector('.bigcard').classList.add(r.pass ? 'good' : 'bad');
     SFX.play(r.nat === 20 ? 'crit' : r.nat === 1 ? 'fumble' : r.pass ? 'good' : 'bad');
@@ -232,8 +232,19 @@ function render() {
   $('#app').innerHTML = `<div class="pl">${hud ? renderHud(S) : '<div></div>'}
     <div class="stage ${full ? 'full' : ''}"><div class="main">${renderMain(S)}</div>${full ? '' : `<div class="side">${renderSide(S)}</div>`}</div></div>
     ${S.showBoard ? renderBoardOverlay() : ''}${renderJoinBox(S)}${renderActorBanner(S)}`;
+  fitCard();
   const bc2 = $('#bossCv'); if (bc2) drawBoss(bc2);
   const boardOv = $('#boardOv'); if (boardOv) boardOv.onclick = null;
+}
+
+// Long missions + lots of power-ups can overflow a 720p projector: step the
+// mission card down to denser text until everything fits.
+function fitCard() {
+  const m = $('.mcard'); if (!m) return;
+  for (const lvl of ['dense', 'denser']) {
+    if (m.scrollHeight <= m.clientHeight + 2) return;
+    m.classList.add(lvl);
+  }
 }
 
 /* join-by-phone box (QR + code) while the party is forming */
@@ -264,7 +275,7 @@ function renderActorBanner(S) {
 // Power-ups worth using right now (tokens, items, abilities, perks)
 function renderPowerups(S) {
   const list = usableNow(S); if (!list.length) return '';
-  return `<div class="powerups"><span class="pu-h">⚡ USABLE NOW</span>${list.map(u => `<span class="pu ${u.hot ? 'hot' : ''}">${u.icon} <b>${esc(u.label)}</b>${u.who != null ? ` <i>(${esc(rankName(S.party[u.who]))})</i>` : ''} · ${mt(esc(u.hint))}</span>`).join('')}</div>`;
+  return `<div class="powerups"><span class="pu-h">⚡ USABLE NOW</span>${list.map(u => `<span class="pu ${u.hot ? 'hot' : ''}">${u.icon} <b>${esc(u.label)}</b>${u.who != null ? ` <i>(${esc(rankName(S.party[u.who]))})</i>` : ''}<span class="hint"> · ${mt(esc(u.hint))}</span></span>`).join('')}</div>`;
 }
 
 function renderHud(S) {
@@ -302,7 +313,9 @@ function renderMain(S) {
     case 'unit': { const u = S.unitRolled && UNITS.find(x => x.id === S.unit);
       if (u) return `<div class="titlescr"><div style="font-size:140px">${u.icon}</div><div class="ptitle" style="color:${u.color};font-size:46px">${u.name}</div><div class="unitsq">${u.sq.toUpperCase()}</div></div>`;
       return `<div style="display:flex;flex-direction:column;gap:12px;height:100%;padding-bottom:90px"><div class="ptitle" style="text-align:center">ROLL FOR YOUR SQUADRON · d6</div>
-        <div class="unitgrid">${UNITS.map((x, i) => `<div class="unitcard" style="--c:${x.color}"><div class="un">${i + 1}</div><div class="ui">${x.icon}</div><div class="unm">${x.name}</div><div class="usq">${x.sq}</div></div>`).join('')}</div></div>`; }
+        <div class="unitgrid">${UNITS.map((x, i) => `<div class="unitcard" style="--c:${x.color}"><div class="un">${i + 1}</div><div class="ui">${x.icon}</div><div class="unm">${x.name}</div><div class="usq">${x.sq}</div>
+          <div class="ustart">${METERS.map(m => `<span style="color:${x.start[m.k] <= 3 ? 'var(--bad)' : m.color}">${m.icon}${x.start[m.k]}</span>`).join(' ')}</div>
+          <div class="tendency">⚠️ ${esc(x.drain.name)}: ${METER[x.drain.k].label} drains</div></div>`).join('')}</div></div>`; }
     case 'manifest': return renderManifest(S);
     case 'map': return renderMap(S);
     case 'node': return renderNode(S);
@@ -368,7 +381,7 @@ function renderManifest(S) {
   return `<div style="display:flex;flex-direction:column;gap:14px;overflow:hidden">
     <div style="display:flex;align-items:center;gap:20px"><div style="font-size:64px">${u.icon}</div><div><h2 style="color:${u.color};font-size:26px">${u.name}</h2><div class="unitsq" style="text-align:left;font-size:20px">${u.sq.toUpperCase()} · CREW MANIFEST</div></div></div>
     <div class="org">
-      <div class="orgrow"><div class="orgcard" style="border-color:var(--bad);max-width:560px"><img src="${avatar(S.cc)}"><div class="nm">SQUADRON COMMANDER<br>${esc(S.cc)}</div><div class="rk" style="color:var(--gold)">QUIRK: ${mt(esc(u.quirk))}</div></div></div>
+      <div class="orgrow"><div class="orgcard" style="border-color:var(--bad);max-width:560px"><img src="${avatar(S.cc)}"><div class="nm">SQUADRON COMMANDER<br>${esc(S.cc)}</div><div class="rk" style="color:var(--gold)">QUIRK: ${mt(esc(u.quirk))}</div><div class="rk" style="color:var(--warn)">⚠️ TENDENCY · ${esc(u.drain.name)}: ${esc(u.drain.text)}. ${meterTag(u.drain.k)} −1 every ${DIFFICULTY.drainEvery} stops</div></div></div>
       <div class="orgline"></div>
       <div class="orgrow">${S.party.map(p => `<div class="orgcard" style="border-color:var(--gold)"><img src="${avatarOf(p)}"><div class="nm">${esc(rankName(p))}</div><div class="rk">${CLASS[p.cls].icon} ${CLASS[p.cls].name}</div></div>`).join('')}</div>
       <div class="orgline"></div>
@@ -438,7 +451,11 @@ function renderNode(S) {
   if (c.type === 'unknown') return `<div class="titlescr"><div style="font-size:140px">❓</div><div class="ptitle">UNKNOWN TERRITORY</div>${c.step === 'revealed' ? `<div class="ptitle" style="color:var(--accent)">${MYSTERY[c.mystery].name}</div>` : '<div class="sub">Anything can happen...</div>'}</div>`;
   const m = curMission();
   const ce = c.type === 'crisisEvent';
-  const hint = c.step === 'roll' ? (() => { const ch = c.spec.check; let dc = ch.dc; if (ch.m === 'mis' && ['hardmis', 'people'].includes(unitQ())) dc = Math.max(dc, 16); if (c.type === 'elite') dc += 3; dc += S.dcMod || 0; return `<div class="banner gold">🎲 ROLL FOR IT! ${ch.stat === 'LOYB' ? `${npcLabel(S, 'B')}'s loyalty` : ch.stat || 'Pure luck'} · TARGET ${dc}${ch.stat && ch.stat !== 'LOYB' ? ' · Choose who rolls!' : ''}</div>`; })()
+  const hint = c.step === 'roll' ? (() => {
+      const ch = c.spec.check, p = rollPreview(), b = c.boost || {}, r = c.roller ?? S.tokenHolder;
+      const boosts = BOOST_METERS.filter(k => b[k]).map(k => `${meterTag(k)} −${b[k]}`).join(' ');
+      return `<div class="banner gold">🎲 ROLL FOR IT! ${ch.stat === 'LOYB' ? `${npcLabel(S, 'B')}'s loyalty` : ch.stat || 'Pure luck'} · TARGET ${p.dc} · ROLLER: ${esc(rankName(S.party[r]) || '?').toUpperCase()}</div>
+        <div class="boostline"><b>${esc(rollOdds(p, c.safe))}</b>${boosts ? ` · 💪 ${boosts}` : ''}${c.safe ? ' · 🛡️ SAFE' : ''} · 📱 boost (+2 per 📦 ❤️ ⭐ spent) or play it safe on your phones</div>`; })()
     : c.step === 'stars' ? `<div class="banner gold">🎤 DIALOGUE ENCOUNTER: ACT IT OUT! The GM plays the NPC.</div>` : '';
   let result = '';
   if (c.step === 'done') {
@@ -446,7 +463,7 @@ function renderNode(S) {
     else if (c.stars) result = `<div class="banner gold">🎤 ${'⭐'.repeat(c.stars)}</div>`;
     else result = `<div class="banner blue">DECISION LOCKED IN</div>`;
   }
-  return `<div class="mcard">
+  return `<div class="mcard ${c.step === 'brief' ? '' : 'compact'}">
     <div class="mhead"><div class="ic">${m.icon}</div><div><h2 style="${ce ? 'color:var(--bad)' : ''}">${ce ? '🚨 CRISIS EVENT: ' : c.type === 'elite' ? '💀 ELITE: ' : ''}${esc(m.title)}</h2><div class="sob">${esc(m.sob)}</div></div></div>
     ${c.type === 'elite' ? '<div class="banner">💀 ELITE CRISIS: every check +3 harder · positive effects doubled · guaranteed loot</div>' : ''}
     ${S.banner ? `<div class="banner ${S.banner.cls || ''}">${esc(S.banner.text)}</div>` : ''}
@@ -457,7 +474,7 @@ function renderNode(S) {
       ${ch.show ? `<div class="arrows">${arrows(ch.show)}</div>` : ''}
       ${c.intel ? `<div class="intel">🔎 ${effHtml(specText(S, ch))}</div>` : ''}</div>
       <div class="tags">${ch.lock ? '🔒' : ''}${ch.mic ? '🎤' : ''}</div>${voteDots(S, i)}</div>`).join('')}</div>
-    <div class="sub" style="font-size:22px">🔒 = Command Token holder decides · 🎤 = act it out · <span class="up">▲</span> raises · <span class="dn">▼</span> lowers · doubled = bigger swing · ❔ = depends</div>
+    ${c.step === 'brief' ? '<div class="sub" style="font-size:22px">🔒 = Command Token holder decides · 🎤 = act it out · <span class="up">▲</span> raises · <span class="dn">▼</span> lowers · doubled = bigger swing · ❔ = depends</div>' : ''}
     ${result}</div>`;
 }
 
@@ -466,15 +483,18 @@ function renderInject(S) {
   const who = S.actor && S.party[S.actor.slot] ? rankName(S.party[S.actor.slot]) : null;
   const pu = renderPowerups(S);
   if (inj.stage === 'trigger') return `<div class="titlescr"><div style="font-size:120px">📡</div><div class="ptitle">INJECT CHECK...</div>
-    <div class="whoroll">${who ? `🎲 ${esc(who.toUpperCase())}, ROLL THE d10 ON YOUR PHONE!` : 'Rolling the d10...'}</div><div class="sub">1-${Math.round(INJECT_CHANCE * 10)} = Murphy strikes · 7-10 = all clear</div>${pu}</div>`;
+    <div class="whoroll">${who ? `🎲 ${esc(who.toUpperCase())}, ROLL THE d10 ON YOUR PHONE!` : 'Rolling the d10...'}</div><div class="sub">1-${DIFFICULTY.injectOn} = Murphy strikes · ${DIFFICULTY.injectOn + 1}-10 = all clear</div>${pu}</div>`;
   if (inj.stage === 'clear') return `<div class="titlescr"><div style="font-size:120px">✅</div><div class="ptitle" style="color:var(--good)">ALL CLEAR</div><div class="sub">Murphy is sleeping. For now.</div></div>`;
   if (inj.stage === 'murphy') return `<div class="titlescr"><div style="font-size:120px">🌪️</div><div class="ptitle" style="color:var(--bad)">INJECT INCOMING!</div>
     <div class="whoroll">${who ? `🎡 ${esc(who.toUpperCase())}, SPIN MURPHY'S WHEEL ON YOUR PHONE!` : "Spinning Murphy's wheel..."}</div>${pu}</div>`;
   const m = MURPHY[inj.idx];
   const cls = m.type === 'good' ? 'good' : m.type === 'bad' ? 'bad' : '';
+  const vote = m.options && inj.stage === 'result' && !inj.blocked;
   return `<div class="titlescr"><div class="bigcard ${cls}"><div class="sectlbl">${m.type === 'good' ? 'GOOD NEWS' : m.type === 'bad' ? "MURPHY'S LAW" : 'CURVEBALL'}</div><h2 style="margin-top:10px">${esc(m.name)}</h2>
-    <div class="bt">${esc(m.text || '')}</div><div class="bt injeff">${m.options ? m.options.map(o => `${esc(o.t)}: ${effHtml(effText(S, o.eff))}`).join('<br>') : effHtml(effText(S, m.eff))}</div>
-    ${inj.note ? `<div class="bt" style="color:var(--gold)">${esc(inj.note)}</div>` : ''}</div>${pu}</div>`;
+    <div class="bt">${esc(m.text || '')}</div>${m.options ? '' : `<div class="bt injeff">${effHtml(effText(S, m.eff))}</div>`}
+    ${inj.note ? `<div class="bt" style="color:var(--gold)">${esc(inj.note)}</div>` : ''}</div>
+    ${vote ? `<div class="whoroll">🗳️ HOW DO YOU RESPOND? VOTE ON YOUR PHONE</div>
+      <div class="optgrid" style="width:100%">${m.options.map((o, i) => `<div class="choice" style="grid-template-columns:48px 1fr;position:relative"><div class="key">${'AB'[i] || i + 1}</div><div><div class="ct">${esc(o.t)}</div><div class="arrows">${effHtml(effText(S, o.eff))}</div></div>${voteDots(S, i)}</div>`).join('')}</div>` : ''}${pu}</div>`;
 }
 
 function renderLevel(S) {
