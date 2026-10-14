@@ -82,8 +82,10 @@ function onTap(e) {
     case 'tab': PH.tab = arg; return phRender();
     case 'cls': case 'perk': case 'up': case 'b3stat': return phSend({ t: a, v: arg });
     case 'av': return phSend({ t: 'av', v: +arg });
-    case 'vote': return phSend({ t: 'vote', v: +arg });
+    case 'vote': return phSend({ t: 'vote', v: /^\d+$/.test(arg) ? +arg : arg });
     case 'roll': b.disabled = true; return phSend({ t: 'roll' });
+    case 'act': b.disabled = true; return phSend({ t: 'act', v: arg });
+    case 'p3roll': b.disabled = true; return phSend({ t: 'p3roll' });
     case 'req': phSend({ t: 'req', v: arg }); phToast('Request sent to the GM'); return;
   }
 }
@@ -97,7 +99,7 @@ function phRender() {
   const app = $('#app');
   if (PH.status !== 'live' || !PH.v) { app.innerHTML = phJoinScreen(); return; }
   const v = PH.v, me = v.you != null ? v.party[v.you] : null;
-  app.innerHTML = `<div class="ph-wrap">${phHeader(v, me)}${PH.tab === 'kit' ? phKit(v, me) : phGame(v, me)}</div>
+  app.innerHTML = `<div class="ph-wrap">${phHeader(v, me)}${PH.tab === 'kit' ? phKit(v, me) : phActor(v) + phGame(v, me) + phExtras(v, me)}</div>
     <div class="ph-tabs"><button class="${PH.tab === 'game' ? 'on' : ''}" data-p="tab" data-a="game">🎮 GAME</button><button class="${PH.tab === 'kit' ? 'on' : ''}" data-p="tab" data-a="kit">🧰 MY KIT</button><a href="guide.html" target="_blank">📖 GUIDE</a></div>
     ${PH.toast ? `<div class="ph-toast">${esc(PH.toast)}</div>` : ''}`;
 }
@@ -128,6 +130,28 @@ function phHeader(v, me) {
     ${v.unit ? `<div class="ph-meters">${METERS.map(m => { const x = v.meters[m.k]; return `<div style="--c:${m.color}"><div class="ph-ml">${m.icon} ${x}</div><div class="ph-mn" style="color:${m.color}">${m.name}</div><div class="ph-bar"><i style="width:${x * 10}%"></i></div></div>`; }).join('')}</div>` : ''}`;
 }
 
+// The big "your turn" button for whatever random event this cadet owns right now
+function phActor(v) {
+  const a = v.actor; if (!a || v.you == null) return '';
+  if (a.slot === v.you) return `<div class="ph-warn" style="background:var(--gold);color:#000">🎲 YOUR TURN!</div>${pbtn('act', a.kind, `🎲 ${esc(a.label.toUpperCase())}`, { cls: 'ph-big ph-roll', dis: v.spinning })}`;
+  const who = v.party[a.slot];
+  return `<div class="ph-card ph-center">🎲 ${esc(who ? rankName(who) : '?')}: ${esc(a.label.toLowerCase())}...</div>`;
+}
+// Under the current event: power-ups you can ask for now, team items, and your own kit
+function phExtras(v, me) {
+  if (!me || !me.cls || ['title', 'intro', 'party', 'perks', 'avatars', 'results', 'debrief'].includes(v.phase)) return '';
+  const mine = (v.usable || []).filter(u => u.who == null || u.who === v.you);
+  const c = CLASS[me.cls], perk = c.perks.find(p => p.id === me.perk);
+  let h = '';
+  if (mine.length) h += `<div class="ph-h" style="color:var(--gold)">⚡ YOU CAN USE NOW</div>` + mine.map(u => pbtn('req', u.req, `${u.icon} <b>${esc(u.label)}</b>${u.who != null ? ' <small>(yours)</small>' : ' <small>(team)</small>'}<br><small>${mt(esc(u.hint))} · tap to ask the GM</small>`, { cls: u.hot ? 'sel' : '' })).join('');
+  h += `<div class="ph-h">🎒 TEAM ITEMS (${(v.itemInfo || []).length}/3)</div>` + ((v.itemInfo || []).length
+    ? v.itemInfo.map(l => `<div class="ph-card">${l.icon} <b>${esc(l.name)}</b><br><small>${mt(esc(l.text))}</small></div>`).join('')
+    : '<div class="ph-note">No items yet. Loot drops from crises, crits and the Supply Depot.</div>');
+  h += `<div class="ph-h">🧰 YOUR KIT</div><div class="ph-card"><small>${c.ability ? `⚡ <b>${esc(c.ability.name)}</b> (${me.used ? 'used' : 'ready'}): ${mt(esc(c.ability.text))}` : `👑 ${esc(c.abilityText)}`}</small>
+    ${perk ? `<br><small>🎁 <b>${esc(perk.name)}</b>: ${mt(esc(perk.text))}</small>` : ''}</div>`;
+  return h;
+}
+
 function phGame(v, me) {
   if (v.you == null) return `<div class="ph-card">👀 The party is full, so you're watching this round as a spectator. Keep your eyes on the projector!</div>${guideLink}`;
   switch (v.phase) {
@@ -141,9 +165,16 @@ function phGame(v, me) {
     case 'avatars': return `<div class="ph-h">PICK YOUR PILOT</div><div class="ph-avgrid">${AVATARS.map((_, k) => {
       const who = v.party.find(p => p.av === k); const mine = me.av === k;
       return `<button class="ph-av ${mine ? 'sel' : ''}" data-p="av" data-a="${k}" ${who && !mine ? 'disabled' : ''}><img src="${presetAvatar(k)}"><span>${k + 1}${who && !mine ? ' · ' + esc(rankName(who)) : ''}</span></button>`; }).join('')}</div>`;
-    case 'unit': return `<div class="ph-card ph-center">🎲 Rolling for your squadron...<br>Look up!</div>`;
+    case 'unit': return v.unit ? `<div class="ph-card ph-center">${UNITS.find(x => x.id === v.unit).icon} ${UNITS.find(x => x.id === v.unit).name}<br>${UNITS.find(x => x.id === v.unit).sq}</div>` : `<div class="ph-card ph-center">The Flight Commander rolls a d6 for your squadron. Look up!</div>`;
     case 'manifest': return `<div class="ph-h">YOUR SQUADRON</div><div class="ph-card"><b>Commander:</b> ${esc(v.cc)}<br>${mt(esc(UNITS.find(x => x.id === v.unit).quirk))}</div>${phCrew(v)}`;
-    case 'map': return `<div class="ph-h">YOUR ROUTE</div>${phRoute(v)}<div class="ph-card ph-center">The GM is moving the team to the next stop.</div>`;
+    case 'map': {
+      const votes = v.votes || {};
+      return `<div class="ph-h">YOUR ROUTE</div>${phRoute(v)}<div class="ph-h">VOTE: WHERE TO NEXT?</div>` + (v.avail || []).map(key => {
+        const [t, i] = key.split(',').map(Number), n = v.map[t][i], nt = NODE_TYPES[n.type];
+        const voters = Object.keys(votes).filter(s => String(votes[s]) === key).map(s => v.party[+s] && rankName(v.party[+s])).filter(Boolean);
+        return pbtn('vote', key, `${nt.icon} <b>${nt.name}</b> <small>(stop ${t + 1}, ${i === 0 ? 'top' : 'bottom'} path)</small>${voters.length ? `<div class="ph-voters">🗳️ ${voters.map(esc).join(', ')}</div>` : ''}`, { cls: String(votes[v.you]) === key ? 'sel' : '' });
+      }).join('') + `<div class="ph-note">⚔️ Crisis · 💀 Elite: harder, double rewards, guaranteed loot · 🏕️ Rest · 🛒 Supply Depot · ❓ Unknown: anything can happen</div>`;
+    }
     case 'node': return phNode(v, me);
     case 'inject': return phInject(v);
     case 'levelup': return `<div class="ph-h">⬆️ LEVEL UP!</div><div class="ph-card">Pick one upgrade for your ${CLASS[me.cls].name}:</div>
@@ -159,6 +190,7 @@ function phParty(v, me) {
   const needFC = !v.party.some(p => p.name && p.cls === 'fc');
   const cls = me.cls && CLASS[me.cls];
   let h = needFC ? '<div class="ph-warn">⚠️ Your team needs a Flight Commander</div>' : '';
+  h += `<div class="ph-card"><small>${STATS.map(s => `<b>${s}</b> = ${STAT_INFO[s].name}: ${STAT_INFO[s].text}`).join('<br>')}<br>Stats are added to your d20 rolls.</small></div>`;
   if (cls) h += `<div class="ph-card ph-center">✅ You picked <b>${cls.icon} ${cls.name}</b>.<br>Your 🎁 perks are revealed once the GM locks every class.</div>`;
   h += `<div class="ph-h" style="margin-top:14px">${cls ? 'CHANGE CLASS' : 'SELECT YOUR CLASS'}</div>`;
   h += CLASSES.map(c => {
@@ -173,8 +205,9 @@ function phParty(v, me) {
 
 function phRoute(v) {
   if (!v.map) return '';
-  return `<div class="ph-route">${v.map.map((n, i) => { const nt = NODE_TYPES[n.type]; const here = v.pos.tier === i;
-    return `<span class="${n.done ? 'done' : here ? 'here' : ''}">${nt.icon}<small>${i + 1}</small></span>`; }).join('<b>›</b>')}<b>›</b><span>👹<small>IG</small></span></div>`;
+  // the stops the team actually took, then what's left
+  return `<div class="ph-route">${v.map.map((tier, t) => { const k = tier.findIndex(n => n.visited); const n = tier[k >= 0 ? k : 0];
+    return `<span class="${k >= 0 ? (n.done ? 'done' : 'here') : ''}">${k >= 0 ? NODE_TYPES[n.type].icon : '❔'}<small>${t + 1}</small></span>`; }).join('<b>›</b>')}<b>›</b><span>👹<small>IG</small></span></div>`;
 }
 
 function phCrew(v) {
@@ -185,9 +218,16 @@ function phCrew(v) {
 
 function phNode(v, me) {
   const c = v.cur; if (!c) return '';
-  if (c.type === 'rest') return `<div class="ph-card ph-center">🏕️ REST STOP<br><br>Pick ONE as a team and tell the GM:<br>+2 to any meter · recharge an ability · +1 loyalty to all NPCs</div>${c.result ? `<div class="ph-card">✅ ${esc(c.result)}</div>` : ''}`;
-  if (c.type === 'depot') return `<div class="ph-card ph-center">🛒 SUPPLY DEPOT<br><br>One trade, as a team. Tell the GM.</div>${c.result ? `<div class="ph-card">✅ ${esc(c.result)}</div>` : ''}`;
-  if (c.type === 'unknown') return `<div class="ph-card ph-center">❓ UNKNOWN TERRITORY<br>Rolling...</div>`;
+  if (c.type === 'rest' || c.type === 'depot') {
+    const head = `<div class="ph-h">${c.type === 'rest' ? '🏕️ REST STOP: PICK ONE' : '🛒 SUPPLY DEPOT: ONE TRADE'}</div>`;
+    if (c.step !== 'choose' || !v.options) return head + `<div class="ph-card ph-center">✅ ${esc(c.result || '')}</div>`;
+    const votes = v.votes || {};
+    return head + `<div class="ph-note">Vote as a team; the GM locks in the winner.</div>` + v.options.map(o => {
+      const voters = Object.keys(votes).filter(s => String(votes[s]) === o.key).map(s => v.party[+s] && rankName(v.party[+s])).filter(Boolean);
+      return pbtn('vote', o.key, `${o.html}${voters.length ? `<div class="ph-voters">🗳️ ${voters.map(esc).join(', ')}</div>` : ''}`, { cls: String(votes[v.you]) === o.key ? 'sel' : '', dis: o.dis });
+    }).join('');
+  }
+  if (c.type === 'unknown') return `<div class="ph-card ph-center">❓ UNKNOWN TERRITORY<br>A d6 decides what happens...</div>`;
   const m = v.mission; if (!m) return '';
   const offline = v.offline === v.you;
   let top = `<div class="ph-h">${c.type === 'crisisEvent' ? '🚨 ' : c.type === 'elite' ? '💀 ' : ''}${esc(m.icon)} ${esc(m.title)}</div><div class="ph-situ">${esc(m.text)}</div>`;
@@ -223,7 +263,7 @@ function phInject(v) {
   if (i.stage === 'trigger' || v.spinning) return `<div class="ph-card ph-center">📡 Inject check... look up!</div>`;
   if (i.stage === 'clear') return `<div class="ph-card ph-center">✅ ALL CLEAR</div>`;
   if (i.stage === 'murphy') return `<div class="ph-card ph-center">🌪️ INJECT INCOMING!</div>`;
-  return `<div class="ph-card ph-center">🌪️ ${esc(i.name || '')}${i.note ? `<br><small>${esc(i.note)}</small>` : ''}</div>`;
+  return `<div class="ph-card ph-center">🌪️ <b>${esc(i.name || '')}</b>${i.effHtml ? `<div style="margin-top:6px">${i.effHtml}</div>` : ''}${i.note ? `<br><small>${esc(i.note)}</small>` : ''}</div>`;
 }
 
 function phBoss(v, me) {
@@ -234,9 +274,15 @@ function phBoss(v, me) {
     h += j >= 0 ? `<div class="ph-warn">🔥 YOU'RE IN THE HOT SEAT</div><div class="ph-situ">"${esc(b.q[j])}"</div>` : `<div class="ph-card">😮‍💨 You're safe. ${b.who.map(w => esc(rankName(v.party[w]))).join(' and ')} face the IG.</div>`;
   }
   if (b.phase === 3 && !b.done3) {
-    h += `<div class="ph-card">🚨 NO-NOTICE EXERCISE: pick the stat you'll roll with. Each stat can only be used once.</div>` +
-      STATS.map(s => { const owner = b.stats.findIndex(x => x === s); const mine = owner === v.you;
-        return pbtn('b3stat', s, `<b>${s} +${CLASS[me.cls].stats[s] + (me.up === 'battle' && (s === 'CMD' || s === 'GRIT') ? 1 : 0)}</b>${owner >= 0 && !mine ? ` <small>(${esc(rankName(v.party[owner]))})</small>` : ''}`, { cls: mine ? 'sel' : '', dis: owner >= 0 && !mine }); }).join('');
+    const myRoll = b.rolls && b.rolls[v.you], myStat = b.stats[v.you];
+    if (b.allies && b.allies[v.you]) h += `<div class="ph-card ph-center">🤝 An Ally NPC carries your check. No roll needed!</div>`;
+    else if (myRoll) h += `<div class="ph-card ph-center">🎲 You rolled <b>${myRoll}</b> with ${esc(myStat)}. Waiting for the team...</div>`;
+    else {
+      h += `<div class="ph-card">🚨 NO-NOTICE EXERCISE: pick the stat you'll roll with (each stat once), then ROLL.</div>` +
+        STATS.map(s => { const owner = b.stats.findIndex(x => x === s); const mine = owner === v.you;
+          return pbtn('b3stat', s, `<b>${s} +${CLASS[me.cls].stats[s] + (me.up === 'battle' && (s === 'CMD' || s === 'GRIT') ? 1 : 0)}</b> <small>${STAT_INFO[s].name}</small>${owner >= 0 && !mine ? ` <small>(${esc(rankName(v.party[owner]))})</small>` : ''}`, { cls: mine ? 'sel' : '', dis: owner >= 0 && !mine }); }).join('');
+      if (myStat) h += pbtn('p3roll', null, `🎲 ROLL THE d20 (${esc(myStat)})!`, { cls: 'ph-big ph-roll', dis: v.spinning });
+    }
   }
   if (b.result) h += `<div class="ph-card ph-center">${esc(b.result)}</div>`;
   return h;

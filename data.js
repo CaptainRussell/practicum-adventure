@@ -14,6 +14,13 @@ const METERS = [
 ];
 const METER = Object.fromEntries(METERS.map(m => [m.k, m]));
 const STATS = ['CMD', 'CHA', 'INS', 'GRIT'];
+// What each stat means (shown on class select, phones, the legend and the guide)
+const STAT_INFO = {
+  CMD: { name: 'Command', text: 'give orders, make decisions, own the outcome' },
+  CHA: { name: 'Charisma', text: 'persuade, counsel, motivate people' },
+  INS: { name: 'Insight', text: 'read people, spot problems, plan ahead' },
+  GRIT: { name: 'Grit', text: 'endure, execute under pressure, stretch resources' },
+};
 
 /* ---------------- classes ---------------- */
 const CLASSES = [
@@ -453,6 +460,8 @@ const LEGEND = [
   ['⏸️ 🔎 📝', 'LEADERSHIP TOKENS', 'One use each: Tactical Pause (30s timeout), Intel Briefing (see exact effects), Submit a Waiver (reroll)'],
   ['🟩🟩🟩', 'LOYALTY', 'Each NPC has 0-5 loyalty. At 5 they become an Ally; at 0 they hit a Breaking Point.'],
   ['⚔️ 💀 🏕️ 🛒 ❓', 'MAP STOPS', 'Crisis · Elite Crisis (harder, bigger rewards) · Rest Stop · Supply Depot · Unknown'],
+  ['CMD CHA<br>INS GRIT', 'CLASS STATS', 'Added to your d20 rolls. CMD Command (orders, decisions) · CHA Charisma (persuade, counsel) · INS Insight (read people, plan) · GRIT Grit (endure, execute)'],
+  ['📱🎲', 'YOUR TURN', 'Random events rotate through the team: when it\'s your turn, a ROLL / SPIN button appears on your phone'],
 ];
 
 /* ---------------- player avatars (cadets pick one) ----------------

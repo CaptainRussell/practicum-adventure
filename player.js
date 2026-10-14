@@ -77,6 +77,10 @@ function playFx(f) {
     case 'toast': return enqueue(() => showToast(f.icon, f.title, f.text), 0);
     case 'ach': return enqueue(() => { const a = ACH[f.aid]; SFX.play('ach'); return overlay(`<div class="bigcard good achcard"><div class="sectlbl" style="color:var(--gold)">🏅 ACHIEVEMENT UNLOCKED · +10 PTS</div><div style="font-size:90px;margin-top:10px">${a.icon}</div><h2>${esc(a.name)}</h2><div class="bt">${mt(esc(a.text))}</div></div>`); }, 3200);
     case 'dice': return enqueue(() => diceOverlay(f), DICE_MS + 1300);
+    case 'lootDrop': return enqueue(() => { const l = LOOT.find(x => x.id === f.lid); if (!l) return; SFX.play('loot');
+      return overlay(`<div class="bigcard lootcard" style="border-color:${RARITY[l.rar].color}"><div class="sectlbl" style="color:${RARITY[l.rar].color}">🎁 LOOT DROP · ${l.rar.toUpperCase()}</div>
+        <div style="font-size:110px;margin-top:8px">${l.icon}</div><h2 style="color:${RARITY[l.rar].color}">${esc(l.name)}</h2><div class="bt">${mt(esc(l.text))}</div>
+        <div class="bt" style="font-size:22px;color:var(--dim)">Added to your team items (${f.count}/3). Ask the GM to use it when it helps!</div></div>`, 'solid'); }, 4200);
     case 'multiDice': return enqueue(() => multiDiceOverlay(f), 4200 + 1800);
     case 'loyDelta': return enqueue(() => showLoy(f), 0);
     case 'forecast': return enqueue(() => showToast('🔮', 'FORESIGHT', `Next inject: ${MURPHY[f.idx].name}`), 0);
@@ -227,7 +231,7 @@ function render() {
   const hud = !['title', 'intro', 'debrief', 'party', 'perks', 'avatars', 'unit'].includes(S.phase);
   $('#app').innerHTML = `<div class="pl">${hud ? renderHud(S) : '<div></div>'}
     <div class="stage ${full ? 'full' : ''}"><div class="main">${renderMain(S)}</div>${full ? '' : `<div class="side">${renderSide(S)}</div>`}</div></div>
-    ${S.showBoard ? renderBoardOverlay() : ''}${renderJoinBox(S)}`;
+    ${S.showBoard ? renderBoardOverlay() : ''}${renderJoinBox(S)}${renderActorBanner(S)}`;
   const bc2 = $('#bossCv'); if (bc2) drawBoss(bc2);
   const boardOv = $('#boardOv'); if (boardOv) boardOv.onclick = null;
 }
@@ -241,15 +245,26 @@ function qrSrc(text) {
 }
 function renderJoinBox(S) {
   const j = P.join;
-  if (!j || !j.url || !j.live || !['title', 'intro'].includes(S.phase)) return '';
+  if (!j || !j.url || !j.live || !(S.phase === 'title' || (S.phase === 'intro' && S.introPage === 0))) return '';
   const src = qrSrc(j.url);
   return `<div class="joinbox">${src ? `<img src="${src}">` : ''}<div><div class="sectlbl">📱 JOIN ON YOUR PHONE</div>
     <div class="jurl">${esc(j.url.replace(/^https?:\/\//, '').replace(/\?.*$/, ''))}</div><div class="jcode">ROOM ${esc(j.code)}</div></div></div>`;
 }
 function voteDots(S, i) {
   const v = S.votes || {};
-  const who = Object.keys(v).filter(s => v[s] === i).map(s => S.party[+s]).filter(Boolean);
+  const who = Object.keys(v).filter(s => String(v[s]) === String(i)).map(s => S.party[+s]).filter(Boolean);
   return who.length ? `<div class="votes">${who.map(p => `<img src="${avatarOf(p)}" title="${esc(rankName(p))}">`).join('')}</div>` : '';
+}
+// "CAPT HELLE: ROLL THE INJECT CHECK!" — whose turn it is to press the button
+function renderActorBanner(S) {
+  if (!S.actor || spinning() || S.phase === 'debrief') return '';
+  const p = S.party[S.actor.slot];
+  return `<div class="actorbar">${p ? `<img src="${avatarOf(p)}">` : ''}<div><div class="ab1">🎲 YOUR TURN, ${esc(rankName(p).toUpperCase())}</div><div class="ab2">${esc(S.actor.label)}: tap the button on your phone!</div></div></div>`;
+}
+// Power-ups worth using right now (tokens, items, abilities, perks)
+function renderPowerups(S) {
+  const list = usableNow(S); if (!list.length) return '';
+  return `<div class="powerups"><span class="pu-h">⚡ USABLE NOW</span>${list.map(u => `<span class="pu ${u.hot ? 'hot' : ''}">${u.icon} <b>${esc(u.label)}</b>${u.who != null ? ` <i>(${esc(rankName(S.party[u.who]))})</i>` : ''} · ${mt(esc(u.hint))}</span>`).join('')}</div>`;
 }
 
 function renderHud(S) {
@@ -267,6 +282,7 @@ function renderHud(S) {
 function renderSide(S) {
   return `<div class="sectlbl">YOUR FLIGHT</div>
     <div class="pgrid">${S.party.map((p, i) => `<div class="pcard ${S.offline === i ? 'offline' : ''}"><img src="${avatarOf(p)}"><div><div class="nm">${esc(rankName(p))}</div><div class="cl">${CLASS[p.cls] ? CLASS[p.cls].icon + ' ' + CLASS[p.cls].name : ''}${S.offline === i ? ' · 📵 MEETING' : ''}</div></div>${S.tokenHolder === i ? '<div class="crown">👑</div>' : ''}</div>`).join('')}</div>
+    ${(S.items || []).length ? `<div class="sectlbl" style="margin-top:6px">🎒 TEAM ITEMS (${S.items.length}/3)</div>${S.items.map(id => { const l = LOOT.find(x => x.id === id); return `<div class="sitem"><span>${l.icon}</span><div><b>${esc(l.name)}</b><div>${mt(esc(l.text))}</div></div></div>`; }).join('')}` : ''}
     <div class="sectlbl" style="margin-top:6px">YOUR CREW</div>
     ${S.npcs.map(n => { const t = TRAIT[n.trait]; return `<div class="npc ${isAlly(n) ? 'ally' : ''} ${n.broken ? 'broken' : ''} ${n.out ? 'out' : ''}"><img src="${avatar(n.name + n.rank)}"><div>
       <div class="nm">${esc(n.rank)} ${esc(n.name)}${isAlly(n) ? ' 🤝' : ''}${n.out ? ' (OUT)' : ''}</div>
@@ -284,7 +300,9 @@ function renderMain(S) {
     case 'perks': return renderPerks(S);
     case 'avatars': return renderAvatars(S);
     case 'unit': { const u = S.unitRolled && UNITS.find(x => x.id === S.unit);
-      return `<div class="titlescr">${u ? `<div style="font-size:120px">${u.icon}</div><div class="ptitle" style="color:${u.color}">${u.name}</div><div class="sub">${u.sq}</div>` : `<div class="ptitle">ROLLING FOR YOUR SQUADRON...</div><div class="sub">${UNITS.map((x, i) => `${i + 1} ${x.icon} ${x.name}`).join(' · ')}</div>`}</div>`; }
+      if (u) return `<div class="titlescr"><div style="font-size:140px">${u.icon}</div><div class="ptitle" style="color:${u.color};font-size:46px">${u.name}</div><div class="unitsq">${u.sq.toUpperCase()}</div></div>`;
+      return `<div style="display:flex;flex-direction:column;gap:12px;height:100%;padding-bottom:90px"><div class="ptitle" style="text-align:center">ROLL FOR YOUR SQUADRON · d6</div>
+        <div class="unitgrid">${UNITS.map((x, i) => `<div class="unitcard" style="--c:${x.color}"><div class="un">${i + 1}</div><div class="ui">${x.icon}</div><div class="unm">${x.name}</div><div class="usq">${x.sq}</div></div>`).join('')}</div></div>`; }
     case 'manifest': return renderManifest(S);
     case 'map': return renderMap(S);
     case 'node': return renderNode(S);
@@ -316,8 +334,8 @@ function renderIntro(S) {
 
 function renderParty(S) {
   return `<div style="display:flex;flex-direction:column;gap:10px;height:100%"><div class="ptitle" style="text-align:center;font-size:24px">SELECT YOUR CLASS</div>
-    <div class="sub" style="text-align:center;font-size:22px">Flight Commander required · no duplicates · each class has a specialty meter · 🎁 every class hides 2 secret perks, revealed once classes lock
-    ${P.join && P.join.live && P.join.url ? `<br><span style="color:var(--accent)">📱 Pick on your phone: ${esc(P.join.url.replace(/^https?:\/\//, '').replace(/\?.*$/, ''))} · ROOM <b style="color:var(--gold)">${esc(P.join.code)}</b></span>` : ''}</div>
+    <div class="sub" style="text-align:center;font-size:21px">👑 Flight Commander required · no duplicates · 🎁 every class hides 2 secret perks, revealed once classes lock${P.join && P.join.live ? ` · 📱 pick on your phone (ROOM <b style="color:var(--gold)">${esc(P.join.code)}</b>)` : ''}</div>
+    <div class="statlegend">${STATS.map(s => `<span><b>${s}</b> ${STAT_INFO[s].name}: ${STAT_INFO[s].text}</span>`).join('')}</div>
     <div class="classgrid">${CLASSES.map(c => {
       const who = S.party.find(p => p.cls === c.id && p.name);
       return `<div class="ccard ${who ? 'taken' : ''}"><div class="chead"><span class="ic">${c.icon}</span><h3>${c.name}</h3>${who ? `<div class="who">${esc(rankName(who))}</div>` : ''}</div>
@@ -348,7 +366,7 @@ function renderManifest(S) {
   const u = UNITS.find(x => x.id === S.unit);
   const card = (name, rank, sub, extra = '') => `<div class="orgcard" ${extra}><img src="${avatar(name)}"><div class="nm">${esc(rank)}<br>${esc(name.replace(/ ?(SSgt|A1C|TSgt|Civ\.)$/, ''))}</div><div class="rk">${sub}</div></div>`;
   return `<div style="display:flex;flex-direction:column;gap:14px;overflow:hidden">
-    <div style="display:flex;align-items:center;gap:20px"><div style="font-size:64px">${u.icon}</div><div><h2 style="color:${u.color};font-size:24px">${u.name}</h2><div class="sub">${u.sq} · CREW MANIFEST</div></div></div>
+    <div style="display:flex;align-items:center;gap:20px"><div style="font-size:64px">${u.icon}</div><div><h2 style="color:${u.color};font-size:26px">${u.name}</h2><div class="unitsq" style="text-align:left;font-size:20px">${u.sq.toUpperCase()} · CREW MANIFEST</div></div></div>
     <div class="org">
       <div class="orgrow"><div class="orgcard" style="border-color:var(--bad);max-width:560px"><img src="${avatar(S.cc)}"><div class="nm">SQUADRON COMMANDER<br>${esc(S.cc)}</div><div class="rk" style="color:var(--gold)">QUIRK: ${mt(esc(u.quirk))}</div></div></div>
       <div class="orgline"></div>
@@ -358,49 +376,65 @@ function renderManifest(S) {
     </div></div>`;
 }
 
-// One path that zig-zags across the screen: START, the stops, then the IG.
+// Two lanes: at every stop the party picks the top or bottom option (votes show as avatars).
 function renderMap(S) {
   const n = S.map.tiers.length, W = 1000, H = 520, startX = 48, bossX = 946;
-  const step = (bossX - startX) / (n + 1);
-  const pt = k => k === -1 ? [startX, H / 2] : k === n ? [bossX, H / 2] : [startX + step * (k + 1), H / 2 + (k % 2 ? 95 : -95)];
+  const step = (bossX - startX) / (n + 1), laneY = [H / 2 - 120, H / 2 + 120];
+  const pt = (k, i) => k === -1 ? [startX, H / 2] : k === n ? [bossX, H / 2] : [startX + step * (k + 1), laneY[i]];
   const av = available(), recon = S.party.some(p => p.perk === 'recon');
-  const nodeAt = k => S.map.tiers[k][0];
+  const isOpen = (t, i) => av.some(([a, b]) => a === t && b === i);
+  const visited = (t, i) => S.map.tiers[t][i].visited;
   let lines = '', nodes = '';
-  for (let k = -1; k < n; k++) {
-    const [x1, y1] = pt(k), [x2, y2] = pt(k + 1);
-    const lit = k + 1 < n && nodeAt(k + 1).visited;
-    lines += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${lit ? '#ffd23f' : '#3a3a8a'}" stroke-width="6" stroke-dasharray="${lit ? '' : '12 10'}"/>`;
-  }
+  const line = (a, b, lit, live) => `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${lit ? '#ffd23f' : live ? '#7d7dd8' : '#2a2a6a'}" stroke-width="${lit ? 7 : 5}" stroke-dasharray="${lit ? '' : '12 10'}"/>`;
+  [0, 1].forEach(i => { lines += line(pt(-1), pt(0, i), visited(0, i), S.pos.tier === -1); });
+  for (let k = 0; k < n - 1; k++) [0, 1].forEach(i => [0, 1].forEach(j => {
+    lines += line(pt(k, i), pt(k + 1, j), visited(k, i) && visited(k + 1, j), S.pos.tier === k && S.pos.idx === i);
+  }));
+  [0, 1].forEach(i => { lines += line(pt(n - 1, i), pt(n), visited(n - 1, i), false); });
   if (typeof LEVEL_AFTER !== 'undefined' && LEVEL_AFTER < n) {
-    const [a, b] = [pt(LEVEL_AFTER - 1), pt(LEVEL_AFTER)];
-    nodes += `<text x="${(a[0] + b[0]) / 2}" y="${(a[1] + b[1]) / 2 + 12}" font-size="30" text-anchor="middle">⬆️</text>`;
+    const x = (pt(LEVEL_AFTER - 1, 0)[0] + pt(LEVEL_AFTER, 0)[0]) / 2;
+    nodes += `<text x="${x}" y="${H / 2 + 12}" font-size="30" text-anchor="middle">⬆️</text>`;
   }
-  for (let k = 0; k < n; k++) {
-    const nd = nodeAt(k), [x, y] = pt(k), nt = NODE_TYPES[nd.type];
-    const open = av.some(([a]) => a === k), here = S.pos.tier === k;
-    const label = nd.type === 'unknown' && recon ? `? ${MYSTERY[nd.mystery].name}` : nt.name;
-    const up = k % 2 === 0; // labels go on the outside of the zig-zag so they never touch a line
-    nodes += `<g opacity="${!open && !nd.visited && av.length ? 0.45 : 1}">
+  S.map.tiers.forEach((tier, k) => tier.forEach((nd, i) => {
+    const [x, y] = pt(k, i), nt = NODE_TYPES[nd.type];
+    const open = isOpen(k, i), here = S.pos.tier === k && S.pos.idx === i;
+    // short labels so neighbouring stops never collide
+    const label = nd.type === 'unknown' && recon ? MYSTERY[nd.mystery].name : { crisis: 'CRISIS', elite: 'ELITE', rest: 'REST', depot: 'DEPOT', unknown: '???' }[nd.type];
+    const top = i === 0;
+    const vs = votersFor(`${k},${i}`).map(s => S.party[s]).filter(Boolean);
+    nodes += `<g opacity="${!open && !nd.visited && av.length ? 0.4 : 1}">
       <rect x="${x - 40}" y="${y - 40}" width="80" height="80" fill="${nd.visited ? '#2a2a10' : '#1b1b4a'}" stroke="${here ? '#fff' : open ? nt.color : nd.visited ? '#ffd23f' : '#3a3a8a'}" stroke-width="${open || here ? 7 : 5}">
       ${open ? '<animate attributeName="stroke-opacity" values="1;0.2;1" dur="1s" repeatCount="indefinite"/>' : ''}</rect>
       <text x="${x}" y="${y + 15}" font-size="42" text-anchor="middle">${nt.icon}</text>
-      <text x="${x}" y="${up ? y - 66 : y + 62}" font-size="11" fill="#8f8fc8" text-anchor="middle" font-family="'Press Start 2P'">STOP ${k + 1}</text>
-      <text x="${x}" y="${up ? y - 50 : y + 80}" font-size="10" fill="${nt.color}" text-anchor="middle" font-family="'Press Start 2P'">${esc(label)}</text>
+      ${i === 0 ? `<text x="${x}" y="${y - 66}" font-size="11" fill="#8f8fc8" text-anchor="middle" font-family="'Press Start 2P'">STOP ${k + 1}</text>` : ''}
+      <text x="${x}" y="${top ? y - 50 : y + 62}" font-size="10" fill="${nt.color}" text-anchor="middle" font-family="'Press Start 2P'">${esc(label)}</text>
+      ${vs.map((p, j) => `<image href="${avatarOf(p)}" x="${x - 40 + j * 21}" y="${top ? y + 44 : y - 64}" width="20" height="20" style="image-rendering:pixelated"/>`).join('')}
       ${nd.done ? `<text x="${x + 32}" y="${y - 26}" font-size="26" text-anchor="middle">✅</text>` : ''}</g>`;
-  }
-  return `<div style="display:flex;flex-direction:column;height:100%;gap:10px"><div class="ptitle" style="font-size:22px">YOUR ROUTE · ${n} STOPS TO THE IG</div>
+  }));
+  return `<div style="display:flex;flex-direction:column;height:100%;gap:10px"><div class="ptitle" style="font-size:20px">YOUR ROUTE · VOTE ON YOUR PHONE 📱</div>
     <div class="mapwrap"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${lines}
       <g><rect x="${startX - 34}" y="${H / 2 - 34}" width="68" height="68" fill="#14143a" stroke="#7dff6b" stroke-width="5"/><text x="${startX}" y="${H / 2 + 13}" font-size="36" text-anchor="middle">🛫</text><text x="${startX}" y="${H / 2 + 58}" font-size="10" fill="#7dff6b" text-anchor="middle" font-family="'Press Start 2P'">START</text></g>
       ${nodes}
       <g><rect x="${bossX - 48}" y="${H / 2 - 48}" width="96" height="96" fill="#3a0010" stroke="#ff2e63" stroke-width="7"/><text x="${bossX}" y="${H / 2 + 18}" font-size="52" text-anchor="middle">👹</text><text x="${bossX}" y="${H / 2 + 72}" font-size="10" fill="#ff2e63" text-anchor="middle" font-family="'Press Start 2P'">THE IG</text></g>
     </svg></div>
-    <div class="sub">⚔️ Crisis · 💀 Elite (harder, double rewards, loot) · 🏕️ Rest · 🛒 Supply Depot · ❓ Unknown · ⬆️ Level up</div></div>`;
+    <div class="sub">⚔️ Crisis · 💀 Elite (harder, double rewards, loot) · 🏕️ Rest · 🛒 Supply Depot · ❓ Unknown · ⬆️ Level up</div>
+    ${renderPowerups(S)}</div>`;
+}
+
+// Rest stop / supply depot: the options, with each cadet's vote shown as their avatar
+function renderStop(S, c) {
+  const rest = c.type === 'rest';
+  const head = `<div style="text-align:center"><span style="font-size:90px">${rest ? '🏕️' : '🛒'}</span><div class="ptitle">${rest ? 'REST STOP' : 'SUPPLY DEPOT'}</div>
+    <div class="sub">${c.step === 'choose' ? `${rest ? 'Pick ONE' : 'One trade'}: vote on your phone!` : ''}</div></div>`;
+  if (c.step !== 'choose') return `<div class="titlescr">${head}<div class="ptitle" style="color:var(--good);font-size:24px">${esc(c.result || '')}</div>${renderPowerups(S)}</div>`;
+  const opts = rest ? restOptions() : depotOptions();
+  return `<div style="display:flex;flex-direction:column;gap:14px;height:100%;justify-content:center">${head}
+    <div class="optgrid">${opts.map(o => `<div class="choice ${o.dis ? 'dim' : ''}" style="grid-template-columns:1fr;position:relative"><div class="ct">${mt(esc(o.label))}</div>${voteDots(S, o.key)}</div>`).join('')}</div>${renderPowerups(S)}</div>`;
 }
 
 function renderNode(S) {
   const c = S.cur; if (!c) return '';
-  if (c.type === 'rest') return `<div class="titlescr"><div style="font-size:120px">🏕️</div><div class="ptitle">REST STOP</div><div class="box" style="font-size:30px;text-align:left">Choose ONE:<br>• +2 to any meter (${METERS.map(m => meterTag(m.k)).join(' ')})<br>• Recharge one used ability<br>• +1 loyalty to every NPC</div>${c.result ? `<div class="ptitle" style="color:var(--good);font-size:22px">${esc(c.result)}</div>` : ''}</div>`;
-  if (c.type === 'depot') return `<div class="titlescr"><div style="font-size:120px">🛒</div><div class="ptitle">SUPPLY DEPOT</div><div class="box" style="font-size:30px;text-align:left">${mt('One trade:<br>• Pay 2 📦 for a loot spin<br>• Pay 2 of 🎯 / ❤️ / ⭐ for +2 📦<br>• Pay 2 ⭐ to buy back a Leadership Token')}</div>${c.result ? `<div class="ptitle" style="color:var(--good);font-size:22px">${esc(c.result)}</div>` : ''}</div>`;
+  if (c.type === 'rest' || c.type === 'depot') return renderStop(S, c);
   if (c.type === 'unknown') return `<div class="titlescr"><div style="font-size:140px">❓</div><div class="ptitle">UNKNOWN TERRITORY</div>${c.step === 'revealed' ? `<div class="ptitle" style="color:var(--accent)">${MYSTERY[c.mystery].name}</div>` : '<div class="sub">Anything can happen...</div>'}</div>`;
   const m = curMission();
   const ce = c.type === 'crisisEvent';
@@ -417,8 +451,8 @@ function renderNode(S) {
     ${c.type === 'elite' ? '<div class="banner">💀 ELITE CRISIS: every check +3 harder · positive effects doubled · guaranteed loot</div>' : ''}
     ${S.banner ? `<div class="banner ${S.banner.cls || ''}">${esc(S.banner.text)}</div>` : ''}
     <div class="situ">${esc(fill(S, m.text))}</div>
-    ${hint}
-    <div class="choices">${m.choices.map((ch, i) => `<div class="choice ${c.choice === i ? 'picked' : c.choice != null ? 'dim' : ''}">
+    ${hint}${renderPowerups(S)}
+    <div class="choices" ${c.choice != null ? 'style="grid-template-columns:1fr"' : ''}>${m.choices.map((ch, i) => c.choice != null && c.choice !== i ? '' : `<div class="choice ${c.choice === i ? 'picked' : ''}">
       <div class="key">${'ABCD'[i]}</div><div><div class="ct">${esc(fill(S, ch.t))}</div>
       ${ch.show ? `<div class="arrows">${arrows(ch.show)}</div>` : ''}
       ${c.intel ? `<div class="intel">🔎 ${effHtml(specText(S, ch))}</div>` : ''}</div>
@@ -429,14 +463,18 @@ function renderNode(S) {
 
 function renderInject(S) {
   const inj = S.inject; if (!inj) return '';
-  if (inj.stage === 'trigger') return `<div class="titlescr"><div style="font-size:120px">📡</div><div class="ptitle">INJECT CHECK...</div><div class="sub">Will Murphy strike?</div></div>`;
+  const who = S.actor && S.party[S.actor.slot] ? rankName(S.party[S.actor.slot]) : null;
+  const pu = renderPowerups(S);
+  if (inj.stage === 'trigger') return `<div class="titlescr"><div style="font-size:120px">📡</div><div class="ptitle">INJECT CHECK...</div>
+    <div class="whoroll">${who ? `🎲 ${esc(who.toUpperCase())}, ROLL THE d10 ON YOUR PHONE!` : 'Rolling the d10...'}</div><div class="sub">1-${Math.round(INJECT_CHANCE * 10)} = Murphy strikes · 7-10 = all clear</div>${pu}</div>`;
   if (inj.stage === 'clear') return `<div class="titlescr"><div style="font-size:120px">✅</div><div class="ptitle" style="color:var(--good)">ALL CLEAR</div><div class="sub">Murphy is sleeping. For now.</div></div>`;
-  if (inj.stage === 'murphy') return `<div class="titlescr"><div style="font-size:120px">🌪️</div><div class="ptitle" style="color:var(--bad)">INJECT INCOMING!</div></div>`;
+  if (inj.stage === 'murphy') return `<div class="titlescr"><div style="font-size:120px">🌪️</div><div class="ptitle" style="color:var(--bad)">INJECT INCOMING!</div>
+    <div class="whoroll">${who ? `🎡 ${esc(who.toUpperCase())}, SPIN MURPHY'S WHEEL ON YOUR PHONE!` : "Spinning Murphy's wheel..."}</div>${pu}</div>`;
   const m = MURPHY[inj.idx];
   const cls = m.type === 'good' ? 'good' : m.type === 'bad' ? 'bad' : '';
   return `<div class="titlescr"><div class="bigcard ${cls}"><div class="sectlbl">${m.type === 'good' ? 'GOOD NEWS' : m.type === 'bad' ? "MURPHY'S LAW" : 'CURVEBALL'}</div><h2 style="margin-top:10px">${esc(m.name)}</h2>
-    <div class="bt">${esc(m.text || '')}</div><div class="bt">${m.options ? m.options.map(o => `${esc(o.t)}: ${effHtml(effText(S, o.eff))}`).join('<br>') : effHtml(effText(S, m.eff))}</div>
-    ${inj.note ? `<div class="bt" style="color:var(--gold)">${esc(inj.note)}</div>` : ''}</div></div>`;
+    <div class="bt">${esc(m.text || '')}</div><div class="bt injeff">${m.options ? m.options.map(o => `${esc(o.t)}: ${effHtml(effText(S, o.eff))}`).join('<br>') : effHtml(effText(S, m.eff))}</div>
+    ${inj.note ? `<div class="bt" style="color:var(--gold)">${esc(inj.note)}</div>` : ''}</div>${pu}</div>`;
 }
 
 function renderLevel(S) {
@@ -452,7 +490,8 @@ function renderBoss(S) {
   let center = '';
   if (Bs.phase === 2 && !Bs.p2.who) center = `<div class="box" style="margin-bottom:12px;font-size:30px">🎲 Everyone rolls a d20. The two LOWEST rolls face the Inspector's questions...</div>`;
   else if (Bs.phase === 2) center = `<div class="box" style="margin-bottom:12px">${Bs.p2.who.map((w, j) => `<div style="margin:6px 0"><b style="color:var(--gold)">${esc(rankName(S.party[w]))}:</b> "${esc(BOSS_QUESTIONS[Bs.p2.q[j]])}" ${Bs.p2.stars[j] ? '⭐'.repeat(Bs.p2.stars[j]) : ''}</div>`).join('')}</div>`;
-  if (Bs.phase === 3) center = `<div class="box" style="margin-bottom:12px">EVERYONE ROLLS! Each cadet picks a different stat (CMD / CHA / INS / GRIT). Target ${Bs.witnessHandled ? 10 : 13}. +1 per meter at 8+. Pass = 2 dmg · Nat 20 = 4 dmg.</div>`;
+  if (Bs.phase === 3) center = `<div class="box" style="margin-bottom:12px">EVERYONE ROLLS! Pick a different stat each, then tap ROLL on your phone. Target ${Bs.witnessHandled ? 10 : 13}. +1 per meter at 8+. Pass = 2 dmg · Nat 20 = 4 dmg.
+    <div style="margin-top:8px">${S.party.map((p, i) => { const r = Bs.p3.rows[i]; return `<div>${esc(rankName(p))}: ${r.ally ? '🤝 ally pass' : r.stat ? `<b>${r.stat}</b> ${r.d20 ? `🎲 ${r.d20}` : '⏳ ready to roll'}` : '⏳ picking a stat'}</div>`; }).join('')}</div></div>`;
   return `<div class="boss">
     <div class="bossart"><canvas id="bossCv" width="32" height="32"></canvas><div class="ptitle" style="font-size:16px;color:var(--bad);text-shadow:none">${BOSS.name}</div><div class="sub">${BOSS.title}</div>
       <div class="hpbar"><i style="width:${Math.max(0, Bs.hp / Bs.max * 100)}%"></i></div><div class="hptxt">HP ${Bs.hp} / ${Bs.max}</div></div>
