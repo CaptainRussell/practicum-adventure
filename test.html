@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Practicum Adventure · Test Phones</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  /* Test bench: several fake cadet phones side by side, each with its own identity (?cid=) */
+  body{margin:0;background:#0b0b1e;color:#f1f1ff;font-family:"VT323",monospace;font-size:20px}
+  header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:10px 16px;background:#07071a;border-bottom:3px solid #3a3a8a}
+  h1{font-family:"Press Start 2P",monospace;font-size:13px;color:#ffd23f;margin:0 12px 0 0}
+  label{display:flex;gap:6px;align-items:center}
+  input,select,button{font:inherit;background:#1b1b4a;color:#f1f1ff;border:2px solid #3a3a8a;padding:2px 8px}
+  input{width:90px;text-transform:uppercase}
+  button{cursor:pointer;border-color:#3fd8ff}
+  .note{color:#8f8fc8;font-size:18px}
+  .grid{display:flex;flex-wrap:wrap;gap:12px;padding:12px 16px}
+  .ph{display:flex;flex-direction:column;gap:4px}
+  .ph b{font-family:"Press Start 2P",monospace;font-size:10px;color:#3fd8ff}
+  iframe{width:375px;height:720px;border:3px solid #3a3a8a;background:#0b0b1e}
+</style>
+</head>
+<body>
+<header>
+  <h1>📱 TEST PHONES</h1>
+  <label>Room <input id="room" maxlength="4"></label>
+  <label>Cadets <select id="n"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option></select></label>
+  <button id="go">Open phones</button>
+  <span class="note">Start the GM console first (same browser). Each phone is a separate cadet.</span>
+</header>
+<div class="grid" id="grid"></div>
+<script>
+  const NAMES = ['Snuffy', 'Helle', 'Tester', 'Rivera', 'Okafor', 'Nguyen'];
+  const $ = s => document.querySelector(s);
+  // the GM console keeps its room code in localStorage (same site), so it's usually filled in for you
+  try { $('#room').value = localStorage.getItem('sq_room') || ''; } catch (e) { }
+  $('#go').onclick = () => {
+    const room = $('#room').value.trim().toUpperCase(), n = +$('#n').value;
+    if (room.length !== 4) return alert('Enter the 4-letter room code from the GM console.');
+    $('#grid').innerHTML = NAMES.slice(0, n).map((name, i) =>
+      `<div class="ph"><b>CADET ${i + 1} · ${name.toUpperCase()}</b><iframe src="join.html?room=${room}&name=${encodeURIComponent(name)}&cid=${i + 1}&auto=1"></iframe></div>`).join('');
+  };
+</script>
+</body>
+</html>

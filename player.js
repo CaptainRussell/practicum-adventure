@@ -309,7 +309,7 @@ function renderResultCard(S) {
   if (!resultReady(S)) return '';
   const r = resultSummary(S), lootOf = id => LOOT.find(x => x.id === id);
   const rows = [
-    ...r.meters.map(([k, d]) => `<div class="rrow ${d > 0 ? 'up' : 'dn'}">${METER[k].icon} ${METER[k].label.toUpperCase()} <b>${sign(d)}</b> <small>now ${S.meters[k]}</small></div>`),
+    ...r.meters.map(([k, d]) => `<div class="rrow ${d > 0 ? 'up' : 'dn'}">${METER[k].icon} ${METER[k].label.toUpperCase()} <b>${sign(d)}</b> <small>${deocsOn(S) ? `now ${S.meters[k]}` : meterBand(S.meters[k]).word}</small></div>`),
     ...r.loy.map(([who, d]) => `<div class="rrow ${d > 0 ? 'up' : 'dn'}">🤝 ${esc(who)} LOYALTY <b>${sign(d)}</b></div>`),
     ...r.gained.map(id => `<div class="rrow up">🎁 GAINED ${lootOf(id).icon} ${esc(lootOf(id).name)}</div>`),
     ...r.lost.map(id => `<div class="rrow">🎒 USED ${lootOf(id).icon} ${esc(lootOf(id).name)}</div>`),
@@ -326,12 +326,19 @@ function renderPowerups(S) {
   return `<div class="powerups"><span class="pu-h">⚡ USABLE NOW</span>${list.map(u => `<span class="pu ${u.hot ? 'hot' : ''}">${u.icon} <b>${esc(u.label)}</b>${u.who != null ? ` <i>(${esc(rankName(S.party[u.who]))})</i>` : ''}<span class="hint"> · ${mt(esc(u.hint))}</span></span>`).join('')}</div>`;
 }
 
+// One HUD meter. Hidden by default: a STRONG / STEADY / DANGER band (danger flashes red).
+// A DEOCS Survey shows the exact number and the 10-pip bar.
+function meterHtml(S, m) {
+  const v = S.meters[m.k], b = meterBand(v);
+  if (deocsOn(S)) return `<div class="meter ${b.cls === 'danger' ? 'low' : ''}" style="--c:${m.color}"><div class="lbl"><span>${m.icon} ${m.name}</span><span>${v}</span></div><div class="bar">${Array.from({ length: 10 }, (_, i) => `<i class="${i < v ? 'on' : ''}"></i>`).join('')}</div></div>`;
+  return `<div class="meter fog ${b.cls} ${b.cls === 'danger' ? 'low' : ''}" style="--c:${m.color}"><div class="lbl"><span>${m.icon} ${m.name}</span></div><div class="band">${b.cls === 'danger' ? '⚠️ ' : ''}${b.word}</div></div>`;
+}
 function renderHud(S) {
   const u = S.unit ? UNITS.find(x => x.id === S.unit) : null;
   const items = (S.items || []).map(id => LOOT.find(l => l.id === id)).map(l => `<span title="${esc(l.name)}">${l.icon}</span>`).join('');
   return `<div class="hud">
     <div class="unit">${u ? `${u.icon} ${u.name}<small>${u.sq}</small>` : 'PRACTICUM ADVENTURE'}</div>
-    <div class="meters">${METERS.map(m => { const v = S.meters[m.k]; return `<div class="meter ${v <= 2 ? 'low' : ''}" style="--c:${m.color}"><div class="lbl"><span>${m.icon} ${m.name}</span><span>${v}</span></div><div class="bar">${Array.from({ length: 10 }, (_, i) => `<i class="${i < v ? 'on' : ''}"></i>`).join('')}</div></div>`; }).join('')}</div>
+    <div class="meters">${METERS.map(m => meterHtml(S, m)).join('')}${deocsOn(S) && !['results', 'debrief'].includes(S.phase) ? `<div class="deocs-tag">📋 DEOCS${deocsLeft(S) ? ` · ${deocsLeft(S)} more` : ' · last stop'}</div>` : ''}</div>
     <div class="right">
       ${patchOf(S) ? `<div class="tok patch" style="--c:${UNITS.find(x => x.id === S.unit).color}"><b>${patchOf(S).icon}</b>${esc(patchOf(S).name.toUpperCase())}</div>` : ''}
       ${S.intent ? `<div class="tok"><b>🎖️ ${METER[S.intent].icon}</b>INTENT</div>` : ''}
@@ -402,8 +409,14 @@ function renderIntro(S) {
     <div class="steps">${INTRO_STEPS.map(([ic, h, t], i) => `<div class="step"><div class="sn">${i + 1}</div><div class="si">${ic}</div><div><b>${esc(h)}</b><div>${esc(t)}</div></div></div>`).join('')}</div>
     <div class="banner gold" style="font-size:12px;line-height:1.7">${esc(INTRO_WIN)}</div>
     <div class="banner" style="font-size:12px">${esc(INTRO_LOSE)}</div></div>`;
-  return `<div class="intro"><div class="ptitle" style="text-align:center">READING THE SCREEN</div>
-    <div class="legend">${LEGEND.map(([ic, h, t]) => `<div class="lg"><div class="li">${ic}</div><div><b>${esc(h)}</b><div>${esc(t)}</div></div></div>`).join('')}</div></div>`;
+  // Two jobs, nothing else: keep the 4 meters high, and never break integrity. (Full legend: the Field Guide.)
+  return `<div class="intro readscr"><div class="ptitle" style="text-align:center">READING THE SCREEN</div>
+    <div class="rs-h">JOB 1 · KEEP ALL 4 METERS HIGH</div>
+    <div class="rs-meters">${METERS.map(m => `<div class="rs-m" style="--c:${m.color}"><div class="rs-i">${m.icon}</div><b>${m.name}</b><div>${esc(INTRO_METERS[m.k])}</div></div>`).join('')}</div>
+    <div class="rs-bands"><span class="meter fog strong"><span class="band">STRONG</span></span><span class="meter fog steady"><span class="band">STEADY</span></span><span class="meter fog danger low"><span class="band">⚠️ DANGER</span></span></div>
+    <div class="rs-t">${mt(esc(INTRO_FOG))}</div>
+    <div class="rs-h bad">JOB 2 · NO INTEGRITY VIOLATIONS</div>
+    <div class="banner rs-int">⚖️ ${esc(INTRO_INTEGRITY)}</div></div>`;
 }
 
 function renderParty(S) {
@@ -454,18 +467,22 @@ function renderManifest(S) {
       <div class="orgline"></div>
       <div class="orgrow">${S.npcs.slice().sort((a, b) => rankIdx(a.rank) - rankIdx(b.rank)).map(n => { const t = TRAIT[n.trait]; return `<div class="orgcard"><img src="${avatar(n.name + n.rank)}"><div class="nm">${esc(n.rank)} ${esc(n.name)}</div><div class="rk">${esc(n.pub)}</div><div class="rk" style="color:var(--good)">${t.icon} ${esc(t.name)}</div><div class="rk">🎁 ${mt(esc(t.reward))}</div></div>`; }).join('')}</div>
     </div>
-    <div class="patchrow"><span class="sectlbl">🎖️ TEAM PATCH = TEAM NAME<br>PICK ON YOUR PHONE</span>${(PATCHES[S.unit] || []).map(p => { const taken = (P.usedPatches || []).includes(`${S.unit}:${p.id}`); return `<span class="pch ${S.patch === p.id ? 'on' : ''} ${taken ? 'taken' : ''}" style="--c:${u.color}"><b>${p.icon}</b>${esc(p.name)}${taken ? '<br>TAKEN' : ''}</span>`; }).join('')}</div></div>`;
+    <div class="patchrow"><span class="sectlbl">🎖️ TEAM PATCH = TEAM NAME<br>${S.patch ? 'LOCKED IN ✅' : 'VOTE ON YOUR PHONE ✋'}</span>${(PATCHES[S.unit] || []).map(p => { const taken = (P.usedPatches || []).includes(`${S.unit}:${p.id}`); return `<span class="pch ${S.patch === p.id ? 'on' : S.patch ? 'off' : ''} ${taken ? 'taken' : ''}" style="--c:${u.color}"><b>${p.icon}</b>${esc(p.name)}${taken ? '<br>TAKEN' : ''}${S.patch ? '' : voteDots(S, p.id)}</span>`; }).join('')}</div>${renderTie(S)}</div>`;
 }
 
 // Two lanes: at every stop the party picks the top or bottom option (votes show as avatars).
 function renderMap(S) {
   const n = S.map.tiers.length, W = 1000, H = 520, startX = 48, bossX = 946, gap = 165;
-  const step = (bossX - startX) / (n + 1);
+  // column x positions: a stop-to-stop gap is 1 unit; a gap with an inject checkpoint gets +INJ_W so the 🎡 lane has room
+  const INJ_W = 0.5, colX = [startX]; // colX[k + 1] = x of column k (k = -1 start ... n boss)
+  const units = [1]; for (let k = 0; k < n; k++) units.push(1 + (injectAfter(k) ? INJ_W : 0));
+  const unit = (bossX - startX) / units.reduce((a, b) => a + b, 0);
+  units.forEach(u => colX.push(colX[colX.length - 1] + u * unit));
   const pt = (k, i) => {
     if (k === -1) return [startX, H / 2];
     if (k === n) return [bossX, H / 2];
     const m = S.map.tiers[k].length;
-    return [startX + step * (k + 1), H / 2 + (i - (m - 1) / 2) * gap];
+    return [colX[k + 1], H / 2 + (i - (m - 1) / 2) * gap];
   };
   const av = available();
   const isOpen = (t, i) => av.some(([a, b]) => a === t && b === i);
@@ -478,6 +495,28 @@ function renderMap(S) {
   }));
   S.map.tiers[n - 1].forEach((_, i) => { lines += line(pt(n - 1, i), pt(n), visited(n - 1, i), false); });
   for (let k = 0; k < n; k++) nodes += `<text x="${pt(k, 0)[0]}" y="16" font-size="11" fill="#8f8fc8" text-anchor="middle" font-family="'Press Start 2P'">STOP ${k + 1}</text>`;
+  // 🎡 inject checkpoints: a shaded lane between two stops, with a 🎡 waypoint on every path that crosses it
+  for (let k = 0; k < n; k++) {
+    if (!injectAfter(k)) continue;
+    const gx = (pt(k, 0)[0] + pt(k + 1, 0)[0]) / 2, st = injectMark(S, k), past = st === 'past';
+    const col = past ? '#8f8fc8' : '#ff9f43';
+    lines += `<line x1="${gx}" y1="30" x2="${gx}" y2="${H - 18}" stroke="${col}" stroke-width="2" stroke-dasharray="3 9" opacity="${past ? 0.2 : 0.45}"/>`;
+    nodes += `<text x="${gx}" y="19" font-size="16" text-anchor="middle" opacity="${past ? 0.45 : 1}">${past ? '✅' : '🎡'}</text>`;
+    // every path segment that crosses this lane: [from point, to point, traveled?]
+    const segs = k < n - 1
+      ? S.map.tiers[k].flatMap((_, i) => (S.map.links[k][i] || []).map(j => [pt(k, i), pt(k + 1, j), visited(k, i) && visited(k + 1, j)]))
+      : S.map.tiers[k].map((_, i) => [pt(k, i), pt(n), visited(k, i)]);
+    const dots = [];
+    segs.forEach(([a, b, lit]) => {
+      const y = a[1] + (b[1] - a[1]) * (gx - a[0]) / (b[0] - a[0]);
+      const d = dots.find(o => Math.abs(o.y - y) < 22); // paths that cross at the same spot share one waypoint
+      if (d) d.lit = d.lit || lit; else dots.push({ y, lit });
+    });
+    dots.forEach(({ y, lit }) => {
+      nodes += `<g opacity="${lit ? 1 : past ? 0.3 : 0.8}"><circle cx="${gx}" cy="${y}" r="15" fill="#1e1206" stroke="${lit ? '#ffd23f' : col}" stroke-width="${lit ? 4 : 3}">${st === 'live' && lit ? '<animate attributeName="stroke-opacity" values="1;0.2;1" dur="1s" repeatCount="indefinite"/>' : ''}</circle>
+        <text x="${gx}" y="${y + 6}" font-size="16" text-anchor="middle">🎡</text></g>`;
+    });
+  }
   const lv = S.map.levelAfter || 3;
   if (lv < n) {
     const x = (pt(lv - 1, 0)[0] + pt(lv, 0)[0]) / 2;
@@ -487,7 +526,7 @@ function renderMap(S) {
     const [x, y] = pt(k, i), nt = NODE_TYPES[nd.type];
     const open = isOpen(k, i), here = S.pos.tier === k && S.pos.idx === i;
     // short labels so neighbouring stops never collide
-    const label = nd.type === 'spot' ? 'SPOTLIGHT' : { crisis: 'SCENARIO', elite: 'ELITE', rest: 'REST', depot: 'DEPOT', unknown: '???' }[nd.type];
+    const label = nd.type === 'spot' ? 'SPOTLIGHT' : { crisis: 'SCENARIO', elite: 'ELITE', rest: 'REST', depot: 'BX', unknown: '???' }[nd.type];
     const top = i < (tier.length - 1) / 2; // labels above the top node(s), below the rest
     const vs = votersFor(`${k},${i}`).map(s => S.party[s]).filter(Boolean);
     nodes += `<g opacity="${!open && !nd.visited && av.length ? 0.4 : 1}">
@@ -504,22 +543,24 @@ function renderMap(S) {
       ${nodes}
       <g><rect x="${bossX - 48}" y="${H / 2 - 48}" width="96" height="96" fill="#3a0010" stroke="#ff2e63" stroke-width="7"/><text x="${bossX}" y="${H / 2 + 18}" font-size="52" text-anchor="middle">👹</text><text x="${bossX}" y="${H / 2 + 72}" font-size="10" fill="#ff2e63" text-anchor="middle" font-family="'Press Start 2P'">THE IG</text></g>
     </svg></div>
-    <div class="sub">Paths branch and merge: you can only move along the lines, so choose carefully. ⚔️ Scenario · 💀 Elite (harder, double rewards, loot) · 🏕️ Rest · 🛒 Supply Depot · 🔦 Spotlight (a wheel picks who) · ❓ Unknown (rolled on arrival) · ⬆️ Level up</div>
+    <div class="sub">Paths branch and merge: you can only move along the lines, so choose carefully. ⚔️ Scenario · 💀 Elite (harder, double rewards, loot) · 🏕️ Rest · 🛒 Base Exchange (BX) · 🔦 Spotlight (a wheel picks who) · ❓ Unknown (rolled on arrival) · 🎡 Inject (every path passes one: spin a wheel there) · ⬆️ Level up</div>
     ${renderPowerups(S)}</div>`;
 }
 
 // Rest stop / supply depot: the options, with each cadet's vote shown as their avatar
 function renderStop(S, c) {
   const rest = c.type === 'rest';
-  const head = `<div style="text-align:center"><span style="font-size:90px">${rest ? '🏕️' : '🛒'}</span><div class="ptitle">${rest ? 'REST STOP' : 'SUPPLY DEPOT'}</div>
-    <div class="sub">${c.step === 'choose' ? `${rest ? 'Pick ONE' : 'One trade'}: vote on your phone!` : ''}</div></div>`;
-  if (c.step === 'train') return `<div class="titlescr">${head}<div class="ptitle" style="font-size:22px">📚 TRAINING SLOT: WHO TRAINS WHICH STAT?</div></div>`;
+  // the BX has more options, so it gets a compact one-line header
+  const head = rest || c.step !== 'choose' ? `<div style="text-align:center"><span style="font-size:90px">${rest ? '🏕️' : '🛒'}</span><div class="ptitle">${rest ? 'REST STOP' : 'BASE EXCHANGE (BX)'}</div>
+    <div class="sub">${c.step === 'choose' ? 'Pick ONE: vote on your phone!' : ''}</div></div>`
+    : `<div style="text-align:center"><div class="ptitle"><span style="font-size:44px;vertical-align:middle">🛒</span> BASE EXCHANGE (BX)</div><div class="sub">One purchase: vote on your phone!</div></div>`;
+  if (c.step === 'train') return `<div class="titlescr">${head}<div class="ptitle" style="font-size:22px">📚 STUDY GUIDES: WHO STUDIES WHICH STAT?</div></div>`;
   if (c.step !== 'choose' && c.step !== 'who') return `<div class="titlescr">${head}<div class="ptitle" style="color:var(--good);font-size:24px">${esc(c.result || '')}</div>${renderPowerups(S)}</div>`;
   const opts = stopOptions();
   if (c.step === 'who') return `<div style="display:flex;flex-direction:column;gap:14px;height:100%;justify-content:center">${head}<div class="ptitle" style="text-align:center;font-size:22px">WHO PAYS? ${c.trade === 'favor' ? '(−2 loyalty, free loot spin)' : '(−1 loyalty, +3 🎯)'}</div>
     <div class="optgrid">${opts.map(o => `<div class="choice ${o.dis ? 'dim' : ''}" style="grid-template-columns:1fr;position:relative"><div class="ct">${mt(esc(o.label))}</div>${voteDots(S, o.key)}</div>`).join('')}</div></div>`;
   return `<div style="display:flex;flex-direction:column;gap:14px;height:100%;justify-content:center">${head}
-    <div class="optgrid">${opts.map(o => `<div class="choice ${o.dis ? 'dim' : ''}" style="grid-template-columns:1fr;position:relative"><div class="ct">${mt(esc(o.label))}</div>${voteDots(S, o.key)}</div>`).join('')}</div>${renderPowerups(S)}</div>`;
+    <div class="optgrid ${rest ? '' : 'bx'}">${opts.map(o => `<div class="choice ${o.dis ? 'dim' : ''}" style="grid-template-columns:1fr;position:relative"><div class="ct">${mt(esc(o.label))}</div>${voteDots(S, o.key)}</div>`).join('')}</div>${renderPowerups(S)}</div>`;
 }
 
 function renderNode(S) {
@@ -532,7 +573,7 @@ function renderNode(S) {
       const ch = c.spec.check, p = rollPreview(), b = c.boost || {}, r = c.roller ?? S.tokenHolder;
       const boosts = BOOST_METERS.filter(k => b[k]).map(k => `${meterTag(k)} −${b[k]}`).join(' ');
       return `<div class="banner gold">🎲 ROLL FOR IT! ${ch.stat === 'LOYB' ? `${npcLabel(S, 'B')}'s loyalty` : ch.stat || 'Pure luck'} · TARGET ${p.dc} · ROLLER: ${esc(rankName(S.party[r]) || '?').toUpperCase()}</div>
-        <div class="boostline"><b>${esc(rollOdds(p, c.safe))}</b>${boosts ? ` · 💪 ${boosts}` : ''}${c.safe ? ' · 🛡️ SAFE' : ''} · 📱 boost (+2 per 📦 ❤️ ⭐ spent) or play it safe on your phones</div>`; })()
+        <div class="boostline"><b>${esc(rollOdds(p, c.safe))}</b>${boosts ? ` · 💪 ${boosts}` : ''} · 📱 boost on your phones (+2 per 📦 ❤️ ⭐ spent)</div>`; })()
     : c.step === 'stars' ? `<div class="banner gold">🎤 DIALOGUE ENCOUNTER: ${c.lead != null ? `${esc(rankName(S.party[c.lead]).toUpperCase())} DOES THE TALKING!` : 'SPIN TO SEE WHO TALKS...'} The GM plays the other side.</div>` : '';
   let result = '';
   if (c.step === 'done') {

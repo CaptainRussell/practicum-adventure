@@ -83,12 +83,12 @@ function onTap(e) {
     }
     case 'rejoin': PH.ended = false; return phConnect();
     case 'tab': PH.tab = arg; return phRender();
-    case 'cls': case 'perk': case 'up': case 'look': case 'patch': return phSend({ t: a, v: arg });
+    case 'cls': case 'perk': case 'up': case 'look': return phSend({ t: a, v: arg });
     case 'av': return phSend({ t: 'av', v: +arg });
     case 'vote': return phSend({ t: 'vote', v: /^\d+$/.test(arg) ? +arg : arg });
     case 'roll': b.disabled = true; return phSend({ t: 'roll' });
     case 'act': b.disabled = true; return phSend({ t: 'act', v: arg });
-    case 'boost': case 'unboost': case 'safe': return phSend({ t: a, v: arg });
+    case 'boost': case 'unboost': return phSend({ t: a, v: arg });
     case 'roller': return phSend({ t: 'roller', v: +arg });
     case 'bact': { // boss action: "press:CMD" · "defend:mor" · "support:2" · "ally:A" · "clear"
       if (arg === 'clear') return phSend({ t: 'bact', v: null });
@@ -158,7 +158,11 @@ function phHeader(v, me) {
       <div class="ph-cl">${me ? (cls ? `${cls.icon} ${cls.name}` : 'No class yet') : 'Spectator'}${v.team ? ` · ${v.patch ? v.patch.icon + ' ' : ''}${esc(v.team.toUpperCase())}` : ''}</div>
 </div>
       <span class="ph-dot" title="connected">●</span></div>
-    ${v.unit ? `<div class="ph-meters">${METERS.map(m => { const x = v.meters[m.k]; const intent = v.ccInfo && v.ccInfo.intent === m.k; return `<div style="--c:${m.color}"><div class="ph-ml">${m.icon} ${x}${intent ? ' 🎖️' : ''}</div><div class="ph-mn" style="color:${m.color}">${m.name}</div><div class="ph-bar"><i style="width:${x * 10}%"></i></div></div>`; }).join('')}</div>` : ''}`;
+    ${v.unit ? `<div class="ph-meters">${METERS.map(m => { const x = v.meters[m.k], b = meterBand(x); const intent = v.ccInfo && v.ccInfo.intent === m.k;
+      // hidden meters: a band (danger flashes) unless a DEOCS Survey is running
+      if (!v.deocs) return `<div style="--c:${m.color}"><div class="ph-ml">${m.icon}${intent ? ' 🎖️' : ''}</div><div class="ph-mn" style="color:${m.color}">${m.name}</div><div class="ph-band ${b.cls}">${b.word}</div></div>`;
+      return `<div style="--c:${m.color}"><div class="ph-ml">${m.icon} ${x}${intent ? ' 🎖️' : ''}</div><div class="ph-mn" style="color:${m.color}">${m.name}</div><div class="ph-bar"><i style="width:${x * 10}%"></i></div></div>`; }).join('')}</div>
+      ${v.deocs && !['results', 'debrief'].includes(v.phase) ? `<div class="ph-note" style="text-align:center">📋 DEOCS Survey: exact numbers${v.deocsLeft ? ` for ${v.deocsLeft} more stop${v.deocsLeft === 1 ? '' : 's'}` : ' (last stop)'}</div>` : ''}` : ''}`;
 }
 
 // The big "your turn" button for whatever random event this cadet owns right now
@@ -210,8 +214,15 @@ function phGame(v, me) {
         const voters = Object.keys(votes).filter(s2 => String(votes[s2]) === u.id).map(s2 => v.party[+s2] && rankName(v.party[+s2])).filter(Boolean);
         return pbtn('vote', u.id, `${u.icon} <b>${esc(u.sq)}</b>${voters.length ? `<div class="ph-voters">✋ ${voterHtml(v, voters)}</div>` : ''}`, { cls: cls3(String(votes[v.you]) === u.id, !voted(v)) });
       }).join(''); }
-    case 'manifest': return `<div class="ph-h">🎖️ PICK YOUR TEAM PATCH</div><div class="ph-note">The patch is your team's name on the leaderboard. Agree out loud; anyone can pick (last tap wins).</div><div class="ph-row">${(v.patches || []).map(p => pbtn('patch', p.id, `<span style="font-size:34px">${p.icon}</span><br><small>${esc(p.name)}${p.taken ? '<br>TAKEN' : ''}</small>`, { cls: cls3(v.patch && v.patch.id === p.id, !v.patch && !p.taken), dis: p.taken })).join('')}</div>
-      <div class="ph-card ph-center">🏢 Your org chart is on the projector, and in the <b>ORG</b> tab below any time.</div>` + phOrg(v);
+    case 'manifest': { // team patch: a team vote, like the squadron (the GM locks in the winner)
+      const votes = v.votes || {};
+      const pick = v.patch ? `<div class="ph-card ph-center">🎖️ TEAM PATCH LOCKED IN<br><span style="font-size:40px">${v.patch.icon}</span><br><b>${esc(v.patch.name)}</b></div>`
+        : `<div class="ph-h">✋ VOTE ON YOUR TEAM PATCH</div><div class="ph-note">The patch is your team's name on the leaderboard. Vote as a team; the Flight Commander breaks ties.</div>${tieLine(v)}<div class="ph-row">${(v.patches || []).map(p => {
+          const voters = Object.keys(votes).filter(s2 => String(votes[s2]) === p.id).map(s2 => v.party[+s2] && rankName(v.party[+s2])).filter(Boolean);
+          return pbtn('vote', p.id, `<span style="font-size:34px">${p.icon}</span><br><small>${esc(p.name)}${p.taken ? '<br>TAKEN' : ''}</small>${voters.length ? `<div class="ph-voters">✋ ${voterHtml(v, voters)}</div>` : ''}`, { cls: cls3(String(votes[v.you]) === p.id, !voted(v) && !p.taken), dis: p.taken });
+        }).join('')}</div>`;
+      return pick + `
+      <div class="ph-card ph-center">🏢 Your org chart is on the projector, and in the <b>ORG</b> tab below any time.</div>` + phOrg(v); }
     case 'map': {
       const votes = v.votes || {}, away = v.offlineNext === v.you;
       return `<div class="ph-h">WHERE TO NEXT?</div>${away ? '<div class="ph-warn">📵 You\'re stuck in a meeting: no vote on the route, and you\'re offline next stop.</div>' : ''}${v.branch ? '<div class="ph-note">🌿 Branch Plan: any stop in the next column.</div>' : ''}${tieLine(v)}` + (v.avail || []).map(key => {
@@ -277,7 +288,8 @@ function phRoute(v) {
   if (!v.map) return '';
   // the stops the team actually took, then what's left
   return `<div class="ph-route">${v.map.map((tier, t) => { const k = tier.findIndex(n => n.visited); const n = tier[k >= 0 ? k : 0];
-    return `<span class="${k >= 0 ? (n.done ? 'done' : 'here') : ''}">${k >= 0 ? NODE_TYPES[n.type].icon : '❔'}<small>${t + 1}</small></span>`; }).join('<b>›</b>')}<b>›</b><span>👹<small>IG</small></span></div>`;
+    // 🎡 after the stops where an inject hits
+    return `<span class="${k >= 0 ? (n.done ? 'done' : 'here') : ''}">${k >= 0 ? NODE_TYPES[n.type].icon : '❔'}<small>${t + 1}</small></span>${injectAfter(t) ? '<b>›</b><span class="inj">🎡<small>INJ</small></span>' : ''}`; }).join('<b>›</b>')}<b>›</b><span>👹<small>IG</small></span></div>`;
 }
 
 // ORG tab: the commander and the Unit
@@ -295,7 +307,7 @@ function phOrg(v) {
 function phNode(v, me) {
   const c = v.cur; if (!c) return '';
   if (c.type === 'rest' || c.type === 'depot') {
-    const head = `<div class="ph-h">${c.type === 'rest' ? '🏕️ REST STOP: PICK ONE' : c.step === 'who' ? '🛒 WHO PAYS? (team decides)' : '🛒 SUPPLY DEPOT: ONE TRADE'}</div>`;
+    const head = `<div class="ph-h">${c.type === 'rest' ? '🏕️ REST STOP: PICK ONE' : c.step === 'who' ? '🛒 WHO PAYS? (team decides)' : '🛒 BASE EXCHANGE (BX): ONE PURCHASE'}</div>`;
     if (c.step === 'train') return head + `<div class="ph-card ph-center">📚 Training slot: tell the GM who trains which stat.</div>`;
     if ((c.step !== 'choose' && c.step !== 'who') || !v.options) return head + (phResult(v) || `<div class="ph-card ph-center">✅ ${esc(c.result || '')}</div>`);
     const votes = v.votes || {};
@@ -328,11 +340,11 @@ function phNode(v, me) {
       if (!offline) {
         const n = Object.values(c.boost || {}).reduce((a, b) => a + b, 0);
         h += `<div class="ph-note">💪 Boost: spend 1 for +2 (max ${DIFFICULTY.boostMax}, ${n} used)</div><div class="ph-row">${['res', 'mor', 'tru'].map(k => pbtn('boost', k, `${METER[k].icon} <b>+2</b>${c.boost[k] ? ` ×${c.boost[k]}` : ''}`, { cls: c.boost[k] ? 'sel' : '', dis: !c.canBoost[k] })).join('')}</div>
-          <div class="ph-row">${n ? pbtn('unboost', null, '↩️ Clear') : ''}${pbtn('safe', null, `🛡️ Safe: counts as ${DIFFICULTY.safeRoll}${c.safe ? ' ✅' : ''}`, { cls: c.safe ? 'sel' : '' })}</div>`;
+          ${n ? `<div class="ph-row">${pbtn('unboost', null, '↩️ Clear')}</div>` : ''}`;
       }
     }
     h += rollerMine && !offline
-      ? pbtn('roll', null, c.safe ? `🛡️ LOCK IN THE SAFE ${DIFFICULTY.safeRoll}` : '🎲 ROLL THE d20!', { cls: 'ph-big ph-roll need', dis: v.spinning })
+      ? pbtn('roll', null, '🎲 ROLL THE d20!', { cls: 'ph-big ph-roll need', dis: v.spinning })
       : `<div class="ph-card ph-center">⏳ Waiting for ${esc(who)} to roll...</div>`;
     return top + h;
   }
@@ -402,7 +414,7 @@ function phBoss(v, me) {
     h += my ? `<div class="ph-card ph-center">✅ Locked: <b>${esc(b.myText)}</b><br><small>Tap another action to switch, until the GM resolves the round.</small></div>`
       : `<div class="ph-note">Pick ONE action (secret until the GM resolves the round).</div>`;
     h += `<div class="ph-h">🗡️ PRESS <small class="ph-legend">hit = 2 dmg · vs ${b.dc}</small></div><div class="ph-row ph-row4">${STATS.map(s => pbtn('bact', `press:${s}`, `${s} <b>+${statVal(v, v.you, s)}</b><br><small>${(21 - Math.min(20, Math.max(2, b.dc - statVal(v, v.you, s) + (b.adverse ? 1 : 0)))) * 5}% hit</small>`, { cls: cls3(sel('press', s), !my), dis: b.takenStats.includes(s) })).join('')}</div>`;
-    h += `<div class="ph-h">🛡️ DEFEND <small class="ph-legend">spend 1, cut the attack by 2</small></div><div class="ph-row">${METERS.filter(m => m.k !== b.atk.k).map(m => pbtn('bact', `defend:${m.k}`, `${m.icon} −1<br><small>${m.label} ${v.meters[m.k]}${v.meters[m.k] < 2 ? ' (too low)' : ''}</small>`, { cls: cls3(sel('defend', m.k), !my && v.meters[m.k] >= 2), dis: v.meters[m.k] < 2 })).join('')}</div>`;
+    h += `<div class="ph-h">🛡️ DEFEND <small class="ph-legend">spend 1, cut the attack by 2</small></div><div class="ph-row">${METERS.filter(m => m.k !== b.atk.k).map(m => pbtn('bact', `defend:${m.k}`, `${m.icon} −1<br><small>${m.label} ${v.deocs ? v.meters[m.k] : meterBand(v.meters[m.k]).word}${v.meters[m.k] < 2 ? ' (too low)' : ''}</small>`, { cls: cls3(sel('defend', m.k), !my && v.meters[m.k] >= 2), dis: v.meters[m.k] < 2 })).join('')}</div>`;
     h += `<div class="ph-h">🤝 SUPPORT <small class="ph-legend">+3 to a teammate's Press</small></div><div class="ph-row">${v.party.map((p, k) => k === v.you ? '' : pbtn('bact', `support:${k}`, esc(rankName(p)), { cls: cls3(sel('support', k), !my) })).join('')}</div>`;
     if (b.allies.length) h += `<div class="ph-h">🦸 CALL AN ALLY <small class="ph-legend">absorbs the whole attack, once each</small></div><div class="ph-row">${b.allies.map(a => pbtn('bact', `ally:${a.slot}`, esc(a.name), { cls: cls3(sel('ally', a.slot), !my), dis: b.allyTaken })).join('')}</div>`;
     if (my) h += pbtn('bact', 'clear', '↩️ Clear my action');
@@ -433,6 +445,6 @@ function phKit(v, me) {
   if (up) h += row(null, '⬆️', up.name, up.text, 'upgrade');
   h += `<div class="ph-h">🧺 TEAM ITEMS (${(v.itemInfo || []).length}/3)</div>`;
   h += (v.itemInfo || []).length ? v.itemInfo.map(l => row('item:' + l.id, l.icon, l.name, l.text, '')).join('')
-    : `<div class="ph-note">None yet (the bag holds 3). Loot drops from crises, crits and the Supply Depot.</div>`;
+    : `<div class="ph-note">None yet (the bag holds 3). Loot drops from crises, crits and the BX.</div>`;
   return h;
 }

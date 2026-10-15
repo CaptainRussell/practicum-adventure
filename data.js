@@ -10,10 +10,10 @@
    Turn these down if parties are getting crushed, up if it's too easy. */
 const DIFFICULTY = {
   dcPlus: 3,       // added to every check target: Normal 13 → 16, Hard 16 → 19
-  injectOdds: { bad: 3, mixed: 2, good: 1 }, // an inject hits after EVERY stop; a d6 picks the wheel:
+  injectEvery: 2,  // an inject hits after every 2nd stop (1 = after every stop)
+  injectOdds: { bad: 3, mixed: 2, good: 1 }, // when an inject hits, a d6 picks the wheel:
                   //   1-3 Wheel of Failure, 4-5 Wheel of Meh, 6 Wheel of Success
   drainEvery: 2,   // the squadron's tendency (weak spot) hits after every 2nd stop
-  safeRoll: 8,     // "play it safe" skips the d20 and counts it as this number
   boostMax: 2,     // meter points the team can spend on one roll (+2 each)
   bossHp: 26,      // Inspector General hit points
   bossAttack: 4,   // the IG hits your weakest meter this hard after each phase
@@ -27,6 +27,8 @@ const DIFFICULTY = {
   restMain: 2,     // Rest Stop: the meter the team picks goes up this much...
   restOthers: 1,   // ...and every other meter goes up this much
   startLoy: 2,     // every Unit member's starting loyalty (Ally at 5)
+  dangerAt: 3,     // a meter at or below this flashes DANGER on the projector and phones
+  deocsStops: 2,   // a DEOCS Survey shows the exact meter values for this many stops
 };
 const DC_NORMAL = 13 + DIFFICULTY.dcPlus, DC_HARD = 16 + DIFFICULTY.dcPlus;
 
@@ -70,7 +72,7 @@ const CLASSES = [
   { id: 'shirt', color: '#7dff6b', name: 'FIRST SERGEANT', icon: '💚', rank: 'MSgt', rankLong: 'Master Sergeant', guards: '❤️ + Unit loyalty', spec: ['mor'],
     stats: { CMD: 1, CHA: 3, INS: 2, GRIT: 1 },
     ability: { id: 'rally', name: 'Rally', text: 'Once: +2 ❤️ and +1 loyalty to every Unit member' },
-    perks: [ { id: 'opendoor', name: 'Open Door Policy', text: 'Once: +1 loyalty to every Unit member, OR +3 loyalty to one' },
+    perks: [ { id: 'deocs', name: 'DEOCS Survey', text: `Once: run the climate survey. The exact meter values show for the next ${DIFFICULTY.deocsStops} stops, and every Unit member +1 loyalty` },
              { id: 'resiliency', name: 'Resiliency Day', text: 'Once: ❤️ +3 and every Unit member +1 loyalty, but 🎯 −1' } ],
     ups:   [ { id: 'engine', name: 'Morale Engine', text: "❤️ never drops more than 1 in one hit" },
              { id: 'wingman', name: 'Wingman Program', text: 'Right now: +2 ❤️ and +2 loyalty to the lowest-loyalty Unit member', now: { mor: 2 } } ] },
@@ -85,7 +87,7 @@ const CLASSES = [
     stats: { CMD: 1, CHA: 1, INS: 2, GRIT: 3 },
     ability: { id: 'requisition', name: 'Requisition', text: 'Convert 📦 into any other meter, 1 for 1' },
     perks: [ { id: 'emergency', name: 'Emergency Fund', text: 'Once: +3 📦 right now' },
-             { id: 'yearend', name: 'Year-End Money', text: 'Once: double the gains of one Rest Stop, Supply Depot trade or Wheel of Success result' } ],
+             { id: 'yearend', name: 'Year-End Money', text: 'Once: double the gains of one Rest Stop, BX purchase or Wheel of Success result' } ],
     ups:   [ { id: 'efficiency', name: 'Efficiency Expert', text: 'All 📦 losses reduced by 1 (min 1)' },
              { id: 'drill', name: 'Budget Drill', text: 'Right now: +3 📦', now: { res: 3 } } ] },
   { id: 'plans', color: '#ff7ae0', name: 'PLANS OFFICER', icon: '🧠', rank: '2d Lt', rankLong: 'Second Lieutenant', guards: '🎯 + 📦', spec: ['mis', 'res'],
@@ -109,8 +111,8 @@ const CLASS = Object.fromEntries(CLASSES.map(c => [c.id, c]));
              idea {eff}       adopting a subordinate's idea gives eff
              afterPass {m,eff} / afterFail {m,eff} / stars1 {eff} / stars3 {eff} / rest {eff}  effects after those events
              restLess         every Rest Stop pick gives 1 less
-             depot2           the Supply Depot allows two trades per visit
-             depotTax {eff}   every Supply Depot trade also costs eff
+             depot2           the Base Exchange (BX) allows two purchases per visit
+             depotTax {eff}   every BX purchase also costs eff
              noArrows         choices show no ▲▼ arrows (Read the Room still shows exact effects)
    slots   the 4 Unit members (A best hand, B newest Airman, C senior NCO, D civilian): rank + description
    traitW  trait weights for this squadron (unlisted traits weigh 1) */
@@ -146,7 +148,7 @@ const UNITS = [
     start: { mis: 5, mor: 5, tru: 4, res: 3 }, ccRank: 'Lt Col',
     drain: { k: 'tru', name: 'LATE DELIVERIES', text: 'Every unit on base blames supply' },
     cc: { intent: 'tru',
-      pos: { name: 'Logistician', text: 'The Supply Depot allows TWO trades per visit.', hook: { depot2: true } },
+      pos: { name: 'Logistician', text: 'The BX allows TWO purchases per visit.', hook: { depot2: true } },
       neg: { name: 'Tight Wallet', text: 'Every 📦 gain is reduced by 1.', hook: { gain: { k: 'res', d: -1 } } } },
     slots: [ { rank: 'SSgt', pub: 'Vehicle ops dispatcher' }, { rank: 'A1C', pub: 'Newest in the warehouse' },
              { rank: 'TSgt', pub: 'Supply NCOIC, knows where everything is' }, { rank: 'Civ.', pub: 'Budget analyst' } ],
@@ -165,7 +167,7 @@ const UNITS = [
     drain: { k: 'res', name: 'SHORT-STAFFED', text: 'Never enough hands at the dining facility' },
     cc: { intent: 'mis',
       pos: { name: 'People Person', text: 'Every ❤️ gain is +1.', hook: { gain: { k: 'mor', d: 1 } } },
-      neg: { name: 'Budget Squeeze', text: 'Every Supply Depot trade costs 1 extra 📦.', hook: { depotTax: { res: -1 } } } },
+      neg: { name: 'Budget Squeeze', text: 'Every BX purchase costs 1 extra 📦.', hook: { depotTax: { res: -1 } } } },
     slots: [ { rank: 'SSgt', pub: 'Dining facility shift lead' }, { rank: 'A1C', pub: 'Fitness center desk, first assignment' },
              { rank: 'TSgt', pub: 'Lodging manager' }, { rank: 'Civ.', pub: 'Community programs director' } ],
     traitW: { family: 2, gossip: 3, mentor: 2 } },
@@ -264,9 +266,9 @@ const TRAITS = [
   { id: 'silent',   icon: '🤐', name: 'Silent Struggler',   what: "Won't ask for help",                       reward: 'First time they reach loyalty 4 (they finally open up): +2 🎯',                   bpText: 'Misses a critical task',                 bp: { mis: -2 } },
   { id: 'cynic',    icon: '🤨', name: 'Cynic with a Heart', what: 'Resists change, loyal if heard',           reward: 'Becomes an Ally at loyalty 4 instead of 5',           bpText: 'Spreads negativity',                     bp: { mor: -2 } },
   { id: 'gossip',   icon: '📢', name: 'The Gossip',         what: 'Everything said spreads',                  reward: 'While at loyalty 3+: every Wheel of Success also +1 ❤️. At 1 or less: every Wheel of Failure also −1 ❤️',            bpText: 'Rumor mill',                             bp: { mor: -1, tru: -1 } },
-  { id: 'overach',  icon: '🏃', name: 'Over-Achiever',      what: 'Volunteers for everything',                reward: 'First Rest Stop (rested, they deliver): +2 🎯. Volunteering them at the Depot costs 2 loyalty, not 1',          bpText: 'Collapses: out for 1 node',              bp: { mor: -2, out: 1 } },
+  { id: 'overach',  icon: '🏃', name: 'Over-Achiever',      what: 'Volunteers for everything',                reward: 'First Rest Stop (rested, they deliver): +2 🎯. Volunteering them at the BX costs 2 loyalty, not 1',          bpText: 'Collapses: out for 1 node',              bp: { mor: -2, out: 1 } },
   { id: 'mentor',   icon: '🎓', name: 'Mentor-in-Waiting',  what: 'Wants to train others',                    reward: 'Becomes an Ally: +1 🎯, +1 ❤️, and the newest Airman +2 loyalty',         bpText: 'Disengages',                             bp: { mor: -1 } },
-  { id: 'coaster',  icon: '😴', name: 'The Coaster',        what: 'Bored, doing the minimum',                 reward: 'Volunteer them for the Depot tasker: +1 loyalty instead of −1, and +2 🎯 more',             bpText: 'Drags others down',                      bp: { mis: -1 } },
+  { id: 'coaster',  icon: '😴', name: 'The Coaster',        what: 'Bored, doing the minimum',                 reward: 'Volunteer them for the BX Saturday detail: +1 loyalty instead of −1, and +2 🎯 more',             bpText: 'Drags others down',                      bp: { mis: -1 } },
   { id: 'witness',  icon: '🕵️', name: 'The Witness',        what: 'Knows about a problem in the unit',        reward: `At loyalty 4+ when the IG arrives, they tip you off: Press target ${DIFFICULTY.examDC - 3}`, bpText: `Reports it to the IG: boss HP ${DIFFICULTY.bossHp + 3}`, bp: { flag: 'WITNESS_IG' } },
 ];
 const TRAIT = Object.fromEntries(TRAITS.map(t => [t.id, t]));
@@ -807,7 +809,7 @@ const MURPHY = [
   { type: 'good',  name: 'CONTRACTOR FINISHES EARLY', eff: {}, text: 'The building renovation wrapped up two weeks ahead of schedule.',
     options: [ { t: 'Move in now', eff: { mis: 2, mor: 1 } }, { t: 'Return the unused contract money', eff: { res: 2, tru: 1 } } ] },
 ];
-// After every stop a d6 picks which wheel spins (DIFFICULTY.injectOdds); the wheel only holds that type.
+// After every other stop (DIFFICULTY.injectEvery) a d6 picks which wheel spins (DIFFICULTY.injectOdds); the wheel only holds that type.
 const INJECT_WHEELS = {
   bad:   { name: 'WHEEL OF FAILURE', icon: '💥', color: '#ff5d5d' },
   mixed: { name: 'WHEEL OF MEH',     icon: '🤷', color: '#ffd23f' },
@@ -848,6 +850,7 @@ const LOOT = [
   { id: 'coin',     icon: '🪙', name: "Commander's Coin", text: '+3 to any one meter', use: { type: 'anyMeter', n: 3 } },
   { id: 'doover',   icon: '🔄', name: 'Do-Over', text: 'Undo the decision you just made', use: { type: 'undo' } },
   { id: 'wind',     icon: '🔋', name: 'Second Wind', text: 'Recharge a used class ability or perk', use: { type: 'recharge' } },
+  { id: 'deocs',    icon: '📋', name: 'DEOCS Survey', text: `See the exact meter values for the next ${DIFFICULTY.deocsStops} stops`, use: { type: 'deocs' } },
   // 4th AMXS
   { id: 'rhythm',   icon: '📋', name: 'Battle Rhythm', home: ['wk'], text: 'Skip the inject d6: pick the Wheel of Meh or Success', use: { type: 'wheel' } },
   { id: 'torque',   icon: '🔧', name: 'Calibrated Torque Wrench', home: ['wk'], text: '+3 on one check', use: { type: 'check', n: 3 } },
@@ -971,7 +974,7 @@ const NODE_TYPES = {
   crisis:  { icon: '⚔️', name: 'SCENARIO',     color: '#ff5d5d' },
   elite:   { icon: '💀', name: 'ELITE',        color: '#c36bff' },
   rest:    { icon: '🏕️', name: 'REST STOP',    color: '#7dff6b' },
-  depot:   { icon: '🛒', name: 'SUPPLY DEPOT', color: '#3fd8ff' },
+  depot:   { icon: '🛒', name: 'BASE EXCHANGE (BX)', color: '#3fd8ff' },
   unknown: { icon: '❓', name: 'UNKNOWN',      color: '#ffd23f' },
   spot:    { icon: '🔦', name: 'SPOTLIGHT',    color: '#3fd8ff' },
   boss:    { icon: '👹', name: 'INSPECTOR GENERAL', color: '#ff2e63' },
@@ -1006,7 +1009,7 @@ const FLAG_TEXT = {
   FALSE_ARMORY: 'Altered an armory log after a weapons incident (M18)',
   COVERED_DV: 'Covered up a domestic violence report (M19)',
   INFLATED_METRIC: 'Inflated the readiness chart for the wing brief (XO spotlight)',
-  OFF_BOOKS: 'Made an off-the-books trade at the Supply Depot',
+  OFF_BOOKS: 'Put a BX shopping run on the unit GPC card with no paperwork',
   SPLIT_PURCHASE: 'Split a purchase to dodge the approval limit (RA spotlight)',
   COVERED_SPILL: 'Hid a classified spillage (M29)',
   FOOD_SAFETY: 'Served food from a failed cooler (M32)',
@@ -1051,25 +1054,37 @@ const INTRO_STEPS = [
   ['🧑‍✈️', 'You are a leadership team', 'Your party runs a flight in a squadron you choose. You win or lose TOGETHER against the scenario (and the GM).'],
   ['🗺️', 'Follow the route', 'Travel the stops on the route map (5 to 7, set by the GM), then face the final boss: the Inspector General.'],
   ['🔀', 'Make choices', 'Every choice helps some meters and hurts others. You can never max them all, so balance them.'],
-  ['🎲', 'Roll the dice', 'Risky choices need a d20 roll plus your class stat. Before you roll, spend meter points for +2 each, or play it safe and skip the die.'],
+  ['🎲', 'Roll the dice', 'Risky choices need a d20 roll plus your class stat. Before you roll, spend meter points for +2 each.'],
   ['🎤', 'Act it out', 'Some choices make you play the scene. A wheel picks who talks; the GM plays the other side and rates you 1-3 stars.'],
-  ['🎡', 'Injects every stop', 'After every stop a d6 picks the Wheel of Failure, Meh or Success. Your squadron also has a weak spot that keeps draining. You vote on how to respond.'],
+  ['🎡', 'Injects every other stop', 'After every other stop a d6 picks the Wheel of Failure, Meh or Success. Your squadron also has a weak spot that keeps draining. You vote on how to respond.'],
 ];
 const INTRO_WIN = 'WIN: keep all 4 meters balanced (your WEAKEST meter counts most), beat the IG, earn achievements. Top 3 teams on the leaderboard earn extra credit.';
 const INTRO_LOSE = 'LOSE: one integrity violation = instant GAME OVER. No respawns.';
+// READING THE SCREEN (intro page 3): only the two things that matter most
+const INTRO_METERS = {
+  mis: 'Is the job getting done?',
+  mor: 'Are your people motivated and heard?',
+  tru: 'Does your commander have confidence in you?',
+  res: 'Budget, people-hours, time, supplies',
+};
+const INTRO_FOG = `You won't see exact numbers. Each meter shows STRONG, STEADY or DANGER. At ${DIFFICULTY.dangerAt} or lower it flashes red: fix it fast. Run a 📋 DEOCS Survey (First Sergeant perk, or an item) to see the real numbers.`;
+const INTRO_INTEGRITY = 'Lie, cover up, fudge a record or skip the paperwork, and the IG finds out. One integrity violation = GAME OVER.';
+// Full legend: the Field Guide (guide.html)
 const LEGEND = [
   ['🎯', 'MISSION', 'Is the job getting done?'],
   ['❤️', 'MORALE', 'Are your people motivated and heard?'],
   ['⭐', 'TRUST', 'Does your commander have confidence in you?'],
   ['📦', 'RESOURCES', 'Budget, people-hours, time, supplies'],
+  ['🟢 🟡 🔴', 'HIDDEN METERS', `Meters show STRONG (7+), STEADY (${DIFFICULTY.dangerAt + 1}-6) or DANGER (${DIFFICULTY.dangerAt} or lower, flashing red). A 📋 DEOCS Survey shows the exact numbers for ${DIFFICULTY.deocsStops} stops.`],
   ['<span class="up">▲</span> <span class="dn">▼</span> ❔', 'ARROWS', 'Green raises a meter, red lowers it. Doubled = bigger swing. ❔ = depends on your roll or performance'],
-  ['💪 🛡️', 'BOOST / SAFE', `Before a roll: spend a 📦, ❤️ or ⭐ point for +2 (max ${DIFFICULTY.boostMax}), or play it safe: no die, it counts as ${DIFFICULTY.safeRoll}`],
+  ['💪', 'BOOST', `Before a roll: spend a 📦, ❤️ or ⭐ point for +2 (max ${DIFFICULTY.boostMax})`],
   ['🎤', 'ACT IT OUT', 'Dialogue encounter: the GM rates you 1-3 stars'],
   ['👑', 'COMMAND TOKEN', 'Rock, Paper, Rank: the Flight Commander resolves any tied vote. That is all it does.'],
   ['🎁', 'PERKS', 'Each cadet has one perk, usable once. It glows gold on your phone when it can help: tap it to ask the GM.'],
   ['🔦', 'SPOTLIGHT', 'A wheel picks one cadet (never the same one twice) to decide alone. Everyone else stays silent.'],
   ['🟩🟩🟩', 'LOYALTY', 'Each Unit member has 0-5 loyalty. At 5 they become an Ally; at 0 they hit a Breaking Point. Everyone\'s trait is visible on the org chart.'],
-  ['⚔️ 💀 🏕️ 🛒 ❓', 'MAP STOPS', 'Scenario · Elite (harder, bigger rewards) · Rest Stop · Supply Depot · Unknown'],
+  ['⚔️ 💀 🏕️ 🛒 ❓', 'MAP STOPS', 'Scenario · Elite (harder, bigger rewards) · Rest Stop · Base Exchange (BX) · Unknown'],
+  ['🎡', 'INJECT CHECKPOINT', 'The 🎡 waypoints between stops (on every path, under a 🎡 in the stop row). Every route passes one: a d6 picks the Wheel of Failure, Meh or Success and someone spins it.'],
   ['CMD CHA<br>INS GRIT', 'CLASS STATS', 'Added to your d20 rolls. CMD Command (orders, decisions) · CHA Charisma (persuade, counsel) · INS Insight (read people, plan) · GRIT Grit (endure, execute)'],
   ['📱🎲', 'YOUR TURN', 'Random events rotate through the team: when it\'s your turn, a ROLL / SPIN button appears on your phone'],
 ];

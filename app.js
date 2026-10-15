@@ -201,6 +201,7 @@ function usableNow(S) {
     if (u.type === 'wheel' && ph === 'inject' && inj && inj.stage === 'trigger') add(null, req, l.icon, l.name, 'Skip the d6: pick Meh or Success', true);
     if (u.type === 'cancel' && ph === 'inject' && inj && inj.stage === 'done' && inj.idx != null && MURPHY[inj.idx].type === 'bad' && !inj.cancelled) add(null, req, l.icon, l.name, 'Cancel this Wheel of Failure result!', true);
     if (u.type === 'intel' && mission && c.step === 'brief' && !c.intel) add(null, req, l.icon, l.name, 'See the exact effects of every choice');
+    if (u.type === 'deocs' && anytime && !deocsOn(S)) add(null, req, l.icon, l.name, `See the exact meters for ${DIFFICULTY.deocsStops} stops`, METERS.some(m => S.meters[m.k] <= DIFFICULTY.dangerAt));
     if (u.type === 'meter' && anytime) add(null, req, l.icon, l.name, hint, METERS.some(m => (u.eff[m.k] || 0) > 0 && S.meters[m.k] <= 2));
     if (u.type === 'anyMeter' && anytime) add(null, req, l.icon, l.name, `+${u.n} to any meter`, METERS.some(m => S.meters[m.k] <= 2));
     if ((u.type === 'loyAll' || u.type === 'loyOne') && anytime && (S.npcs || []).some(n => n.loy < 5)) add(null, req, l.icon, l.name, hint, (S.npcs || []).some(n => n.loy <= 1));
@@ -235,6 +236,7 @@ function perkWhen(S, p, i) {
     case 'beenthere': return ph === 'inject' && inj && inj.stage === 'done' && inj.idx != null && MURPHY[inj.idx].type === 'bad' && !inj.cancelled && !inj.blocked ? { hint: 'Cancel this Wheel of Failure result', hot: true } : null;
     case 'ncopull': return anytime && npcs.some(n => n.loy <= 2) ? { hint: 'A Unit member at loyalty 0-2 jumps to 3', hot: npcs.some(n => n.loy <= 1) } : null;
     case 'opendoor': return anytime && npcs.some(n => n.loy < 5) ? { hint: '+1 loyalty to everyone, or +3 to one' } : null;
+    case 'deocs': return anytime && !deocsOn(S) ? { hint: `See the exact meters for ${DIFFICULTY.deocsStops} stops, everyone +1 loyalty`, hot: METERS.some(m => S.meters[m.k] <= DIFFICULTY.dangerAt) } : null;
     case 'resiliency': return anytime && S.meters.mor <= 7 ? { hint: '❤️ +3, everyone +1 loyalty, 🎯 −1' } : null;
     case 'readroom': return mission && c.step === 'brief' && !c.intel && c.type !== 'crisisEvent' ? { hint: 'See the exact effects of every choice' } : null;
     case 'confidant': return anytime && S.unit && !(S.flags || {}).ccNegOff ? { hint: "Cancel the commander's negative perk for good" } : null;
@@ -435,10 +437,19 @@ function notice(icon, title, text) { S.notice = { icon, title, text, at: Date.no
 // Shown as one line on the projector and phones, with the tools that could help right now.
 function dangerInfo(S) {
   if (!S || !['map', 'node', 'inject', 'boss'].includes(S.phase) || !S.meters) return null;
-  const low = METERS.filter(m => S.meters[m.k] <= 2); if (!low.length) return null;
-  const what = S.phase === 'boss' ? 'Adverse Finding' : 'Crisis Event';
+  const low = METERS.filter(m => S.meters[m.k] <= DIFFICULTY.dangerAt); if (!low.length) return null;
+  const what = S.phase === 'boss' ? 'Adverse Finding' : 'Crisis Event', open = deocsOn(S);
   const tools = usableNow(S).filter(u => low.some(m => (u.hint || '').includes(m.icon)) || u.hint === '+3 to any meter' || (u.req === 'ability' && /Requisition/.test(u.label))).map(u => `${u.icon} ${u.label}`);
-  return { text: low.map(m => S.meters[m.k] === 0 ? `${m.label} 0: ${what} incoming` : `${m.label} ${S.meters[m.k]}: one more hit could mean a ${what}`).join(' · '), tools: [...new Set(tools)] };
+  return { text: low.map(m => S.meters[m.k] === 0 ? `${m.label} ${open ? '0' : 'has bottomed out'}: ${what} incoming` : `${m.label} ${open ? S.meters[m.k] : 'is in DANGER'}: a bad hit could mean a ${what}`).join(' · '), tools: [...new Set(tools)] };
+}
+// Hidden meters: the projector and phones show a band, not the number, unless a DEOCS Survey is running
+// (or the game is over). S.deocsUntil = the last stop (S.nodeCount) the survey covers.
+function deocsOn(S) { return !!S && (['results', 'debrief'].includes(S.phase) || (S.deocsUntil != null && (S.nodeCount || 0) <= S.deocsUntil)); }
+function deocsLeft(S) { return S && S.deocsUntil != null ? Math.max(0, S.deocsUntil - (S.nodeCount || 0)) : 0; }
+function meterBand(v) { return v <= DIFFICULTY.dangerAt ? { word: 'DANGER', cls: 'danger' } : v >= 7 ? { word: 'STRONG', cls: 'strong' } : { word: 'STEADY', cls: 'steady' }; }
+function runDeocs() {
+  S.deocsUntil = Math.max(S.deocsUntil != null ? S.deocsUntil : -1, (S.nodeCount || 0) + DIFFICULTY.deocsStops);
+  log('DEOCS Survey', `Exact meters visible through stop ${S.deocsUntil}`);
 }
 // chips naming the practicum objectives an event tests (e.g. ⚖️ AUTHORITY)
 function objChips(m) { return objOf(m).map(id => `<span class="objchip"><i>${OBJECTIVE[id].icon}</i> ${OBJECTIVE[id].short}</span>`).join(''); }
@@ -807,13 +818,15 @@ function restOptions() {
 }
 function depotOptions() {
   return [
-    { key: 'favor', label: '🎁 Call in a favor: a Unit member −2 loyalty → free loot spin' },
-    { key: 'tasker', label: '🎯 Volunteer someone for the tasker: a Unit member −1 loyalty → +3 🎯' },
-    { key: 'overtime', label: 'Mandatory overtime: −2 ❤️ → +3 📦', dis: S.meters.mor < 2 },
-    { key: 'schmooze', label: 'Schmooze the Group CC: −2 📦 → +2 ⭐', dis: S.meters.res < 2 },
-    { key: 'train', label: 'Training slot: −2 📦 → one cadet +1 to a stat for the rest of the game', dis: S.meters.res < 2 },
-    { key: 'offbooks', label: 'Off-the-books trade with another unit: +4 📦, no paperwork needed' },
-    { key: 'skip', label: 'No trade' },
+    { key: 'pizza', label: '🍕 Pizza for the whole flight: −2 📦 → +3 ❤️', dis: S.meters.res < 2 },
+    { key: 'coffee', label: "☕ Coffee run for the Group CC's staff meeting: −2 📦 → +2 ⭐", dis: S.meters.res < 2 },
+    { key: 'train', label: '📚 Study guides from the BX bookstore: −2 📦 → one cadet +1 to a stat for the rest of the game', dis: S.meters.res < 2 },
+    { key: 'deocs', label: `📋 Run a DEOCS Survey: −1 📦 → exact meter values for ${DIFFICULTY.deocsStops} stops`, dis: S.meters.res < 1 || deocsOn(S) },
+    { key: 'favor', label: '🎁 A Unit member picks something up for you: −2 loyalty → free loot spin' },
+    { key: 'tasker', label: '🎯 Volunteer someone for the BX Saturday detail: a Unit member −1 loyalty → +3 🎯' },
+    { key: 'overtime', label: '⏰ Skip the lunch run, mandatory overtime: −2 ❤️ → +3 📦', dis: S.meters.mor < 2 },
+    { key: 'offbooks', label: '💳 Put the shopping on the unit GPC card, skip the paperwork: +4 📦' },
+    { key: 'skip', label: 'Just browsing (no purchase)' },
   ];
 }
 // What the team votes on at a Rest Stop / Supply Depot right now (the depot's "who pays?" step votes on Unit members)
@@ -831,7 +844,7 @@ function takeYearend() {
 // Is a team vote open right now? (Old votes linger in S.votes after the GM locks a choice.)
 function votingOpen(S) {
   const c = S.cur, i = S.inject;
-  if (S.phase === 'map' || (S.phase === 'unit' && !S.unitRolled)) return true;
+  if (S.phase === 'map' || (S.phase === 'unit' && !S.unitRolled) || (S.phase === 'manifest' && !S.patch)) return true;
   if (S.phase === 'node' && c && (((c.step === 'choose' || c.step === 'who') && (c.type === 'rest' || c.type === 'depot')) || (c.step === 'brief' && c.type !== 'unknown' && c.type !== 'spot'))) return true;
   return S.phase === 'inject' && !!i && i.stage === 'result' && i.idx != null && !!MURPHY[i.idx].options;
 }
@@ -1018,7 +1031,7 @@ function enterNode(type, node) {
       withTrait('burnout').forEach(n => traitReward(n, 'Finally, a breather. They come back a different person.', { mor: 1 }, 2));
       withTrait('overach').forEach(n => traitReward(n, 'Rested, they go back to delivering.', { mis: 2 }));
     }
-    ccApply('rest', type === 'rest' ? 'Rest Stop' : 'Supply Depot');
+    ccApply('rest', type === 'rest' ? 'Rest Stop' : 'Base Exchange');
     sfx('good');
   } else if (type === 'unknown') {
     S.cur = { type, step: 'spin', mystery: null }; // rolled when the cadet presses the button
@@ -1071,8 +1084,8 @@ function finishStep() {
 function resolveRoll(roller, o) {
   const c = S.cur, spec = c.spec;
   c.preRoll = JSON.stringify(S);
-  const safe = !!c.safe, boost = c.boost || {};
-  let d20 = safe ? DIFFICULTY.safeRoll : 1 + rnd(20);
+  const safe = false, boost = c.boost || {}; // "play it safe" was removed: every check rolls the die
+  let d20 = 1 + rnd(20);
   S.spinUntil = Date.now() + 4800; setTimeout(afterSpin, 4860);
   const bonusItem = S.pending.check; if (bonusItem) { removeItem(bonusItem); S.pending.check = null; }
   const r = rollCalc(spec.check, roller, d20, { ...o, bonusItem, typ: c.typ, boost, safe });
@@ -1110,6 +1123,16 @@ function rateStars(n, lead) {
   finishStep();
 }
 function removeItem(id) { const i = S.items.indexOf(id); if (i >= 0) S.items.splice(i, 1); }
+// Does an inject hit after map column k (0-based)? Each column is one stop, so column k is stop k+1.
+// The route maps draw a 🎡 checkpoint after these columns.
+function injectAfter(k) { return (k + 1) % (DIFFICULTY.injectEvery || 1) === 0; }
+// 'next' (not reached yet), 'live' (spinning now) or 'past' for the checkpoint after column k
+function injectMark(S, k) {
+  if (!S.pos || S.pos.tier < k) return 'next';
+  if (S.pos.tier > k) return 'past';
+  const nd = S.map && S.map.tiers[k][S.pos.idx];
+  return !nd || !nd.done ? 'next' : S.phase === 'inject' && S.inject && !S.inject.forced ? 'live' : 'past';
+}
 function afterNode(skipTrigger) {
   const c = S.cur;
   S.npcs.forEach(n => { if (n.out > 0) n.out--; });
@@ -1122,6 +1145,8 @@ function afterNode(skipTrigger) {
   if (S.pos.tier === levelAfter() - 1 && !S.leveled) S.levelPending = true;
   S.cur = null;
   if (skipTrigger) return advance();
+  // injects hit after every DIFFICULTY.injectEvery-th stop (stops 2, 4, 6 at the default of 2)
+  if (!injectAfter(S.map && S.pos.tier >= 0 ? S.pos.tier : S.nodeCount - 1)) { log('Inject', 'Quiet stop: no inject'); return advance(); }
   S.phase = 'inject'; snapBase();
   S.inject = { stage: 'trigger' };
   setActor('trigger', nextActor());
@@ -1136,7 +1161,7 @@ function advance() {
 }
 
 /* ---- injects ---- */
-// Every stop ends with an inject: a cadet rolls a d6 to pick the wheel (DIFFICULTY.injectOdds),
+// Every other stop (DIFFICULTY.injectEvery) ends with an inject: a cadet rolls a d6 to pick the wheel (DIFFICULTY.injectOdds),
 // then another spins that wheel, which only holds injects of that type.
 function spinTrigger() {
   const inj = S.inject;
@@ -1306,8 +1331,8 @@ function startBoss() {
   broken.forEach(n => bossLog(`🗣️ ${n.rank} ${n.name} hit their breaking point and is now a hostile witness: IG +${DIFFICULTY.witnessHp} HP.`));
   if (Bs.weak) bossLog(`🕵️ The Witness tipped you off: Press target ${examDC(Bs)}.`);
   // the commander shows up for you, or doesn't
-  if (S.meters.tru >= 7) bossDmg(DIFFICULTY.vouch, `${S.cc} vouches for your flight (⭐ ${S.meters.tru})`);
-  else if (S.meters.tru <= 3) { Bs.hp += DIFFICULTY.vouch; Bs.max += DIFFICULTY.vouch; bossLog(`👎 ${S.cc} throws you under the bus (⭐ ${S.meters.tru}): IG +${DIFFICULTY.vouch} HP`); }
+  if (S.meters.tru >= 7) bossDmg(DIFFICULTY.vouch, `${S.cc} vouches for your flight (⭐ ${deocsOn(S) ? S.meters.tru : 'STRONG'})`);
+  else if (S.meters.tru <= 3) { Bs.hp += DIFFICULTY.vouch; Bs.max += DIFFICULTY.vouch; bossLog(`👎 ${S.cc} throws you under the bus (⭐ ${deocsOn(S) ? S.meters.tru : 'DANGER'}): IG +${DIFFICULTY.vouch} HP`); }
   emit('bossIntro'); sfx('boss');
   log('BOSS', `${BOSS.name}, ${BOSS.title} (HP ${Bs.hp})`);
 }
@@ -1508,11 +1533,12 @@ function usePerk(i) {
       what = a === 'ALL' ? 'The door is open: every Unit member +1 loyalty.' : `${npcLabel(S, a)} walked in and was heard: +3 loyalty.`;
       traitCare(); break;
     }
+    case 'deocs': runDeocs(); S.npcs.forEach(n => changeLoy(n.slot, 1)); traitCare(); what = `The climate survey is in: the exact meter values are on screen for the next ${DIFFICULTY.deocsStops} stops, and every Unit member feels heard (+1 loyalty).`; break;
     case 'resiliency': applyEff({ mor: 3, mis: -1, why: 'Resiliency Day' }); S.npcs.forEach(n => changeLoy(n.slot, 1)); traitCare(); what = 'A day off the line: ❤️ +3 and every Unit member +1 loyalty, but 🎯 −1.'; break;
     case 'readroom': c.intel = true; what = 'The exact effects of every choice on this mission are now on screen.'; break;
     case 'confidant': S.flags.ccNegOff = true; what = `${name} has the commander's ear: "${unitObj().cc.neg.name}" no longer applies for the rest of the game.`; break;
     case 'emergency': applyEff({ res: 3, why: 'Emergency Fund' }); what = '+3 📦 right now.'; break;
-    case 'yearend': S.pending.yearend = true; what = 'The gains from this Rest Stop, Supply Depot trade or Wheel of Success result are doubled.'; break;
+    case 'yearend': S.pending.yearend = true; what = 'The gains from this Rest Stop, BX purchase or Wheel of Success result are doubled.'; break;
     case 'memo': {
       const t = memoTarget(S), flags = { ...S.flags };
       if (t === 'mission') { S = JSON.parse(c.preRoll); S.flags = flags; S.cur.step = 'roll'; }
@@ -1566,6 +1592,7 @@ function useItem(k) {
     case 'loyAll': S.npcs.forEach(n => changeLoy(n.slot, u.d)); break;
     case 'loyOne': { const s = (prompt(`${it.name}: which Unit member? ${S.npcs.map(n => `${n.slot} = ${n.rank} ${n.name} (${n.loy})`).join(', ')}`, 'A') || '').trim().toUpperCase(); if (!npc(s)) return; changeLoy(s, u.d); break; }
     case 'intel': if (!c || c.step !== 'brief') return alert(`${it.name} works while a mission brief is up.`); c.intel = true; break;
+    case 'deocs': runDeocs(); toast('📋', 'DEOCS SURVEY RESULTS', `Exact meter values for the next ${DIFFICULTY.deocsStops} stops`); break;
     case 'wheel': {
       if (!inj || inj.stage !== 'trigger') return alert(`${it.name} works before the inject d6 is rolled.`);
       const w = (prompt(`${it.name}: which wheel? M = Wheel of Meh, S = Wheel of Success`, 'S') || '').trim().toUpperCase();
@@ -1766,6 +1793,9 @@ function miniMap(m) {
   const ln = (a, b) => { g += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#5a5aa8" stroke-width="2" stroke-dasharray="5 4"/>`; };
   m.tiers[0].forEach((_, i) => ln(pt(-1), pt(0, i)));
   m.tiers.forEach((row, k) => row.forEach((_, i) => (k < n - 1 ? m.links[k][i] : [null]).forEach(j => ln(pt(k, i), j == null ? pt(n) : pt(k + 1, j)))));
+  // 🎡 inject checkpoints between stops
+  m.tiers.forEach((_, k) => { if (!injectAfter(k)) return; const x = (pt(k, 0)[0] + pt(k + 1, 0)[0]) / 2;
+    g += `<line x1="${x}" y1="24" x2="${x}" y2="${H - 6}" stroke="#ff9f43" stroke-width="1.5" stroke-dasharray="3 4" opacity=".7"/><text x="${x}" y="18" font-size="13" text-anchor="middle">🎡</text>`; });
   m.tiers.forEach((row, k) => row.forEach((nd, i) => { const [x, y] = pt(k, i), nt = NODE_TYPES[nd.type];
     g += `<rect x="${x - 15}" y="${y - 15}" width="30" height="30" fill="#1b1b4a" stroke="${nt.color}" stroke-width="2"/><text x="${x}" y="${y + 6}" font-size="16" text-anchor="middle">${nt.icon}</text>`; }));
   g += `<text x="${x0}" y="${H / 2 + 6}" font-size="16" text-anchor="middle">🛫</text><text x="${x1}" y="${H / 2 + 7}" font-size="20" text-anchor="middle">👹</text>`;
@@ -1775,7 +1805,7 @@ function gmIntro() {
   const pg = S.introPage;
   const txt = ['The projector shows WHY ARE WE DOING THIS?: the five practicum objectives. Tell them every stop tests at least one, and the debrief will show which.',
     'The projector shows HOW TO PLAY: the whole game in one screen. Read it out loud (about 60 seconds).',
-    'The projector shows READING THE SCREEN: what every icon, arrow and token means.'][pg];
+    'The projector shows READING THE SCREEN: just two jobs. Keep all 4 meters high (they only show STRONG / STEADY / DANGER until someone runs a DEOCS Survey), and never commit an integrity violation. Every other icon is in the Field Guide.'][pg];
   return `<div class="gcard"><h2>Game briefing (${pg + 1}/3)</h2>
     <p class="note">${txt}</p>
     <div class="row">${B('introPrev', '⬅️ Back', { dis: pg === 0 })} ${pg < 2 ? B('introNext', pg === 0 ? 'Next: how to play ➡️' : 'Next: icon legend ➡️', { cls: 'pri' }) : B('toParty', '▶️ Go to character icons', { cls: 'pri' })}</div></div>`;
@@ -1802,7 +1832,9 @@ function gmManifest() {
   <table class="g"><tr><th>Slot</th><th>Unit member</th><th>Role</th><th>Trait (visible to everyone)</th></tr>
   ${S.npcs.map(n => { const t = TRAIT[n.trait]; return `<tr><td>${n.slot}</td><td>${esc(n.rank + ' ' + n.name)}</td><td class="note">${esc(n.pub)}</td><td>${t.icon} <b>${t.name}</b>: ${esc(t.what)}<br><span class="note">Reward: ${esc(t.reward)} · Breaking point: ${esc(t.bpText)}</span></td></tr>`; }).join('')}</table>
   <p class="note">The projector shows the org chart. Give the party ~45 seconds to read it, then open the map.</p>
-  <div class="row"><b>Team patch = team name:</b> ${(PATCHES[S.unit] || []).map(p => B('setPatch', `${p.icon} ${esc(p.name)}${patchFree(S, p.id) ? '' : ' (taken)'}`, { arg: p.id, cls: S.patch === p.id ? 'on sm' : 'sm', dis: !patchFree(S, p.id) })).join(' ')} <span class="note">Cadets pick on their phones (last tap wins). Patches already on the leaderboard are taken. If nobody picks, the first free one is used.</span></div>
+  <div class="row"><b>Team patch = team name:</b> ${S.patch ? `<span class="pill y">${(patchOf(S) || {}).icon} ${esc(S.callsign)} locked in</span> ${B('unsetPatch', 'Change (reopen the vote)', { cls: 'sm' })}`
+    : (PATCHES[S.unit] || []).map(p => B('setPatch', `${p.icon} ${esc(p.name)}${patchFree(S, p.id) ? voteTag(p.id) : ' (taken)'}`, { arg: p.id, cls: 'go sm', dis: !patchFree(S, p.id) })).join(' ')}
+    <span class="note">${S.patch ? '' : 'The team votes on their phones (✋; the Flight Commander breaks ties). Click the winner to lock it in. '}Patches already on the leaderboard are taken. If nobody locks one in, the top vote (or the first free patch) is used.</span></div>
   ${B('toMap', '🗺️ Open the route map', { cls: 'pri' })}</div>`;
 }
 
@@ -1841,14 +1873,14 @@ function gmNode() {
     const rest = c.type === 'rest';
     let body;
     if (c.step === 'choose') body = `<div class="row">${(rest ? restOptions() : depotOptions()).map(o => B(rest ? 'restPick' : 'depotPick', o.label + voteTag(o.key), { arg: o.key, dis: o.dis, cls: o.key === 'offbooks' ? 'red' : '' })).join('')}</div>
-      ${!rest ? '<p class="note">Off-the-books is an integrity trap: the IG finds it in the Audit (Game Over). Don\'t warn them.</p>' : ''}`;
-    else if (c.step === 'who') body = `<p>${c.trade === 'favor' ? 'Call in a favor (−2 loyalty, loot spin)' : 'Volunteer for the tasker (−1 loyalty, +3 🎯)'}: the team picks who pays (they vote on phones).</p>
+      ${!rest ? '<p class="note">The GPC card option is an integrity trap: the IG finds it in the Audit (Game Over). Don\'t warn them.</p>' : ''}`;
+    else if (c.step === 'who') body = `<p>${c.trade === 'favor' ? 'A Unit member grabs you something (−2 loyalty, loot spin)' : 'Volunteer for the BX Saturday detail (−1 loyalty, +3 🎯)'}: the team picks who pays (they vote on phones).</p>
       <div class="row">${stopOptions().map(o => B('depotWho', o.label + voteTag(o.key), { arg: o.key.slice(4), dis: o.dis })).join('')} ${B('depotBack', '⬅️ Back', { cls: 'sm' })}</div>`;
-    else if (c.step === 'train') body = `<p>Training slot (−2 📦): pick the cadet and the stat they train.</p>
+    else if (c.step === 'train') body = `<p>Study guides (−2 📦): pick the cadet and the stat they train.</p>
       ${S.party.map((p, i) => `<div class="row"><b style="width:140px">${esc(cadetName(i))}</b>${STATS.map(st => B('depotTrain', `${st} ${sign(statOf(i, st))} → ${sign(statOf(i, st) + 1)}`, { arg: `${i},${st}`, cls: 'sm' })).join('')}</div>`).join('')}
       ${B('depotBack', '⬅️ Back', { cls: 'sm' })}`;
     else body = gmDonePanel();
-    return `<div class="gcard"><h2>${rest ? '🏕️ Rest Stop' : '🛒 Supply Depot'}</h2><p class="note">The party votes on their phones (✋); click the winning option.${S.pending.yearend ? ' 💰 Year-End Money is armed: gains are doubled.' : ''}</p>${body}</div>`;
+    return `<div class="gcard"><h2>${rest ? '🏕️ Rest Stop' : '🛒 Base Exchange (BX)'}</h2><p class="note">The party votes on their phones (✋); click the winning option.${S.pending.yearend ? ' 💰 Year-End Money is armed: gains are doubled.' : ''}</p>${body}</div>`;
   }
   if (c.type === 'unknown') {
     const my = c.mystery != null ? MYSTERY[c.mystery] : null;
@@ -1882,14 +1914,13 @@ function gmRollPanel() {
     <div class="note">Modifiers (besides the die): ${preview.parts.map(p => `${esc(p[0])} ${sign(p[1])}`).join(', ') || 'none'}</div>
     <div class="row"><span class="note">💪 Boost (max ${DIFFICULTY.boostMax}, +2 each, paid when rolled):</span>
       ${BOOST_METERS.map(k => B('boost', `${METER[k].icon} −1 → +2${b[k] ? ` (×${b[k]})` : ''}`, { arg: k, cls: b[k] ? 'on sm' : 'sm', dis: !canBoost(k) })).join('')}
-      ${boostCount(b) ? B('unboost', 'clear', { cls: 'sm' }) : ''}
-      ${B('safe', `🛡️ Play it safe (die = ${DIFFICULTY.safeRoll}, no crit/fumble) ${c.safe ? '(ON)' : ''}`, { cls: c.safe ? 'on sm' : 'sm' })}</div>
+      ${boostCount(b) ? B('unboost', 'clear', { cls: 'sm' }) : ''}</div>
     <div class="row">
       ${S.items.map((id, k) => { const l = LOOT.find(x => x.id === id); return l.use.type === 'check' ? B('item', `${l.icon} ${esc(l.name)} +${l.use.n} ${S.pending.check === id ? '(ON)' : ''}`, { arg: k, cls: S.pending.check === id ? 'on' : '' }) : ''; }).join('')}
       ${c.typ ? '<span class="pill y">Trust Your People (FC CMD)</span>' : ''}
       ${S.dcMod ? `<span class="pill y">Loaded Dice ${sign(S.dcMod)}</span>` : ''}
     </div>
-    <div class="row">${B('resolveRoll', c.safe ? `🛡️ Lock in the safe ${DIFFICULTY.safeRoll}` : '🎲 Roll the d20', { cls: 'pri' })} <span class="note">Defaults to the best bonus; any cadet can tap I'LL ROLL on their phone. Any cadet can boost.</span></div></div>`;
+    <div class="row">${B('resolveRoll', '🎲 Roll the d20', { cls: 'pri' })} <span class="note">Defaults to the best bonus; any cadet can tap I'LL ROLL on their phone. Any cadet can boost.</span></div></div>`;
 }
 function gmStarsPanel() {
   const c = S.cur, lead = c.lead ?? S.tokenHolder;
@@ -2023,12 +2054,13 @@ function gmDebrief() {
 
 function gmSideLite() {
   return `${routeCard()}<div class="gcard"><h3>Your GM cards this run</h3>${S.gmCards.map(id => { const c = GM_CARDS.find(x => x.id === id); return `<div><b>🃏 ${c.name}</b> <span class="note">${c.text}</span></div>`; }).join('')}</div>
-  <div class="gcard"><h3>Quick reference</h3><p class="note">Checks: d20 + stat (+2 if the tied meter is 8+, −2 if 2 or less). Normal ${DC_NORMAL}, Hard ${DC_HARD}. Boost: spend 📦/❤️/⭐ for +2 each (max ${DIFFICULTY.boostMax}). Play it safe: die counts as ${DIFFICULTY.safeRoll}. Nat 20 = crit (double good + loot). Nat 1 = fumble.<br>
-    Harder settings (DIFFICULTY in data.js): an inject after every stop (d6: ${INJECT_ORDER.map(t => injectRange(t) + ' ' + t).join(', ')}), squadron tendency −1 every ${DIFFICULTY.drainEvery} stops, IG HP ${DIFFICULTY.bossHp}, IG hits −${DIFFICULTY.bossAttack}.<br>Score = meters×3 + lowest meter×10 + intent ±20 + inspection (+60 to −15) + stars×5 + achievements (0-25 each) + allies×10. Unused items/perks score nothing.</p></div>`;
+  <div class="gcard"><h3>Quick reference</h3><p class="note">Checks: d20 + stat (+2 if the tied meter is 8+, −2 if 2 or less). Normal ${DC_NORMAL}, Hard ${DC_HARD}. Boost: spend 📦/❤️/⭐ for +2 each (max ${DIFFICULTY.boostMax}). Nat 20 = crit (double good + loot). Nat 1 = fumble.<br>
+    Harder settings (DIFFICULTY in data.js): an inject after every ${DIFFICULTY.injectEvery === 1 ? '' : DIFFICULTY.injectEvery === 2 ? 'other ' : DIFFICULTY.injectEvery + 'th '}stop (d6: ${INJECT_ORDER.map(t => injectRange(t) + ' ' + t).join(', ')}), squadron tendency −1 every ${DIFFICULTY.drainEvery} stops, IG HP ${DIFFICULTY.bossHp}, IG hits −${DIFFICULTY.bossAttack}.<br>Score = meters×3 + lowest meter×10 + intent ±20 + inspection (+60 to −15) + stars×5 + achievements (0-25 each) + allies×10. Unused items/perks score nothing.</p></div>`;
 }
 function gmSide() {
   return `${routeCard()}
   <div class="gcard"><h3>Meters (manual override)</h3><div class="gmeters">${METERS.map(m => `<div class="mt">${m.icon}<span>${m.name}</span>${B('meter', '−', { arg: m.k + ',-1', cls: 'sm' })}<b>${S.meters[m.k]}</b>${B('meter', '+', { arg: m.k + ',1', cls: 'sm' })}</div>`).join('')}</div>
+    <div class="note">${deocsOn(S) ? `📋 DEOCS Survey running: players see exact numbers (${deocsLeft(S)} more stop${deocsLeft(S) === 1 ? '' : 's'})` : `Players see STRONG / STEADY / DANGER (≤${DIFFICULTY.dangerAt}), not numbers.`}</div>
     ${S.crisisQueue.length ? `<p class="warnline">Crisis queued: ${S.crisisQueue.map(k => METER[k].name).join(', ')}</p>` : ''}</div>
   <div class="gcard"><h3>Party & abilities</h3><p class="note">👑 The Flight Commander breaks tied votes (Rock, Paper, Rank). That is the token's only power.</p>
     ${S.party.map((p, i) => { const ab = CLASS[p.cls].ability; return `<div class="row"><b>${CLASS[p.cls].icon} ${esc(p.name)}${p.cls === 'fc' ? ' 👑' : ''}</b>
@@ -2083,13 +2115,15 @@ act('restPick', k => {
   if (k.startsWith('rc')) return ACT.restRecharge(k.slice(2));
 });
 act('depotPick', k => {
-  const c = S.cur, done = (txt) => { if (k !== 'skip') depotTax(); c.trades = (c.trades || 0) + 1; c.step = 'done'; c.result = txt; log('Supply Depot', txt); };
+  const c = S.cur, done = (txt) => { if (k !== 'skip') depotTax(); c.trades = (c.trades || 0) + 1; c.step = 'done'; c.result = txt; log('Base Exchange', txt); };
   if (k === 'favor' || k === 'tasker') { c.trade = k; c.step = 'who'; S.votes = {}; return; }
   if (k === 'train') { c.step = 'train'; return; }
-  if (k === 'overtime') { const dbl = takeYearend(); applyEff({ mor: -2, why: 'Mandatory overtime' }); applyEff({ res: 3, why: 'Mandatory overtime' }, dbl); return done('Mandatory overtime: ❤️ for 📦'); }
-  if (k === 'schmooze') { const dbl = takeYearend(); applyEff({ res: -2, why: 'Schmoozed the Group CC' }); applyEff({ tru: 2, why: 'Schmoozed the Group CC' }, dbl); return done('Schmoozed the Group CC: 📦 for ⭐'); }
-  if (k === 'offbooks') { const dbl = takeYearend(); applyEff({ res: 4, flag: 'OFF_BOOKS', why: 'Off-the-books trade' }, dbl); return done('Off-the-books trade: +4 📦, no paperwork'); }
-  done('No trade');
+  if (k === 'pizza') { const dbl = takeYearend(); applyEff({ res: -2, why: 'Pizza for the flight' }); applyEff({ mor: 3, why: 'Pizza for the flight' }, dbl); return done('Pizza for the whole flight: 📦 for ❤️'); }
+  if (k === 'coffee' || k === 'schmooze') { const dbl = takeYearend(); applyEff({ res: -2, why: 'Coffee for the Group CC' }); applyEff({ tru: 2, why: 'Coffee for the Group CC' }, dbl); return done("Coffee run for the Group CC's staff: 📦 for ⭐"); }
+  if (k === 'deocs') { applyEff({ res: -1, why: 'DEOCS Survey' }); runDeocs(); return done(`DEOCS Survey: exact meter values for the next ${DIFFICULTY.deocsStops} stops`); }
+  if (k === 'overtime') { const dbl = takeYearend(); applyEff({ mor: -2, why: 'Mandatory overtime' }); applyEff({ res: 3, why: 'Mandatory overtime' }, dbl); return done('Skipped the lunch run for mandatory overtime: ❤️ for 📦'); }
+  if (k === 'offbooks') { const dbl = takeYearend(); applyEff({ res: 4, flag: 'OFF_BOOKS', why: 'GPC card, no paperwork' }, dbl); return done('Put it on the unit GPC card: +4 📦, no paperwork'); }
+  done('Just browsing: no purchase');
 });
 // favor / tasker: the team picks which Unit member pays
 act('depotWho', sl => {
@@ -2102,18 +2136,18 @@ act('depotWho', sl => {
     c.result = `Volunteered ${n.rank} ${n.name} for the tasker: +${coast ? 5 : 3} 🎯${coast ? ' (a challenge woke the Coaster up)' : over ? ' (the Over-Achiever is overloaded)' : ''}`;
   }
   depotTax(); c.trades = (c.trades || 0) + 1;
-  c.step = 'done'; S.votes = {}; log('Supply Depot', c.result); assignPending();
+  c.step = 'done'; S.votes = {}; log('Base Exchange', c.result); assignPending();
 });
 // Budget Squeeze (FSS commander): every trade costs 1 extra 📦
-function depotTax() { ccApply('depotTax', 'Supply Depot trade'); }
+function depotTax() { ccApply('depotTax', 'BX purchase'); }
 // Logistician (LRS commander): a second trade per visit
 function depotAgainOk() { const c = S.cur; return c && c.type === 'depot' && c.step === 'done' && ccHook('depot2').length && (c.trades || 0) === 1 && !c.lootEarned && !c.lootRoll && !S.actor; }
-act('depotAgain', () => { if (!depotAgainOk()) return false; const h = ccHook('depot2')[0]; S.cur.step = 'choose'; S.cur.trade = null; S.votes = {}; ccReact(h, 'A second trade at the Supply Depot'); });
+act('depotAgain', () => { if (!depotAgainOk()) return false; const h = ccHook('depot2')[0]; S.cur.step = 'choose'; S.cur.trade = null; S.votes = {}; ccReact(h, 'A second purchase at the BX'); });
 act('depotTrain', a => {
   const [i, st] = a.split(','), p = S.party[+i];
   applyEff({ res: -2, why: 'Training slot' }); p.train = p.train || {}; p.train[st] = (p.train[st] || 0) + 1;
   depotTax(); S.cur.trades = (S.cur.trades || 0) + 1;
-  S.cur.step = 'done'; S.cur.result = `Training slot: ${cadetName(+i)} +1 ${st} for the rest of the game`; log('Supply Depot', S.cur.result);
+  S.cur.step = 'done'; S.cur.result = `Study guides: ${cadetName(+i)} +1 ${st} for the rest of the game`; log('Base Exchange', S.cur.result);
 });
 act('depotBack', () => { S.cur.step = 'choose'; S.cur.trade = null; S.votes = {}; });
 act('lockParty', () => { const w = lockParty(); S.partyWarn = w; if (w) return; S.partyWarn = ''; sfx('level'); });
@@ -2123,9 +2157,13 @@ act('backToClasses', () => {
   while (S.party.length < 4) S.party.push({ name: '', cls: '', perk: '', up: '', used: 0, av: null });
 });
 act('pickUnit', id => pickUnit(id));
-act('showManifest', () => { S.phase = 'manifest'; sfx('start'); });
-act('setPatch', id => { if (!patchFree(S, id)) return false; setPatch(id); sfx('click'); });
-act('toMap', () => { if (!S.patch && PATCHES[S.unit]) { const f = PATCHES[S.unit].find(p => patchFree(S, p.id)); if (f) setPatch(f.id); } if (!S.map) S.map = genMap(); S.mapLocked = true; S.pos = { tier: -1, idx: null }; S.phase = 'map'; S.votes = {}; sfx('start'); });
+act('showManifest', () => { S.phase = 'manifest'; S.votes = {}; sfx('start'); });
+// the team votes on their phones; the GM clicks the winner to lock it in (Change reopens the vote)
+act('setPatch', id => { if (!patchFree(S, id)) return false; setPatch(id); S.votes = {}; sfx('level'); log('Team patch', `${(patchOf(S) || {}).icon || ''} ${S.callsign}`); });
+act('unsetPatch', () => { S.patch = ''; S.callsign = ''; S.votes = {}; });
+act('toMap', () => { if (!S.patch && PATCHES[S.unit]) { // nobody locked one in: the top-voted free patch, else the first free one
+    const n = {}; Object.values(S.votes || {}).forEach(k => { if (patchFree(S, String(k))) n[k] = (n[k] || 0) + 1; });
+    const top = Object.keys(n).sort((a, b) => n[b] - n[a])[0], f = top || (PATCHES[S.unit].find(p => patchFree(S, p.id)) || {}).id; if (f) setPatch(f); } if (!S.map) S.map = genMap(); S.mapLocked = true; S.pos = { tier: -1, idx: null }; S.phase = 'map'; S.votes = {}; sfx('start'); });
 act('node', a => { const [t, i] = a.split(',').map(Number); chooseNode(t, i); });
 act('collapse', () => { log('GM', 'Skipped the remaining stops for time'); if (!S.leveled) { S.leveled = true; } startBoss(); });
 act('choose', a => choose(+a));
@@ -2135,7 +2173,6 @@ act('lead', a => { S.cur.lead = +a; });
 act('typ', () => { S.cur.typ = !S.cur.typ; });
 act('boost', k => { if (!canBoost(k)) return false; S.cur.boost = S.cur.boost || {}; S.cur.boost[k] = (S.cur.boost[k] || 0) + 1; sfx('click'); });
 act('unboost', () => { S.cur.boost = {}; });
-act('safe', () => { S.cur.safe = !S.cur.safe; sfx('click'); });
 act('resolveRoll', () => resolveRoll(S.cur.roller ?? S.tokenHolder, {}));
 act('stars', a => rateStars(+a, S.cur.lead ?? S.tokenHolder));
 act('perkUse', i => usePerk(+i));

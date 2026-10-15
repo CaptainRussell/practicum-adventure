@@ -90,9 +90,6 @@ function onClient(conn, d) {
       if (!ok) return netSendTo(cid);
       return apply(() => { me[k] = val || ''; });
     }
-    case 'patch': // the team patch, on the org chart screen (any cadet; last tap wins)
-      if (S.phase !== 'manifest' || !patchFree(S, d.v)) return netSendTo(cid);
-      return apply(() => { setPatch(d.v); sfx('click'); });
     case 'up': if (S.phase !== 'levelup' || !CLASS[me.cls].ups.some(u => u.id === d.v)) return netSendTo(cid);
       return apply(() => { me.up = d.v; });
     case 'vote': {
@@ -102,6 +99,7 @@ function onClient(conn, d) {
       if (slot === S.offline || (S.phase === 'map' && slot === S.offlineNext)) return netSendTo(cid);
       if (S.phase === 'map') ok = available().some(([t, i]) => `${t},${i}` === String(d.v));
       else if (S.phase === 'unit' && !S.unitRolled) ok = UNITS.some(u => u.id === String(d.v));
+      else if (S.phase === 'manifest' && !S.patch) ok = patchFree(S, String(d.v)); // team patch vote (GM locks the winner)
       else if (S.phase === 'node' && c && (c.step === 'choose' || c.step === 'who') && (c.type === 'rest' || c.type === 'depot'))
         ok = stopOptions().some(o => o.key === String(d.v) && !o.dis);
       else if (S.phase === 'node' && c && c.step === 'brief' && curMission()) {
@@ -115,8 +113,8 @@ function onClient(conn, d) {
       if (!ok) return netSendTo(cid);
       return apply(() => { S.votes = S.votes || {}; S.votes[slot] = d.v; });
     }
-    // before a d20 check: any cadet can add a boost, toggle "play it safe", or volunteer to roll
-    case 'boost': case 'unboost': case 'safe': case 'roller': {
+    // before a d20 check: any cadet can add a boost or volunteer to roll
+    case 'boost': case 'unboost': case 'roller': {
       const c = S.cur;
       // Tackle it: any cadet can volunteer to roll
       if (d.t === 'roller' && S.phase === 'inject' && S.inject && S.inject.stage === 'tackle') {
@@ -127,7 +125,6 @@ function onClient(conn, d) {
       if (c.type === 'spot' && slot !== c.slot) return netSendTo(cid); // spotlight: everyone else stays out of it
       if (d.t === 'boost') { if (!canBoost(d.v)) return netSendTo(cid); return apply(() => { c.boost = c.boost || {}; c.boost[d.v] = (c.boost[d.v] || 0) + 1; sfx('click'); }); }
       if (d.t === 'unboost') return apply(() => { c.boost = {}; });
-      if (d.t === 'safe') return apply(() => { c.safe = !c.safe; sfx('click'); });
       if (c.spec.check.stat === 'LOYB' || c.type === 'spot') return netSendTo(cid);
       return apply(() => { c.roller = slot; sfx('click'); }); // "I'll roll"
     }
@@ -182,7 +179,7 @@ function publicView(slot) {
     branch: !!S.branch, objectives: S.phase === 'intro' || S.phase === 'debrief',
     myGrade: slot != null && S.grades && S.grades[slot] && S.grades[slot].shown ? S.grades[slot] : null,
     ccInfo: u ? { pos: u.cc.pos, neg: u.cc.neg, negOff: !!S.flags.ccNegOff, intent: u.cc.intent } : null,
-    meters: S.meters, items: S.items,
+    meters: S.meters, deocs: deocsOn(S), deocsLeft: deocsLeft(S), items: S.items,
     npcs: (S.npcs || []).map(n => ({ slot: n.slot, rank: n.rank, name: n.name, pub: n.pub, loy: n.loy, out: n.out, broken: n.broken, ally: isAlly(n), trait: n.trait, done: !!(S.traitDone || {})[n.slot] })),
     unitPicked: !!S.unitRolled, benderTell: benderTell(S),
     map: S.map ? S.map.tiers.map(t => t.map(n => ({ type: n.type, done: n.done, visited: n.visited }))) : null, pos: S.pos, links: S.map ? S.map.links : null,
