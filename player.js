@@ -394,7 +394,7 @@ function renderMain(S) {
 
 function renderTitle() {
   const top = P.board.filter(b => !b.gameOver).slice(0, 5);
-  return `<div class="titlescr"><div class="logo">PRACTICUM<br>ADVENTURE<small>A LEADERSHIP RPG · AS300</small></div>
+  return `<div class="titlescr"><div class="logo">PRACTICUM<br>ADVENTURE<small>For AFAS 3410 (Fall 2026)</small><small class="credit">Created by Captain Russell</small></div>
     <div class="ptitle blink" style="font-size:20px">INSERT CADETS TO CONTINUE</div>
     ${top.length ? `<div class="box" style="min-width:640px"><div class="sectlbl">HIGH SCORES</div><table class="lb">${top.map((b, i) => `<tr class="${i < 3 ? 'top' : ''}"><td class="rk">${i + 1}</td><td>${esc(b.callsign)}<div class="lbc">${esc(b.cadets || '')}</div></td><td>${esc(b.grade)}</td><td>${b.score}</td></tr>`).join('')}</table></div>` : ''}</div>`;
 }
