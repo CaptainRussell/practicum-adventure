@@ -27,7 +27,7 @@ const DIFFICULTY = {
   restMain: 2,     // Rest Stop: the meter the team picks goes up this much...
   restOthers: 1,   // ...and every other meter goes up this much
   startLoy: 2,     // every Unit member's starting loyalty (Ally at 5)
-  dangerAt: 3,     // a meter at or below this flashes DANGER on the projector and phones
+  dangerAt: 2,    // a meter at or below this flashes DANGER on the projector and phones
   deocsStops: 2,   // a DEOCS Survey shows the exact meter values for this many stops
 };
 const DC_NORMAL = 13 + DIFFICULTY.dcPlus, DC_HARD = 16 + DIFFICULTY.dcPlus;

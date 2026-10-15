@@ -473,9 +473,12 @@ function renderManifest(S) {
 // Two lanes: at every stop the party picks the top or bottom option (votes show as avatars).
 function renderMap(S) {
   const n = S.map.tiers.length, W = 1000, H = 520, startX = 48, bossX = 946, gap = 165;
-  // column x positions: a stop-to-stop gap is 1 unit; a gap with an inject checkpoint gets +INJ_W so the 🎡 lane has room
-  const INJ_W = 0.5, colX = [startX]; // colX[k + 1] = x of column k (k = -1 start ... n boss)
-  const units = [1]; for (let k = 0; k < n; k++) units.push(1 + (injectAfter(k) ? INJ_W : 0));
+  // checkpoints between stops (in the order they happen): 🎡 inject, then ⬆️ level up
+  const lv = S.map.levelAfter || 3;
+  const checks = k => [injectAfter(k) && 'inject', k === lv - 1 && 'level'].filter(Boolean);
+  // column x positions: a stop-to-stop gap is 1 unit, +CHK_W for each checkpoint in it so its lane has room
+  const CHK_W = 0.5, colX = [startX]; // colX[k + 1] = x of column k (k = -1 start ... n boss)
+  const units = [1]; for (let k = 0; k < n; k++) units.push(1 + checks(k).length * CHK_W);
   const unit = (bossX - startX) / units.reduce((a, b) => a + b, 0);
   units.forEach(u => colX.push(colX[colX.length - 1] + u * unit));
   const pt = (k, i) => {
@@ -495,13 +498,15 @@ function renderMap(S) {
   }));
   S.map.tiers[n - 1].forEach((_, i) => { lines += line(pt(n - 1, i), pt(n), visited(n - 1, i), false); });
   for (let k = 0; k < n; k++) nodes += `<text x="${pt(k, 0)[0]}" y="16" font-size="11" fill="#8f8fc8" text-anchor="middle" font-family="'Press Start 2P'">STOP ${k + 1}</text>`;
-  // 🎡 inject checkpoints: a shaded lane between two stops, with a 🎡 waypoint on every path that crosses it
-  for (let k = 0; k < n; k++) {
-    if (!injectAfter(k)) continue;
-    const gx = (pt(k, 0)[0] + pt(k + 1, 0)[0]) / 2, st = injectMark(S, k), past = st === 'past';
-    const col = past ? '#8f8fc8' : '#ff9f43';
+  // checkpoint lanes (🎡 inject, ⬆️ level up): named in the STOP row, with a waypoint on every path that crosses the lane
+  const CHK = { inject: { icon: '🎡', name: 'INJECT', color: '#ff9f43', mark: k => injectMark(S, k) },
+    level: { icon: '⬆️', name: 'LEVEL UP', color: '#7dff6b', mark: k => S.leveled || S.pos.tier > k ? 'past' : S.phase === 'levelup' ? 'live' : 'next' } };
+  for (let k = 0; k < n; k++) checks(k).forEach((kind, ci, all) => {
+    const x0 = pt(k, 0)[0], x1 = pt(k + 1, 0)[0], gx = x0 + (x1 - x0) * (ci + 1) / (all.length + 1);
+    const C = CHK[kind], st = C.mark(k), past = st === 'past';
+    const col = past ? '#8f8fc8' : C.color;
     lines += `<line x1="${gx}" y1="30" x2="${gx}" y2="${H - 18}" stroke="${col}" stroke-width="2" stroke-dasharray="3 9" opacity="${past ? 0.2 : 0.45}"/>`;
-    nodes += `<text x="${gx}" y="19" font-size="16" text-anchor="middle" opacity="${past ? 0.45 : 1}">${past ? '✅' : '🎡'}</text>`;
+    nodes += `<text x="${gx}" y="16" font-size="8" fill="${col}" text-anchor="middle" font-family="'Press Start 2P'" opacity="${past ? 0.6 : 1}">${past ? '✅ ' : ''}${C.name}</text>`;
     // every path segment that crosses this lane: [from point, to point, traveled?]
     const segs = k < n - 1
       ? S.map.tiers[k].flatMap((_, i) => (S.map.links[k][i] || []).map(j => [pt(k, i), pt(k + 1, j), visited(k, i) && visited(k + 1, j)]))
@@ -514,14 +519,9 @@ function renderMap(S) {
     });
     dots.forEach(({ y, lit }) => {
       nodes += `<g opacity="${lit ? 1 : past ? 0.3 : 0.8}"><circle cx="${gx}" cy="${y}" r="15" fill="#1e1206" stroke="${lit ? '#ffd23f' : col}" stroke-width="${lit ? 4 : 3}">${st === 'live' && lit ? '<animate attributeName="stroke-opacity" values="1;0.2;1" dur="1s" repeatCount="indefinite"/>' : ''}</circle>
-        <text x="${gx}" y="${y + 6}" font-size="16" text-anchor="middle">🎡</text></g>`;
+        <text x="${gx}" y="${y + 6}" font-size="16" text-anchor="middle">${C.icon}</text></g>`;
     });
-  }
-  const lv = S.map.levelAfter || 3;
-  if (lv < n) {
-    const x = (pt(lv - 1, 0)[0] + pt(lv, 0)[0]) / 2;
-    nodes += `<text x="${x}" y="${H - 6}" font-size="30" text-anchor="middle">⬆️</text>`;
-  }
+  });
   S.map.tiers.forEach((tier, k) => tier.forEach((nd, i) => {
     const [x, y] = pt(k, i), nt = NODE_TYPES[nd.type];
     const open = isOpen(k, i), here = S.pos.tier === k && S.pos.idx === i;
@@ -543,7 +543,6 @@ function renderMap(S) {
       ${nodes}
       <g><rect x="${bossX - 48}" y="${H / 2 - 48}" width="96" height="96" fill="#3a0010" stroke="#ff2e63" stroke-width="7"/><text x="${bossX}" y="${H / 2 + 18}" font-size="52" text-anchor="middle">👹</text><text x="${bossX}" y="${H / 2 + 72}" font-size="10" fill="#ff2e63" text-anchor="middle" font-family="'Press Start 2P'">THE IG</text></g>
     </svg></div>
-    <div class="sub">Paths branch and merge: you can only move along the lines, so choose carefully. ⚔️ Scenario · 💀 Elite (harder, double rewards, loot) · 🏕️ Rest · 🛒 Base Exchange (BX) · 🔦 Spotlight (a wheel picks who) · ❓ Unknown (rolled on arrival) · 🎡 Inject (every path passes one: spin a wheel there) · ⬆️ Level up</div>
     ${renderPowerups(S)}</div>`;
 }
 

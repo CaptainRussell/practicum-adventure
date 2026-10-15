@@ -1,0 +1,35 @@
+// Practicum Adventure: Firestore security rules for the shared leaderboard.
+// Paste this into Firebase console > Firestore Database > Rules, then click Publish.
+// Anyone with the site can read the board and add or update a run (the API key is public),
+// but every field is type- and size-checked and nobody can delete entries from the game.
+// Delete entries yourself in the Firebase console (Firestore Database > Data).
+// Full write-up of the backend: FIREBASE-BACKEND.md
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /leaderboard/{runId} {
+      allow read: if true;
+      allow create, update: if validRun(request.resource.data) && runId.size() <= 40;
+      allow delete: if false;
+    }
+    // everything else is closed
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    function validRun(d) {
+      return d.keys().hasOnly(['callsign', 'unit', 'grade', 'score', 'low', 'stars', 'ach', 'gameOver', 'cadets', 'date', 'patch', 'patchKey'])
+        && d.callsign is string && d.callsign.size() <= 24
+        && d.unit is string && d.unit.size() <= 40
+        && d.grade is string && d.grade.size() <= 4
+        && d.score is number && d.score > -5000 && d.score < 5000
+        && d.low is number && d.low >= 0 && d.low <= 10
+        && d.stars is number && d.stars >= 0 && d.stars < 200
+        && d.ach is number && d.ach >= 0 && d.ach < 100
+        && d.gameOver is bool
+        && d.cadets is string && d.cadets.size() <= 200
+        && d.date is string && d.date.size() <= 30
+        && d.patch is string && d.patch.size() <= 8
+        && d.patchKey is string && d.patchKey.size() <= 40;
+    }
+  }
+}

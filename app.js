@@ -1332,7 +1332,7 @@ function startBoss() {
   if (Bs.weak) bossLog(`🕵️ The Witness tipped you off: Press target ${examDC(Bs)}.`);
   // the commander shows up for you, or doesn't
   if (S.meters.tru >= 7) bossDmg(DIFFICULTY.vouch, `${S.cc} vouches for your flight (⭐ ${deocsOn(S) ? S.meters.tru : 'STRONG'})`);
-  else if (S.meters.tru <= 3) { Bs.hp += DIFFICULTY.vouch; Bs.max += DIFFICULTY.vouch; bossLog(`👎 ${S.cc} throws you under the bus (⭐ ${deocsOn(S) ? S.meters.tru : 'DANGER'}): IG +${DIFFICULTY.vouch} HP`); }
+  else if (S.meters.tru <= 3) { Bs.hp += DIFFICULTY.vouch; Bs.max += DIFFICULTY.vouch; bossLog(`👎 ${S.cc} throws you under the bus (⭐ ${deocsOn(S) ? S.meters.tru : 'LOW'}): IG +${DIFFICULTY.vouch} HP`); }
   emit('bossIntro'); sfx('boss');
   log('BOSS', `${BOSS.name}, ${BOSS.title} (HP ${Bs.hp})`);
 }
@@ -1502,6 +1502,7 @@ function saveToBoard() {
     gameOver: S.gameOver, cadets: S.party.map(c => rankName(c)).join(', '), date: S.boardDate, patch: (patchOf(S) || {}).icon || '', patchKey: S.patch ? `${S.unit}:${S.patch}` : '',
   });
   saveBoard(b); S.saved = true;
+  if (typeof cloudQueue === 'function') cloudQueue(S.boardDate); // shared leaderboard (cloud.js)
   log('Leaderboard', `Saved as ${S.callsign}`);
 }
 
@@ -1723,6 +1724,7 @@ function gmMain() {
 function gmTitle() {
   let saved = null; try { saved = JSON.parse(localStorage.getItem('sq_run') || 'null'); } catch (e) { }
   const b = sortBoard(loadBoard());
+  const shared = typeof cloudOn === 'function' && cloudOn(); // shared leaderboard: clearing it here would just re-download it
   const R = getRoster();
   const rosterCard = `<div class="gcard"><h3>NPC roster</h3>
     <p class="note">${R.builtin ? `Using the built-in roster from data.js: ${R.upper.length} upper (POC) and ${R.lower.length} lower (AS200/250/500) names. Edit below and save to override it in this browser only.` : `Using a custom roster saved in this browser: ${R.upper.length} upper and ${R.lower.length} lower names.`}</p>
@@ -1737,8 +1739,8 @@ function gmTitle() {
     ${saved && saved.phase && saved.phase !== 'title' ? B('resume', `⏯️ Resume saved run (${esc(saved.phase)}${saved.callsign ? ', ' + esc(saved.callsign) : ''})`) : ''}</div></div>
     <div class="gcard"><h3>Leaderboard (${b.length} runs)</h3>${boardTable(b)}
     <div class="row">${B('exportBoard', '💾 Export leaderboard + grades (JSON)')} <label class="b">📂 Import JSON<input type="file" id="importFile" accept=".json" class="hide"></label>
-    ${B('exportCSV', '📊 Export grades CSV')} ${B('clearBoard', '🗑️ Clear leaderboard', { cls: 'red' })}</div>
-    <p class="note">Top 3 non-Game-Over runs earn extra credit. Data lives in this browser; export a backup after each practicum day.</p></div>${rosterCard}`;
+    ${B('exportCSV', '📊 Export grades CSV')} ${shared ? '' : B('clearBoard', '🗑️ Clear leaderboard', { cls: 'red' })}</div>
+    <p class="note">${typeof cloudStatus === 'function' ? cloudStatus() + '<br>' : ''}Top 3 non-Game-Over runs earn extra credit. ${shared ? 'Grades stay in this browser only: export them after each practicum day. To delete a leaderboard entry, use the Firebase console.' : 'Data lives in this browser; export a backup after each practicum day.'}</p></div>${rosterCard}`;
 }
 act('saveRoster', () => {
   const upper = parseNames($('#rosterUp').value), lower = parseNames($('#rosterLo').value);
@@ -1793,9 +1795,11 @@ function miniMap(m) {
   const ln = (a, b) => { g += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#5a5aa8" stroke-width="2" stroke-dasharray="5 4"/>`; };
   m.tiers[0].forEach((_, i) => ln(pt(-1), pt(0, i)));
   m.tiers.forEach((row, k) => row.forEach((_, i) => (k < n - 1 ? m.links[k][i] : [null]).forEach(j => ln(pt(k, i), j == null ? pt(n) : pt(k + 1, j)))));
-  // 🎡 inject checkpoints between stops
-  m.tiers.forEach((_, k) => { if (!injectAfter(k)) return; const x = (pt(k, 0)[0] + pt(k + 1, 0)[0]) / 2;
-    g += `<line x1="${x}" y1="24" x2="${x}" y2="${H - 6}" stroke="#ff9f43" stroke-width="1.5" stroke-dasharray="3 4" opacity=".7"/><text x="${x}" y="18" font-size="13" text-anchor="middle">🎡</text>`; });
+  // checkpoints between stops: 🎡 inject, then ⬆️ level up
+  m.tiers.forEach((_, k) => {
+    const cs = [injectAfter(k) && ['🎡', '#ff9f43'], k === (m.levelAfter || 3) - 1 && ['⬆️', '#7dff6b']].filter(Boolean);
+    cs.forEach(([ic, col], ci) => { const x = pt(k, 0)[0] + (pt(k + 1, 0)[0] - pt(k, 0)[0]) * (ci + 1) / (cs.length + 1);
+      g += `<line x1="${x}" y1="24" x2="${x}" y2="${H - 6}" stroke="${col}" stroke-width="1.5" stroke-dasharray="3 4" opacity=".7"/><text x="${x}" y="18" font-size="13" text-anchor="middle">${ic}</text>`; }); });
   m.tiers.forEach((row, k) => row.forEach((nd, i) => { const [x, y] = pt(k, i), nt = NODE_TYPES[nd.type];
     g += `<rect x="${x - 15}" y="${y - 15}" width="30" height="30" fill="#1b1b4a" stroke="${nt.color}" stroke-width="2"/><text x="${x}" y="${y + 6}" font-size="16" text-anchor="middle">${nt.icon}</text>`; }));
   g += `<text x="${x0}" y="${H / 2 + 6}" font-size="16" text-anchor="middle">🛫</text><text x="${x1}" y="${H / 2 + 7}" font-size="20" text-anchor="middle">👹</text>`;
@@ -2311,7 +2315,7 @@ function initGM() {
     f.text().then(t => {
       try {
         const d = JSON.parse(t);
-        if (d.leaderboard) { const merged = loadBoard().concat(d.leaderboard.filter(x => !loadBoard().some(y => y.date === x.date))); saveBoard(merged); }
+        if (d.leaderboard) { const merged = loadBoard().concat(d.leaderboard.filter(x => !loadBoard().some(y => y.date === x.date))); saveBoard(merged); if (typeof cloudSync === 'function') cloudSync(); }
         if (d.grades) { const g = loadGrades(); localStorage.setItem('sq_grades', JSON.stringify(g.concat(d.grades.filter(x => !g.some(y => y.date === x.date && y.cadet === x.cadet))))); }
         alert('Imported.'); push();
       } catch (err) { alert('Could not read that file.'); }
@@ -2326,6 +2330,7 @@ function initGM() {
   if (bc) bc.onmessage = e => { if (e.data && e.data.type === 'hello' && e.data.need) push(true); };
   setInterval(() => { if (S.timer && Date.now() > S.timer.end + 3000) { S.timer = null; push(); } }, 1000);
   if (typeof netStart === 'function') netStart();
+  if (typeof cloudStart === 'function') cloudStart(); // shared leaderboard (cloud.js)
   push();
 }
 

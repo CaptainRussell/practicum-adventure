@@ -50,9 +50,33 @@
 - New scenarios (M13-M24): DUI, dorm party, fight club, paintball in the command post, asleep at the wheel, round in the ceiling, domestic violence report, missed movement, gate runner, insubordination, napping in an exercise, and a spouse's death. Five of them hide integrity traps. In the serious ones, the person in trouble is always an unnamed Airman, never a roster name.
 
 ## Hidden meters and the DEOCS Survey
-- The projector and phones don't show meter numbers. Each meter reads **STRONG** (7+), **STEADY** (4-6) or **DANGER** (3 or lower, flashing red). Your console always shows the real numbers.
+- The projector and phones don't show meter numbers. Each meter reads **STRONG** (7+), **STEADY** (3-6) or **DANGER** (2 or lower, flashing red). Your console always shows the real numbers.
 - A **📋 DEOCS Survey** shows the exact numbers for the next 2 stops. Three ways to get one: the First Sergeant's **DEOCS Survey** perk (it also gives every Unit member +1 loyalty), the DEOCS Survey loot item, or buying one at the BX for 1 📦.
 - `dangerAt` and `deocsStops` in `DIFFICULTY` (`data.js`) set the danger threshold and how long a survey lasts.
+
+## Shared leaderboard (one-time setup, ~10 minutes)
+**Status: set up.** The game uses the Firebase project `practicum-adventure`. See **[FIREBASE-BACKEND.md](FIREBASE-BACKEND.md)** for how it works, what's stored, limits, management and troubleshooting. The steps below are kept for reference, or for setting up a new project.
+
+Without this, the leaderboard lives only in the browser running the GM console. With it, every computer running the game sees the same high scores, and runs upload automatically.
+1. Go to [console.firebase.google.com](https://console.firebase.google.com), sign in with a Google account, and click **Create a project** (any name, e.g. `practicum-adventure`). You can turn off Google Analytics.
+2. In the left menu: **Build → Firestore Database → Create database**. Pick a location near you, choose **production mode**, and finish.
+3. Open the **Rules** tab, replace everything with the contents of `firestore.rules` from this folder, and click **Publish**.
+4. Click the ⚙️ gear → **Project settings**. Under **Your apps**, click the web icon `</>`, register an app (any nickname, no hosting needed). Copy the `projectId` and `apiKey` it shows.
+5. Paste them into the top of `cloud.js`:
+   ```js
+   projectId: 'practicum-adventure-1a2b3',
+   apiKey: 'AIza...',
+   ```
+6. Commit and push to GitHub. Open the game, and the leaderboard card on the GM console should say **☁️ Shared leaderboard: synced just now**.
+
+How it behaves:
+- Every finished run uploads as soon as it's saved. If the internet is down, it waits and uploads on its own later. The card shows how many runs are waiting.
+- Runs already saved in a browser before setup are uploaded the first time that browser syncs.
+- The board refreshes from the cloud when the console opens, after every save, and every 5 minutes while the board is on screen (it doesn't poll during missions, to stay well inside Firebase's free daily limit).
+- **Test builds stay out of it:** `Play-Locally.bat` (localhost) doesn't touch the shared board. Add `?cloud=1` to the address if you want to test the sync itself.
+- **Deleting entries:** the game can't delete from the shared board, on purpose. Delete a run in the Firebase console under **Firestore Database → Data → leaderboard**. It disappears from every GM console within a minute and won't be re-uploaded. With sync on, the **Clear leaderboard** button is hidden, since cleared runs would just download again.
+- **Only the leaderboard is shared.** It holds team names, cadet ranks and names, scores and the game's letter grade. Your grading rubric scores and notes stay in the GM's browser, so keep exporting them.
+- The API key in `cloud.js` is meant to be public. `firestore.rules` is what protects the data: anyone with the game can read the board and add runs, but every field is checked and nothing can be deleted from the game.
 
 ## Good to know
 - Everything autosaves. If a window closes, reopen `index.html` and click **Resume saved run**.

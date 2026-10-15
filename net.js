@@ -182,7 +182,7 @@ function publicView(slot) {
     meters: S.meters, deocs: deocsOn(S), deocsLeft: deocsLeft(S), items: S.items,
     npcs: (S.npcs || []).map(n => ({ slot: n.slot, rank: n.rank, name: n.name, pub: n.pub, loy: n.loy, out: n.out, broken: n.broken, ally: isAlly(n), trait: n.trait, done: !!(S.traitDone || {})[n.slot] })),
     unitPicked: !!S.unitRolled, benderTell: benderTell(S),
-    map: S.map ? S.map.tiers.map(t => t.map(n => ({ type: n.type, done: n.done, visited: n.visited }))) : null, pos: S.pos, links: S.map ? S.map.links : null,
+    map: S.map ? S.map.tiers.map(t => t.map(n => ({ type: n.type, done: n.done, visited: n.visited }))) : null, pos: S.pos, links: S.map ? S.map.links : null, levelAfter: S.map ? S.map.levelAfter || 3 : 3,
     avail: S.phase === 'map' ? available().map(([t, i]) => `${t},${i}`) : [],
     votes: S.votes || {}, voters: votingOpen(S) ? S.party.filter((_, i) => i !== S.offline && !(S.phase === 'map' && i === S.offlineNext)).length : 0,
     actor: S.actor || null, danger: dangerInfo(S), actorTable: S.actor && !spinning() ? actorTable(S) : null,

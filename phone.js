@@ -289,7 +289,7 @@ function phRoute(v) {
   // the stops the team actually took, then what's left
   return `<div class="ph-route">${v.map.map((tier, t) => { const k = tier.findIndex(n => n.visited); const n = tier[k >= 0 ? k : 0];
     // 🎡 after the stops where an inject hits
-    return `<span class="${k >= 0 ? (n.done ? 'done' : 'here') : ''}">${k >= 0 ? NODE_TYPES[n.type].icon : '❔'}<small>${t + 1}</small></span>${injectAfter(t) ? '<b>›</b><span class="inj">🎡<small>INJ</small></span>' : ''}`; }).join('<b>›</b>')}<b>›</b><span>👹<small>IG</small></span></div>`;
+    return `<span class="${k >= 0 ? (n.done ? 'done' : 'here') : ''}">${k >= 0 ? NODE_TYPES[n.type].icon : '❔'}<small>${t + 1}</small></span>${injectAfter(t) ? '<b>›</b><span class="inj">🎡<small>INJ</small></span>' : ''}${t === (v.levelAfter || 3) - 1 ? '<b>›</b><span class="inj lvl">⬆️<small>LVL</small></span>' : ''}`; }).join('<b>›</b>')}<b>›</b><span>👹<small>IG</small></span></div>`;
 }
 
 // ORG tab: the commander and the Unit

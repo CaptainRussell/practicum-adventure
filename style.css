@@ -438,6 +438,7 @@ body.phone{font-family:var(--vt);font-size:22px;line-height:1.15;min-height:100v
 .ph-route b{color:var(--dim)}
 .ph-route span.inj{border-style:dashed;border-color:var(--warn);background:transparent;font-size:18px;padding:2px 4px}
 .ph-route span.inj small{color:var(--warn);font-size:7px}
+.ph-route span.inj.lvl{border-color:var(--good)} .ph-route span.inj.lvl small{color:var(--good)}
 .ph-npc{background:#101036;border:3px solid var(--line);padding:6px 10px;margin:6px 0}
 .ph-npc b{font-family:var(--pixel);font-weight:400;font-size:10px}
 .ph-npc.ally{border-color:var(--gold)}
