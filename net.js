@@ -48,7 +48,7 @@ function netStop() {
 function phonesOnline() { return Object.keys(NET.conns).length; }
 
 /* ---- incoming ---- */
-const JOINABLE = ['title', 'intro', 'party'];
+const JOINABLE = ['title', 'intro', 'avatars', 'party'];
 function slotOf(cid) { const c = (S.clients || {})[cid]; return c ? c.slot : null; }
 function onClient(conn, d) {
   if (!d || !d.cid) return;
@@ -57,9 +57,10 @@ function onClient(conn, d) {
   if (d.t === 'hello') {
     NET.conns[cid] = conn;
     if (S.blocked[cid]) { conn.send({ t: 'bye', why: 'removed' }); return; }
-    if (!S.clients[cid] && JOINABLE.includes(S.phase)) {
+    if (!S.clients[cid]) {
       const name = String(d.name || '').trim().slice(0, 24) || 'Cadet';
-      const slot = S.party.findIndex(p => !p.name.trim());
+      // seats fill while the party forms; anyone later is a spectator the GM can move into a seat (device transfer)
+      const slot = JOINABLE.includes(S.phase) ? S.party.findIndex(p => !p.name.trim()) : -1;
       if (slot >= 0) {
         S.party[slot].name = name;
         S.clients[cid] = { name, slot };
@@ -82,51 +83,79 @@ function onClient(conn, d) {
       return apply(() => { me.perk = d.v; });
     case 'av': if (S.phase !== 'avatars' || !(d.v >= 0 && d.v < AVATARS.length)) return netSendTo(cid);
       if (S.party.some((p, i) => i !== slot && p.av === d.v)) return netSendTo(cid);
-      return apply(() => { me.av = d.v; });
+      return apply(() => { me.av = d.v; me.g = AVATARS[d.v].g; });
+    case 'look': { // uniform / hair colour (cosmetic), any time before the classes lock
+      const [k, val] = String(d.v || '').split(':');
+      const ok = ['avatars', 'party'].includes(S.phase) && ((k === 'uni' && UNIFORMS.some(u => u.id === (val || ''))) || (k === 'hair' && HAIR_COLORS.some(h => h.id === (val || ''))));
+      if (!ok) return netSendTo(cid);
+      return apply(() => { me[k] = val || ''; });
+    }
+    case 'patch': // the team patch, on the org chart screen (any cadet; last tap wins)
+      if (S.phase !== 'manifest' || !patchFree(S, d.v)) return netSendTo(cid);
+      return apply(() => { setPatch(d.v); sfx('click'); });
     case 'up': if (S.phase !== 'levelup' || !CLASS[me.cls].ups.some(u => u.id === d.v)) return netSendTo(cid);
       return apply(() => { me.up = d.v; });
     case 'vote': {
       // what can be voted on depends on the screen: route stop, rest/depot option, or mission choice
       const c = S.cur; let ok = false;
+      // in a meeting: no vote this stop, and none on the route right after being pulled in
+      if (slot === S.offline || (S.phase === 'map' && slot === S.offlineNext)) return netSendTo(cid);
       if (S.phase === 'map') ok = available().some(([t, i]) => `${t},${i}` === String(d.v));
-      else if (S.phase === 'node' && c && c.step === 'choose' && (c.type === 'rest' || c.type === 'depot'))
-        ok = (c.type === 'rest' ? restOptions() : depotOptions()).some(o => o.key === String(d.v) && !o.dis);
-      else if (S.phase === 'node' && c && c.step === 'brief' && curMission()) ok = !!curMission().choices[d.v];
-      else if (S.inject && S.inject.stage === 'result' && S.inject.idx != null && !spinning()) ok = !!(MURPHY[S.inject.idx].options || [])[d.v];
+      else if (S.phase === 'unit' && !S.unitRolled) ok = UNITS.some(u => u.id === String(d.v));
+      else if (S.phase === 'node' && c && (c.step === 'choose' || c.step === 'who') && (c.type === 'rest' || c.type === 'depot'))
+        ok = stopOptions().some(o => o.key === String(d.v) && !o.dis);
+      else if (S.phase === 'node' && c && c.step === 'brief' && curMission()) {
+        const ch = curMission().choices[d.v];
+        ok = !!ch && !(ch.req && !gateOpen(ch.req)) && (c.type !== 'spot' || slot === c.slot); // spotlight: only that cadet decides
+      }
+      else if (S.inject && S.inject.stage === 'result' && S.inject.idx != null && !spinning()) {
+        const mm = MURPHY[S.inject.idx], n = (mm.options || []).length;
+        ok = !!(mm.options || [])[d.v] || (!!mm.tackle && d.v === n && !S.inject.blocked);
+      }
       if (!ok) return netSendTo(cid);
       return apply(() => { S.votes = S.votes || {}; S.votes[slot] = d.v; });
     }
-    // before a d20 check: any cadet can add a boost or toggle "play it safe"; the 👑 holder picks the roller
+    // before a d20 check: any cadet can add a boost, toggle "play it safe", or volunteer to roll
     case 'boost': case 'unboost': case 'safe': case 'roller': {
       const c = S.cur;
+      // Tackle it: any cadet can volunteer to roll
+      if (d.t === 'roller' && S.phase === 'inject' && S.inject && S.inject.stage === 'tackle') {
+        if (S.offline === slot || spinning()) return netSendTo(cid);
+        return apply(() => { S.inject.roller = slot; setActor('tackle', slot); sfx('click'); });
+      }
       if (S.phase !== 'node' || !c || c.step !== 'roll' || spinning() || S.offline === slot) return netSendTo(cid);
+      if (c.type === 'spot' && slot !== c.slot) return netSendTo(cid); // spotlight: everyone else stays out of it
       if (d.t === 'boost') { if (!canBoost(d.v)) return netSendTo(cid); return apply(() => { c.boost = c.boost || {}; c.boost[d.v] = (c.boost[d.v] || 0) + 1; sfx('click'); }); }
       if (d.t === 'unboost') return apply(() => { c.boost = {}; });
       if (d.t === 'safe') return apply(() => { c.safe = !c.safe; sfx('click'); });
-      if (slot !== S.tokenHolder || !S.party[d.v] || S.offline === +d.v || c.spec.check.stat === 'LOYB') return netSendTo(cid);
-      return apply(() => { c.roller = +d.v; sfx('click'); });
+      if (c.spec.check.stat === 'LOYB' || c.type === 'spot') return netSendTo(cid);
+      return apply(() => { c.roller = slot; sfx('click'); }); // "I'll roll"
     }
     case 'act': {
       // the cadet whose turn it is presses their roll/spin button
       if (!S.actor || S.actor.slot !== slot || S.actor.kind !== d.v || spinning() || !ACTOR_RUN[d.v]) return netSendTo(cid);
       return apply(() => { S.lastActor = slot; ACTOR_RUN[d.v](); });
     }
-    case 'p3roll': {
-      if (spinning()) return netSendTo(cid);
-      return apply(() => bossP3Roll(slot));
-    }
     case 'roll': {
       const c = S.cur;
       if (S.phase !== 'node' || !c || c.step !== 'roll' || (c.roller ?? S.tokenHolder) !== slot || spinning() || S.offline === slot) return netSendTo(cid);
-      return apply(() => resolveRoll(slot, { coffee: S.pending.coffee, typ: c.typ }));
+      return apply(() => resolveRoll(slot, {}));
     }
-    case 'b3stat': {
-      const B = S.boss; if (S.phase !== 'boss' || !B || B.phase !== 3 || B.p3.results || !STATS.includes(d.v)) return netSendTo(cid);
-      if (B.p3.rows.some((r, i) => i !== slot && r.stat === d.v)) return netSendTo(cid);
-      return apply(() => { B.p3.rows[slot].stat = d.v; });
+    case 'bact': { // boss: this cadet's action for the round (null clears it)
+      if (S.phase !== 'boss' || !S.boss || S.boss.stage !== 'act' || spinning()) return netSendTo(cid);
+      if (d.v == null) return apply(() => { delete S.boss.acts[slot]; });
+      const a = d.v && typeof d.v === 'object' ? { type: String(d.v.type), stat: d.v.stat, k: d.v.k, to: d.v.to != null ? +d.v.to : undefined, slot: d.v.slot } : null;
+      if (!a || !bossActOk(slot, a)) return netSendTo(cid);
+      Object.keys(a).forEach(k => a[k] === undefined && delete a[k]);
+      return apply(() => { S.boss.acts[slot] = a; });
+    }
+    case 'team': { // any cadet can name the team while the party forms
+      if (!['title', 'intro', 'party', 'perks', 'avatars'].includes(S.phase)) return netSendTo(cid);
+      S.callsign = String(d.v || '').trim().slice(0, 14); save(); push(true); renderGM();
+      return;
     }
     case 'req': {
-      const kinds = { ability: 'use their ability', pause: 'call a Tactical Pause', intel: 'use the Intel Briefing', waiver: 'Submit a Waiver (reroll)' };
+      const kinds = { ability: 'use their ability' };
       const k = String(d.v || '');
       let what = kinds[k];
       if (k.startsWith('item:')) { const it = LOOT.find(l => l.id === k.slice(5)); if (it && S.items.includes(it.id)) what = `use the team's ${it.icon} ${it.name}`; }
@@ -144,51 +173,74 @@ function onClient(conn, d) {
 /* ---- outgoing: what a phone is allowed to see ---- */
 function publicView(slot) {
   const m = S.phase === 'node' ? curMission() : null;
-  const c = S.cur;
+  const c = S.cur, u = unitObj();
   const v = {
     phase: S.phase, introPage: S.introPage, you: slot, room: roomCode(), spinning: spinning(),
-    party: S.party.map(p => ({ name: p.name, cls: p.cls, perk: p.perk, av: p.av, up: p.up, used: p.used })),
-    tokenHolder: S.tokenHolder, offline: S.offline, unit: S.unit, cc: S.cc,
-    meters: S.meters, lt: S.lt, items: S.items,
-    npcs: (S.npcs || []).map(n => ({ slot: n.slot, rank: n.rank, name: n.name, pub: n.pub, loy: n.loy, out: n.out, broken: n.broken, ally: isAlly(n), trait: n.revealed ? n.trait : null })),
-    map: S.map ? S.map.tiers.map(t => t.map(n => ({ type: n.type, done: n.done, visited: n.visited }))) : null, pos: S.pos,
+    party: S.party.map((p, i) => ({ name: p.name, cls: p.cls, perk: p.perk, av: p.av, g: p.g || null, uni: p.uni || '', hair: p.hair || '', up: p.up, used: p.used,
+      st: p.cls ? Object.fromEntries(STATS.map(x => [x, statOf(i, x)])) : null, perkUsed: !!(p.perk && S.flags['perkUsed_' + p.perk]) })),
+    tokenHolder: S.tokenHolder, offline: S.offline, offlineNext: S.offlineNext, unit: S.unit, cc: S.cc, notice: S.notice || null,
+    branch: !!S.branch, objectives: S.phase === 'intro' || S.phase === 'debrief',
+    myGrade: slot != null && S.grades && S.grades[slot] && S.grades[slot].shown ? S.grades[slot] : null,
+    ccInfo: u ? { pos: u.cc.pos, neg: u.cc.neg, negOff: !!S.flags.ccNegOff, intent: u.cc.intent } : null,
+    meters: S.meters, items: S.items,
+    npcs: (S.npcs || []).map(n => ({ slot: n.slot, rank: n.rank, name: n.name, pub: n.pub, loy: n.loy, out: n.out, broken: n.broken, ally: isAlly(n), trait: n.trait, done: !!(S.traitDone || {})[n.slot] })),
+    unitPicked: !!S.unitRolled, benderTell: benderTell(S),
+    map: S.map ? S.map.tiers.map(t => t.map(n => ({ type: n.type, done: n.done, visited: n.visited }))) : null, pos: S.pos, links: S.map ? S.map.links : null,
     avail: S.phase === 'map' ? available().map(([t, i]) => `${t},${i}`) : [],
-    votes: S.votes || {},
-    actor: S.actor || null,
+    votes: S.votes || {}, voters: votingOpen(S) ? S.party.filter((_, i) => i !== S.offline && !(S.phase === 'map' && i === S.offlineNext)).length : 0,
+    actor: S.actor || null, danger: dangerInfo(S), actorTable: S.actor && !spinning() ? actorTable(S) : null,
     usable: usableNow(S),
-    itemInfo: (S.items || []).map(id => { const l = LOOT.find(x => x.id === id); return { id, icon: l.icon, name: l.name, text: l.text, rar: l.rar }; }),
+    itemInfo: (S.items || []).map(id => { const l = LOOT.find(x => x.id === id); return { id, icon: l.icon, name: l.name, text: fill(S, l.text), color: lootColor(l) }; }),
     ach: S.ach, final: S.final ? { g: S.final.grade.g, title: S.final.grade.title, total: S.final.total } : null,
+    team: S.callsign || '', patch: patchOf(S), patches: S.phase === 'manifest' ? (PATCHES[S.unit] || []).map(p => ({ ...p, taken: !patchFree(S, p.id) })) : null, tie: voteTie(S) ? tieText(S) : null,
+    result: resultReady(S) ? { head: resultHeadline(S), ...resultSummary(S) } : null,
     gameOver: S.gameOver,
   };
-  if (S.phase === 'node' && S.cur && S.cur.step === 'choose' && (S.cur.type === 'rest' || S.cur.type === 'depot'))
-    v.options = (S.cur.type === 'rest' ? restOptions() : depotOptions()).map(o => ({ key: o.key, html: mt(esc(o.label)), dis: !!o.dis }));
+  if (S.phase === 'node' && c && (c.type === 'rest' || c.type === 'depot') && (c.step === 'choose' || c.step === 'who'))
+    v.options = stopOptions().map(o => ({ key: o.key, html: mt(esc(o.label)), dis: !!o.dis }));
   if (c && S.phase === 'node') {
-    v.cur = { type: c.type, step: c.step, choice: c.choice, roller: c.roller ?? S.tokenHolder, result: c.result || null, stars: c.stars || null,
+    v.cur = { type: c.type, step: c.step, choice: c.choice, roller: c.roller ?? S.tokenHolder, lead: c.lead ?? null, result: c.result || null, stars: c.stars || null,
+      slot: c.type === 'spot' ? c.slot : null, trade: c.trade || null,
       roll: c.rollRes ? { d20: c.rollRes.d20, total: c.rollRes.total, dc: c.rollRes.dc, pass: c.rollRes.pass, nat: c.rollRes.nat, safe: !!c.rollRes.safe } : null,
       check: c.step === 'roll' && c.spec && c.spec.check ? { stat: c.spec.check.stat } : null };
     if (c.step === 'roll' && c.spec && c.spec.check) {
       const p = rollPreview(), st = c.spec.check.stat;
-      Object.assign(v.cur, { boost: c.boost || {}, safe: !!c.safe, odds: rollOdds(p, c.safe),
+      Object.assign(v.cur, { boost: c.boost || {}, safe: !!c.safe, odds: rollOdds(p, c.safe), typ: !!c.typ,
         canBoost: Object.fromEntries(BOOST_METERS.map(k => [k, canBoost(k)])),
-        stats: st && st !== 'LOYB' ? S.party.map((_, i) => statOf(i, st)) : null });
+        stats: st && st !== 'LOYB' ? S.party.map((_, i) => rollBonus(i, st, c.spec.check.m)) : null,
+        spec: st && st !== 'LOYB' ? S.party.map((_, i) => isSpec(i, c.spec.check.m)) : null });
     }
-    if (m) v.mission = { title: m.title, icon: m.icon, sob: m.sob, text: fill(S, m.text),
-      choices: m.choices.map(ch => ({ t: fill(S, ch.t), show: ch.show || null, lock: !!ch.lock, mic: !!ch.mic, intel: c.intel ? specText(S, ch) : null })) };
+    if (m) v.mission = { title: m.title, icon: m.icon, sob: m.sob, text: fill(S, m.text), cc: !!m.cc,
+      compartmented: arrowsHidden(S), choices: m.choices.map(ch => ({ t: fill(S, ch.t), show: arrowsHidden(S) ? null : ch.show || null, mic: !!ch.mic, intel: c.intel ? specText(S, ch) : null,
+        req: ch.req || null, locked: !!(ch.req && !gateOpen(ch.req)), smell: !!(ch.trap && benderTell(S)) })) };
   }
   if (S.phase === 'inject' && S.inject) {
-    const mm = S.inject.idx != null && !spinning() ? MURPHY[S.inject.idx] : null;
-    v.inject = { stage: S.inject.stage, name: mm ? mm.name : null, text: mm ? mm.text || '' : '', note: S.inject.note || null, type: mm ? mm.type : null,
+    const inj = S.inject, mm = inj.idx != null && !spinning() ? MURPHY[inj.idx] : null;
+    v.inject = { stage: inj.stage, wheel: inj.filter ? INJECT_WHEELS[inj.filter] : null, name: mm ? mm.name : null, text: mm ? fill(S, mm.text || '') : '', note: inj.note ? fill(S, inj.note) : null, type: mm ? mm.type : null,
       effHtml: mm && !mm.options ? effHtml(effText(S, mm.eff)) : null,
-      options: mm && mm.options ? mm.options.map(o => ({ t: o.t, html: effHtml(effText(S, o.eff)) })) : null };
+      options: mm && mm.options ? mm.options.map(o => ({ t: fill(S, o.t), html: effHtml(effText(S, o.eff)) })).concat(mm.tackle && !inj.blocked
+        ? [(() => { const r = bestRoller(mm.tackle.stat, mm.tackle.m), b = rollBonus(r, mm.tackle.stat, mm.tackle.m), need = Math.min(20, Math.max(2, mm.tackle.dc + DIFFICULTY.dcPlus - b));
+            return { t: `Tackle it (${mm.tackle.stat} check)`, html: `${esc(cadetName(r))} rolls (${mm.tackle.stat} ${sign(b)}): need ${need}+ (${(21 - need) * 5}%). Pass: no loss. Fail: ${effHtml(effText(S, mm.tackle.fail || {}))}`, tackle: true }; })()] : []) : null,
+      tackle: inj.stage === 'tackle' ? { stat: mm.tackle.stat, dc: mm.tackle.dc + DIFFICULTY.dcPlus, roller: inj.roller, m: mm.tackle.m,
+        bonus: S.party.map((_, i) => rollBonus(i, mm.tackle.stat, mm.tackle.m)), spec: S.party.map((_, i) => isSpec(i, mm.tackle.m)) } : null };
   }
-  if (S.boss) v.boss = { phase: S.boss.phase, hp: S.boss.hp, max: S.boss.max, who: S.boss.p2.who, q: S.boss.p2.who ? S.boss.p2.q.map(i => BOSS_QUESTIONS[i]) : null,
-    stats: S.boss.p3.rows.map(r => r.stat), rolls: S.boss.p3.rows.map(r => r.d20 || null), allies: S.boss.p3.rows.map(r => !!r.ally),
-    done3: !!S.boss.p3.results, result: S.boss.result || null };
+  if (S.boss) {
+    const Bs = S.boss, others = Object.entries(Bs.acts).filter(([s2]) => +s2 !== slot).map(([, a]) => a);
+    v.boss = { hp: Bs.hp, max: Bs.max, round: Bs.round, stage: Bs.stage, atk: Bs.atk, adverse: Bs.adverse, weak: Bs.weak, dc: examDC(Bs),
+      roundName: Bs.round ? BOSS_ROUNDS[Bs.round - 1].name : null,
+      who: Bs.p2.who, q: Bs.p2.who ? Bs.p2.q : null,
+      my: slot != null ? Bs.acts[slot] || null : null, myText: slot != null && Bs.acts[slot] ? bossActText(slot, Bs.acts[slot]) : null,
+      locked: S.party.map((_, i) => !!Bs.acts[i]),
+      takenStats: others.filter(a => a.type === 'press').map(a => a.stat), allyTaken: others.some(a => a.type === 'ally'),
+      allies: (S.npcs || []).filter(n => isAlly(n) && !Bs.allyUsed[n.slot]).map(n => ({ slot: n.slot, name: `${n.rank} ${n.name}` })),
+      log: Bs.log.slice(-6), result: Bs.result || null };
+  }
   return v;
 }
 function netSendTo(cid) {
   const conn = NET.conns[cid]; if (!conn || !conn.open) return;
-  try { conn.send({ t: 'view', v: publicView(slotOf(cid)) }); } catch (e) { }
+  const real = S; S = shownState(); // mid-spin, phones see the state from before the spin (no spoilers)
+  try { conn.send({ t: 'view', v: publicView(slotOf(cid)) }); } catch (e) { } finally { S = real; }
 }
 function netBroadcast() { for (const cid in NET.conns) netSendTo(cid); }
 
@@ -200,6 +252,7 @@ function gmPhonesCard() {
   return `<div class="gcard"><h3>📱 Phones · room ${roomCode()} · ${st} · ${phonesOnline()} connected</h3>
     ${NET.err && NET.status !== 'live' ? `<p class="warnline">${esc(NET.err)}. If this keeps happening, the network may block phone connections; just run the game from this console.</p>` : ''}
     ${url ? `<p class="note">Join: <b>${esc(url)}</b></p>` : `<p class="warnline">Opened from a file: paste your GitHub Pages address to show a join link. <input type="text" id="siteUrl" placeholder="https://you.github.io/practicum-adventure/" value="${esc(localStorage.getItem('sq_site') || '')}" data-inp="site"></p>`}
+    ${spectators().map(([cid, c]) => `<div class="row warnline">👀 <b>${esc(c.name)}</b> is watching (new device). Move into seat: ${S.party.map((p, i) => p.name.trim() ? B('moveSeat', `P${i + 1} ${esc(rankName(p) || p.name)}`, { arg: `${i}|${cid}`, cls: 'sm go', title: 'Device transfer: this device takes over that cadet (the old device becomes a spectator)' }) : '').join(' ')}</div>`).join('')}
     ${reqs.map((r, k) => `<div class="row warnline">🙋 ${esc(r.text)} ${B('reqOk', 'Approve', { arg: k, cls: 'sm go' })} ${B('reqNo', 'Dismiss', { arg: k, cls: 'sm' })}</div>`).join('')}
     <div class="row">${B('newRoom', '🔄 New room code', { cls: 'sm' })} ${B('dropPhones', '📴 Disconnect all phones', { cls: 'sm' })}</div></div>`;
 }
@@ -207,18 +260,18 @@ act('reqOk', k => {
   const r = (S.requests || [])[+k]; if (!r) return false;
   S.requests.splice(+k, 1);
   if (r.kind === 'ability') return useAbility(r.slot);
-  if (r.kind === 'pause') { if (!S.lt.pause) return alert('Tactical Pause already used.'); return ACT.ltPause(); }
-  if (r.kind === 'intel') { if (!S.lt.intel || !S.cur || S.cur.step !== 'brief') return alert('Intel Briefing only works while a mission brief is up (and once per run).'); return ACT.ltIntel(); }
-  if (r.kind === 'waiver') { if (!S.lt.waiver || !S.cur || !S.cur.rollRes || S.cur.step !== 'done') return alert('A Waiver needs a roll that just happened.'); return ACT.waiver(); }
   if (r.kind.startsWith('item:')) { const k2 = S.items.indexOf(r.kind.slice(5)); if (k2 < 0) return alert('The team no longer has that item.'); return useItem(k2); }
-  if (r.kind.startsWith('perk:')) {
-    const id = r.kind.slice(5);
-    if (id === 'typ') { if (!S.cur || S.cur.step !== 'roll') return alert('Trust Your People works during a CMD roll.'); S.cur.typ = true; }
-    else S.flags['perkUsed_' + id] = true;
-    const pk = CLASS[S.party[r.slot].cls].perks.find(p => p.id === id);
-    toast(CLASS[S.party[r.slot].cls].icon, 'PERK USED', `${cadetName(r.slot)}: ${pk ? pk.name : id}`);
-    log('Perk', `${cadetName(r.slot)}: ${pk ? pk.name : id}`);
-  }
+  if (r.kind.startsWith('perk:')) return usePerk(r.slot);
+});
+// connected devices that aren't in a seat (joined late, a new phone, a private tab...)
+function spectators() { return Object.entries(S.clients || {}).filter(([cid, c]) => c.slot == null && NET.conns[cid] && NET.conns[cid].open); }
+// Device transfer: a spectator device takes over a cadet's seat; whatever device had it becomes a spectator
+act('moveSeat', a => {
+  const k = a.indexOf('|'), slot = +a.slice(0, k), cid = a.slice(k + 1), c = (S.clients || {})[cid], p = S.party[slot];
+  if (!c || !p || !p.name.trim()) return false;
+  for (const o in S.clients) if (S.clients[o].slot === slot) S.clients[o].slot = null;
+  c.slot = slot; c.name = p.name;
+  log('Device transfer', `${rankName(p) || p.name} moved to a new device`); toast('📱', 'DEVICE TRANSFER', `${rankName(p) || p.name} is back in the game`);
 });
 act('reqNo', k => { (S.requests || []).splice(+k, 1); });
 act('newRoom', () => { if (!confirm('Make a new room code? Connected phones will need to rejoin.')) return false; netStop(); localStorage.removeItem('sq_room'); try { NET.peer.destroy(); } catch (e) { } NET.peer = null; setTimeout(netStart, 300); });

@@ -1,7 +1,7 @@
 /* =====================================================================
    PRACTICUM ADVENTURE - Field Guide (guide.html)
    Built from data.js so it always matches the game. Spoiler-free: no
-   missions, hidden traits or trap answers.
+   missions or trap answers.
    ===================================================================== */
 function initGuide() {
   document.body.className = 'guide';
@@ -14,38 +14,47 @@ function initGuide() {
   <main class="g-main">
   ${sec('play', '🎮 How to play', `<div class="g-steps">${INTRO_STEPS.map(([ic, h, t], i) => `<div class="g-card"><div class="g-ic">${ic}</div><div><b>${i + 1}. ${esc(h)}</b><p>${esc(t)}</p></div></div>`).join('')}</div>
     <p class="g-win">${esc(INTRO_WIN)}</p><p class="g-lose">${esc(INTRO_LOSE)}</p>
-    <p>A run takes about 20 minutes: pick classes and pilots → roll your squadron → 6 stops → the Inspector General → results → debrief. Your practicum grade comes from the debrief (reflection, engagement, concepts), not from the game score.</p>`)}
+    <p>A run takes about 20 minutes: pick character icons and classes → choose your squadron → 5 to 7 stops → the Inspector General → results → debrief. Your practicum grade comes from the debrief (reflection, engagement, concepts), not from the game score.</p>`)}
   ${sec('meters', '📊 Meters & icons', `<p>Your team shares four meters, each from 0 to 10. Almost every choice raises some and lowers others. If a meter hits <b>0</b>, a Crisis Event strikes before the next stop.</p>
     <div class="g-legend">${LEGEND.map(([ic, h, t]) => `<div class="g-card"><div class="g-ic">${ic}</div><div><b>${esc(h)}</b><p>${esc(t)}</p></div></div>`).join('')}</div>`)}
-  ${sec('classes', '🧙 Classes', `<p>Each cadet picks a different class. <b>Someone must be the Flight Commander.</b> Each class has a specialty meter, 4 stats that add to its dice rolls, an ability (once per run), and two secret perks (you pick one after classes are locked, so choose your class for the class, not the perk). After stop 3 everyone levels up and picks an upgrade.</p>
+  ${sec('classes', '🧙 Classes', `<p>Each cadet picks a different class. <b>Someone must be the Flight Commander.</b> Each class has a specialty meter, 4 stats that add to its dice rolls, an ability, and two perks (you pick one of the two after classes are locked; each is usable once per game, including the IG fight). After stop 3 everyone levels up and picks an upgrade.</p>
     <p class="g-small">Stats: <b>CMD</b> command, decisions, accountability · <b>CHA</b> persuade, counsel, motivate · <b>INS</b> read people, spot problems, plan · <b>GRIT</b> endure, execute, stretch resources.</p>
     ${CLASSES.map(c => `<div class="g-class"><h3>${c.icon} ${c.name}</h3><div class="g-small">Rank: <b>${c.rankLong} (${c.rank})</b> · Specialty: ${mt(c.guards)}</div>
       <div class="stats">${STATS.map(s => `<div>${s}<b>+${c.stats[s]}</b></div>`).join('')}</div>
       <p><b>${c.ability ? '⚡ ' + esc(c.ability.name) : '👑 Command'}:</b> ${mt(esc(c.ability ? c.ability.text : c.abilityText))}</p>
-      <p><b>🎁 Perks:</b> 2 secret perks, revealed in the game once every class is locked in. Pick one.</p>
+      <p><b>🎁 Perks (pick one):</b></p><ul>${c.perks.map(p => `<li><b>${esc(p.name)}</b>: ${mt(esc(p.text))}</li>`).join('')}</ul>
       <p><b>Level-up upgrades (pick one):</b></p><ul>${c.ups.map(u => `<li><b>${esc(u.name)}</b>: ${mt(esc(u.text))}</li>`).join('')}</ul></div>`).join('')}`)}
-  ${sec('units', '🏢 Squadrons', `<p>The Flight Commander rolls a d6 for your squadron. Every squadron starts with different meters, has a commander's <b>quirk</b>, and has a <b>tendency</b>: a chronic weak spot that drains one meter by 1 after every ${DIFFICULTY.drainEvery} stops. Plan around it. Some squadrons also have their own signature situations.</p>
+  ${sec('units', '🏢 Squadrons', `<p>The team <b>votes for its squadron</b> (the Flight Commander breaks ties). Every squadron starts with different meters and has its own Unit members. The <b>commander</b> has a 👍 perk, a 👎 perk and an <b>intent</b>: a priority meter that is worth +${DIFFICULTY.intent} points at 7+ and −${DIFFICULTY.intent} under 4 at the end. Each squadron also has a <b>tendency</b>: a weak spot that drains one meter by 1 after every ${DIFFICULTY.drainEvery} stops.</p>
     ${UNITS.map((u, i) => `<div class="g-class"><h3>${i + 1}. ${u.icon} ${u.name}</h3><div class="g-small">${u.sq}</div>
       <div class="stats">${METERS.map(m => `<div>${m.icon}<b>${u.start[m.k]}</b></div>`).join('')}</div>
-      <p><b>Quirk:</b> ${mt(esc(u.quirk))}</p><p><b>⚠️ Tendency, ${esc(u.drain.name)}:</b> ${esc(u.drain.text)}. ${meterTag(u.drain.k)} −1 every ${DIFFICULTY.drainEvery} stops.</p></div>`).join('')}`)}
+      <p><b>🎯 Intent:</b> ${meterTag(u.cc.intent)} · <b>👍 ${esc(u.cc.pos.name)}:</b> ${mt(esc(u.cc.pos.text))} · <b>👎 ${esc(u.cc.neg.name)}:</b> ${mt(esc(u.cc.neg.text))}</p>
+      <p><b>⚠️ Tendency, ${esc(u.drain.name)}:</b> ${esc(u.drain.text)}. ${meterTag(u.drain.k)} −1 every ${DIFFICULTY.drainEvery} stops.</p></div>`).join('')}`)}
   ${sec('dice', '🎲 Dice & checks', `<ul>
       <li>Risky choices call for a <b>d20 check</b>: d20 + the roller's stat vs a target. <b>Normal ${DC_NORMAL}</b>, <b>Hard ${DC_HARD}</b>. Elite stops add +3.</li>
-      <li>The 👑 Command Token holder decides <b>who rolls</b> (on their phone). Use the right person for the job.</li>
+      <li><b>Specialist +1:</b> when the check's meter is your class specialty (for example the First Sergeant on ❤️).</li>
+      <li><b>Who rolls:</b> it defaults to whoever adds the most; anyone can tap <b>🙋 I'LL ROLL</b> on their phone to take it. ★ means the number includes the +1 specialist bonus.</li>
       <li><b>💪 Boost:</b> before rolling, anyone on the team can spend 1 ${meterTag('res')}, ${meterTag('mor')} or ${meterTag('tru')} for <b>+2</b> (max ${DIFFICULTY.boostMax} per roll). Paid when you roll, pass or fail.</li>
-      <li><b>🛡️ Play it safe:</b> skip the die and count it as ${DIFFICULTY.safeRoll}. No crit, no fumble, no surprises. Combine it with boosts to lock in a sure thing, for a price.</li>
+      <li><b>🛡️ Play it safe:</b> skip the die and count it as ${DIFFICULTY.safeRoll}. No crit, no fumble, no surprises.</li>
       <li>If the meter tied to the check is <b>8 or higher: +2</b>. If it's <b>2 or lower: −2</b>.</li>
       <li><b>Natural 20 = critical:</b> good effects double, plus loot. <b>Natural 1 = fumble.</b></li>
-      <li>🎤 choices are acted out instead: the GM plays the NPC and rates you <b>1-3 stars</b>. 3 stars = specific, respectful, sets expectations and listens.</li>
-      <li>🔒 choices can only be made by the <b>Command Token</b> holder (👑). The holder can delegate the token, but if a delegated check fails, the Flight Commander still loses ${meterTag('tru')}.</li></ul>`)}
-  ${sec('route', '🗺️ The route', `<p>Two paths: <b>6 stops, then the Inspector General.</b> At every stop the team votes on their phones between two options (top or bottom path). After each stop, a d10 inject check decides whether Murphy strikes (1-${DIFFICULTY.injectOn} = inject). Injects can be good, bad or weird, and most of them let the team <b>vote on how to respond</b>.</p>
-    <div class="g-legend">${['crisis', 'elite', 'rest', 'depot', 'unknown'].map(k => `<div class="g-card"><div class="g-ic">${NODE_TYPES[k].icon}</div><div><b>${NODE_TYPES[k].name}</b><p>${{ crisis: 'A leadership situation with 4 choices.', elite: 'A harder situation: checks +3, good effects doubled, guaranteed loot.', rest: 'Pick one: +2 to a meter, recharge an ability, or +1 loyalty to every NPC.', depot: 'One trade: buy loot, convert a meter into Resources, or buy back a token.', unknown: 'Roll a d6. Anything can happen.' }[k]}</p></div></div>`).join('')}</div>
-    <p>Your crew (4 NPCs) each has a public trait and a <b>hidden trait</b>. Ask good questions to find out what's really going on. At loyalty 5 an NPC becomes an <b>Ally</b>; at 0 they hit a <b>Breaking Point</b>.</p>
-    <p><b>Loot</b> drops from elite stops, crits, and a d4 roll after each crisis. The team can carry 3 items.</p>`)}
-  ${sec('boss', '👹 The Inspector General', `<p><b>${BOSS.name}</b> has ${BOSS.hp} HP. Every phase, the IG attacks your <b>weakest meter</b> (−${DIFFICULTY.bossAttack}), so balanced teams survive.</p><ol>
-      <li><b>The Audit:</b> the IG checks your record. Strong meters (5+) deal damage. Any integrity violation found here = Game Over.</li>
-      <li><b>The Interview:</b> everyone rolls a d20; the two lowest rolls answer the IG's questions. Each star = 1 damage.</li>
-      <li><b>No-Notice Exercise:</b> each cadet picks a different stat and rolls (target ${DIFFICULTY.examDC}, +1 per meter at 8+). Pass = 2 damage, natural 20 = 4.</li></ol>`)}
-  ${sec('score', '🏆 Scoring', `<ul><li>Meters total ×3</li><li><b>Lowest meter ×10</b> (balance matters most)</li><li>Inspection result: up to +50</li><li>🎤 stars ×5 · achievements ×10 · NPC allies ×5 · unused items and tokens ×5</li></ul>
+      <li>🔐 choices need someone on the team with that stat at +3 or better.</li>
+      <li>🎤 choices are acted out: a wheel picks who talks, the GM plays the other side and rates you <b>1-3 stars</b>. 3 stars = specific, respectful, sets expectations and listens.</li>
+      <li>👑 <b>Command Token: Rock, Paper, Rank.</b> When a team vote ties, the Flight Commander decides. That is the token's only power.</li></ul>`)}
+  ${sec('route', '🗺️ The route', `<p>The route: <b>5 to 7 stops (the GM sets it), then the Inspector General.</b> Each stop has 1 to 3 options, and the paths branch and merge differently every run. You can only move along the lines, so choosing a path is a commitment. Later stops hold more elites. The team votes on their phones; on a tie, the Flight Commander decides. A cadet pulled into a meeting can't vote on the route. After every stop an inject hits: a d6 picks the wheel (${INJECT_ORDER.map(t => `${injectRange(t)} = ${INJECT_WHEELS[t].icon} ${INJECT_WHEELS[t].name}`).join(', ')}), then someone spins it. Most injects let the team <b>vote on how to respond</b>, and every Wheel of Failure inject can be <b>💪 tackled</b> with a stat check instead.</p>
+    <div class="g-legend">${['crisis', 'elite', 'spot', 'rest', 'depot', 'unknown'].map(k => `<div class="g-card"><div class="g-ic">${NODE_TYPES[k].icon}</div><div><b>${NODE_TYPES[k].name}</b><p>${{ crisis: 'A leadership situation with 4 choices.', elite: 'A harder situation: checks +3, good effects doubled, guaranteed loot.', spot: 'A wheel picks a cadet who has not been in the spotlight yet. They decide alone, using their own stats. Everyone else stays silent.', rest: `Pick one: +${DIFFICULTY.restMain} to a meter and +${DIFFICULTY.restOthers} to the rest, recharge an ability, or +1 loyalty to the whole Unit.`, depot: 'One trade: call in favors, volunteer someone, overtime, schmooze, or a training slot. Read the fine print.', unknown: 'Nothing is decided until you arrive: roll a d6. Anything can happen.' }[k]}</p></div></div>`).join('')}</div>
+    <p>Your Unit has 4 members. Everyone's <b>trait</b> is on the org chart (ORG tab on your phone), so lead to it. At loyalty 5 a member becomes an <b>Ally</b>; at 0 they hit a <b>Breaking Point</b>.</p>
+    <p><b>Loot</b> drops from elite stops, crits, and a d4 roll after each scenario (3 or 4 = loot). The team can carry 3 items.</p>`)}
+  ${sec('boss', '👹 The Inspector General', `<p><b>${BOSS.name}</b> has ${BOSS.hp} HP. If your ⭐ is 7+, your commander vouches for you (−${DIFFICULTY.vouch} HP); at 3 or less they throw you under the bus (+${DIFFICULTY.vouch}). Broken Unit members testify against you (+${DIFFICULTY.witnessHp} HP each).</p><ol>
+      <li><b>The Audit:</b> any integrity violation = Game Over. Strong meters (5+) deal damage.</li>
+      <li><b>Three rounds</b> (${BOSS_ROUNDS.map(r => r.name).join(', ')}). Each round the IG telegraphs an attack on a meter (−${DIFFICULTY.bossAttack}). Every cadet picks ONE action on their phone:
+        <ul><li>🗡️ <b>Press</b>: d20 + a stat vs ${DIFFICULTY.examDC} (each stat once per round). Hit = 2 damage, natural 20 = 4.</li>
+        <li>🛡️ <b>Defend</b>: spend 1 of another meter to cut the attack by 2.</li>
+        <li>🤝 <b>Support</b>: +3 to a teammate's Press.</li>
+        <li>🦸 <b>Call an Ally</b>: an Ally (loyalty 5) absorbs the whole attack, once each.</li></ul></li>
+      <li>Round 2 starts with the <b>Interview</b>: the two lowest d20 rolls answer the IG's questions; each star is 1 damage.</li>
+      <li>If a meter hits 0 during the fight it's an <b>Adverse Finding</b>: the IG heals ${DIFFICULTY.adverseHeal} and every roll is −1 for the rest of the fight.</li></ol>
+    <p>Perks work in the fight too.</p>`)}
+  ${sec('score', '🏆 Scoring', `<ul><li>Meters total ×3</li><li><b>Lowest meter ×10</b> (balance matters most)</li><li>Commander's intent: +${DIFFICULTY.intent} at 7+, −${DIFFICULTY.intent} under 4</li><li>Inspection result: +60 (IG at 0 HP), +35, +10, or −15 if the IG still has more than 10 HP</li><li>🎤 stars ×5 · Unit Allies ×10 · achievements by difficulty: ${ACHIEVEMENTS.filter(a => a.pts).map(a => `${a.icon} ${a.pts}`).join(' · ')} (a lucky natural 20 or surviving Crisis Events earns no points)</li><li><b>Unused items and perks score nothing:</b> use your tools.</li><li>Grades: S ${GRADES[0].min}+ · A ${GRADES[1].min}+ · B ${GRADES[2].min}+ · C ${GRADES[3].min}+</li></ul>
     <div class="g-legend">${GRADES.map(g => `<div class="g-card"><div class="g-ic" style="color:${g.color};font-family:var(--pixel)">${g.g}</div><div><b>${g.title}</b><p>${g.min > 0 ? g.min + '+ points' : 'below 120'}</p></div></div>`).join('')}</div>
     <p>The <b>top 3 teams</b> on the class leaderboard earn extra credit. Integrity Game Overs aren't eligible.</p>`)}
   ${sec('ach', '🏅 Achievements', `<p>Worth +10 points each. Some are secret.</p><div class="g-legend">${ACHIEVEMENTS.filter(a => !a.hidden).map(a => `<div class="g-card"><div class="g-ic">${a.icon}</div><div><b>${esc(a.name)}</b><p>${esc(a.text)}</p></div></div>`).join('')}
