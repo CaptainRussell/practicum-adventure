@@ -465,7 +465,7 @@ function renderParty(S) {
       const who = S.party.find(p => p.cls === c.id && p.name);
       return `<div class="ccard ${who ? 'taken' : ''}" style="${who ? `border-color:${c.color}` : ''}"><div class="chead"><span class="ic">${clsIcon(c.id, 40)}</span><h3 style="color:${c.color}">${c.name}</h3>${who ? `<div class="who" style="background:${c.color}">${who.av != null ? `<img src="${avatarOf(who)}">` : ''}${esc(rankName(who))}</div>` : ''}</div>
         <div class="sub cline"><span style="color:var(--gold)">${c.rankLong}</span></div>
-        <div class="ab"><b style="color:var(--accent)">${c.ability ? c.ability.icon + ' ' + esc(c.ability.name) : '👑 COMMAND'}</b> ${c.ability ? useHtml(c.ability.text) : useHtml(c.abilityText, 'passive')}</div>
+        <div class="ab"><b style="color:var(--accent)">${c.ability ? c.ability.icon + ' ' + esc(c.ability.name) : '👑 COMMAND'}</b> ${c.ability ? useHtml(c.ability.short || c.ability.text) : useHtml(c.abilityText, 'passive')}</div>
         
         <div class="cfoot"><div class="cspec"><span class="cspec-lbl">FOCUS</span><div class="cspec-tags">${(c.spec || []).map(k => meterTag(k)).join(' ')}</div></div><div class="statline">${STATS.map(s => `${s} <b>+${c.stats[s]}</b>`).join(' · ')}</div></div></div>`;
     }).join('')}</div></div>`;

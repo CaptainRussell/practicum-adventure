@@ -54,6 +54,7 @@ const STAT_INFO = {
    perks = two per class (each with its own icon); the cadet picks one. Every perk is ONCE PER GAME, used from the phone
            (it glows when it can be used) and approved by the GM. Perks work in the boss fight.
    color = the class's border colour: every cadet's icon wears it, so votes show who is who
+   short = optional plain-language ability text for the position-select cards (the full text is in the kit and guide)
    ups   = level-up: A is a lasting upgrade, B is an immediate boost (now: meter changes) */
 const CLASSES = [
   { id: 'fc', color: '#ffd23f', name: 'FLIGHT COMMANDER', icon: '👑', rank: 'Capt', rankLong: 'Captain', guards: '🎯 + tie-breaks', spec: ['mis'],
@@ -65,7 +66,7 @@ const CLASSES = [
              { id: 'huddle', name: 'Huddle', text: 'Right now: +1 to every meter', now: { mis: 1, mor: 1, tru: 1, res: 1 } } ] },
   { id: 'chief', color: '#ff9f43', name: 'SENIOR ENLISTED LEADER', icon: '🎖️', rank: 'SMSgt', rankLong: 'Senior Master Sergeant', guards: '⭐ + the enlisted force', spec: ['tru'],
     stats: { CMD: 2, CHA: 2, INS: 2, GRIT: 2 },
-    ability: { id: 'pcs', icon: '🔄', name: 'Talent Management', text: 'Once: PCS one enlisted Unit member out. A hand-picked replacement arrives one rank higher (up to SSgt), with a new trait, at loyalty 4 and already an Ally' },
+    ability: { id: 'pcs', icon: '🔄', name: 'Talent Management', short: 'Once: swap an enlisted Unit member for a hand-picked, higher-ranking Ally', text: 'Once: PCS one enlisted Unit member out. A hand-picked replacement arrives one rank higher (up to SSgt), with a new trait, at loyalty 4 and already an Ally' },
     perks: [ { id: 'beenthere', icon: '🧭', name: 'Been There', text: 'Once: cancel a Wheel of Failure result after it lands' },
              { id: 'ncopull', icon: '🤝', name: 'Senior NCO Pull', text: 'Once: one Unit member +3 loyalty' } ],
     ups:   [ { id: 'standards', name: 'Standards Bearer', text: '+1 🎯 after every check you roll' },
@@ -79,7 +80,7 @@ const CLASSES = [
              { id: 'wingman', name: 'Wingman Program', text: 'Right now: +2 ❤️ and +2 loyalty to the lowest-loyalty Unit member', now: { mor: 2 } } ] },
   { id: 'xo', color: '#b18cff', name: 'EXECUTIVE OFFICER', icon: '🗣️', rank: '1st Lt', rankLong: 'First Lieutenant', guards: '⭐ + the commander', spec: ['tru'],
     stats: { CMD: 1, CHA: 3, INS: 1, GRIT: 1 },
-    ability: { id: 'confidant', icon: '🤫', auto: true, name: "Commander's Confidant", text: "Passive: the commander's negative perk never applies (it's crossed out from squadron select on)" },
+    ability: { id: 'confidant', icon: '🤫', auto: true, name: "Commander's Confidant", short: "Passive: the commander's negative perk never applies", text: "Passive: the commander's negative perk never applies (it's crossed out from squadron select on)" },
     perks: [ { id: 'readroom', icon: '👀', name: 'Read the Room', text: 'Once: see the exact effects of every choice on this mission' },
              { id: 'ear', icon: '👂', name: "Commander's Ear", text: 'Once: cancel the most recent ⭐ loss' } ],
     ups:   [ { id: 'golden', name: 'Golden Child', text: 'All ⭐ losses reduced by 1 (min 1)' },
@@ -93,7 +94,7 @@ const CLASSES = [
              { id: 'drill', name: 'Budget Drill', text: 'Right now: +3 📦', now: { res: 3 } } ] },
   { id: 'plans', color: '#ff7ae0', name: 'PLANS OFFICER', icon: '🧠', rank: '2d Lt', rankLong: 'Second Lieutenant', guards: '📦', spec: ['res'],
     stats: { CMD: 1, CHA: 1, INS: 3, GRIT: 1 },
-    ability: { id: 'foresight', icon: '🔮', auto: true, name: 'Foresight', text: 'Passive: injects never come from the Wheel of Failure (a Failure roll on the d6 lands on the Wheel of Meh instead)' },
+    ability: { id: 'foresight', icon: '🔮', auto: true, name: 'Foresight', short: 'Passive: injects never come from the Wheel of Failure', text: 'Passive: injects never come from the Wheel of Failure (a Failure roll on the d6 lands on the Wheel of Meh instead)' },
     perks: [ { id: 'prepo', icon: '🗃️', name: 'Pre-Positioned Supplies', text: 'Once, at a BX: the next purchase costs no 📦 (you staged the gear ahead of time)' },
              { id: 'emergency', icon: '💵', name: 'Emergency Fund', text: 'Once: +3 📦 right now' } ],
     ups:   [ { id: 'contingency', name: 'Contingency Plan', text: 'Halve the next Wheel of Failure result' },
