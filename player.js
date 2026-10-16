@@ -465,7 +465,7 @@ function renderParty(S) {
       const who = S.party.find(p => p.cls === c.id && p.name);
       return `<div class="ccard ${who ? 'taken' : ''}" style="${who ? `border-color:${c.color}` : ''}"><div class="chead"><span class="ic">${clsIcon(c.id, 40)}</span><h3 style="color:${c.color}">${c.name}</h3>${who ? `<div class="who" style="background:${c.color}">${who.av != null ? `<img src="${avatarOf(who)}">` : ''}${esc(rankName(who))}</div>` : ''}</div>
         <div class="sub cline"><span style="color:var(--gold)">${c.rankLong}</span></div>
-        <div class="ab"><b style="color:var(--accent)">${c.ability ? '⚡ ' + esc(c.ability.name) : '👑 COMMAND'}</b> ${c.ability ? useHtml(c.ability.text) : useHtml(c.abilityText, 'passive')}</div>
+        <div class="ab"><b style="color:var(--accent)">${c.ability ? c.ability.icon + ' ' + esc(c.ability.name) : '👑 COMMAND'}</b> ${c.ability ? useHtml(c.ability.text) : useHtml(c.abilityText, 'passive')}</div>
         
         <div class="cfoot"><div class="cspec"><span class="cspec-lbl">FOCUS</span><div class="cspec-tags">${(c.spec || []).map(k => meterTag(k)).join(' ')}</div></div><div class="statline">${STATS.map(s => `${s} <b>+${c.stats[s]}</b>`).join(' · ')}</div></div></div>`;
     }).join('')}</div></div>`;
@@ -478,7 +478,7 @@ function renderKitCheck(S) {
     <div class="sub">On your phone: tap <b>🎒 KIT</b> to see your position, stats, ability and perk, then tap <b>🎮 GAME</b> to come back.</div>
     <div class="kitrow">${S.party.map(p => { const c = CLASS[p.cls], pk = c.perks.find(k => k.id === p.perk);
       return `<div class="ccard ${p.kitOk ? 'taken' : ''}" style="${p.kitOk ? `border-color:${c.color}` : ''}"><div class="chead"><img src="${avatarOf(p)}" style="width:48px;height:48px;image-rendering:pixelated"><div><h3>${insignia(p)}${esc(rankName(p))}</h3><div class="sub" style="font-size:19px;color:${c.color}">${c.name}</div></div></div>
-        <div class="kitline">⚡ <b>${esc(c.ability ? c.ability.name : 'Command Token')}</b></div><div class="kitline">${pk ? pk.icon : '🎁'} <b>${esc(pk ? pk.name : '-')}</b></div>
+        <div class="kitline">${c.ability ? c.ability.icon : '👑'} <b>${esc(c.ability ? c.ability.name : 'Command Token')}</b></div><div class="kitline">${pk ? pk.icon : '🎁'} <b>${esc(pk ? pk.name : '-')}</b></div>
         <div class="kitst">${p.kitOk ? '✅ CHECKED' : '⏳ checking…'}</div></div>`; }).join('')}</div></div>`;
 }
 function renderPerks(S) {
