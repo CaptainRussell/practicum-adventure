@@ -375,12 +375,23 @@ function tackleRows(m, roller) {
   return `<div class="tkrow">🎲 ${esc(k.who)} rolls ${k.stat} ${sign(k.bonus)}: needs <b>${k.need}+</b> (${k.pct}%)</div>
     <div class="tkrow tkok">✅ PASS: no loss</div><div class="tkrow tkbad">❌ FAIL: ${k.fail}</div>`;
 }
-function effText(S, e) {
-  if (!e) return 'no change';
+function effText(S, e) { return effList(S, e).join(', ') || 'no change'; }
+// one effect per line ("🎯 Mission +3" / "🤝 SrA Condon-Matzke +1"); fitLines() shrinks a line that's too long
+function effLines(S, e) { const l = effList(S, e); return `<div class="effls">${(l.length ? l : ['no change']).map(x => `<div class="effl"><span class="effi">${/^🤝 .+ [+−-]\d+$/.test(x) ? `<span class="mtag loytag">${esc(x.replace(/ [+−-]\d+$/, ''))}</span><span class="${/ \+\d+$/.test(x) ? 'up' : 'dn'}">${x.match(/[+−-]\d+$/)[0]}</span>` : effHtml(x)}</span></div>`).join('')}</div>`; }
+function fitLines(root) {
+  (root || document).querySelectorAll('.effl').forEach(el => {
+    const inner = el.firstElementChild || el, wide = () => inner.offsetWidth > el.clientWidth + 1;
+    el.style.fontSize = ''; el.classList.remove('wrap'); let k = 1;
+    while (wide() && k > 0.6) { k -= 0.05; el.style.fontSize = `${k}em`; }
+    if (wide()) el.classList.add('wrap'); // still too long at the smallest size: let it wrap
+  });
+}
+function effList(S, e) {
+  if (!e) return [];
   const out = [];
   if (e.set) for (const k in e.set) out.push(`${METER[k].icon} set to ${e.set[k]}`);
   for (const m of METERS) if (e[m.k]) out.push(`${m.icon}${sign(e[m.k])}`);
-  if (e.loy) for (const s in e.loy) out.push(`${npcLabel(S, s)} loyalty ${sign(e.loy[s])}`);
+  if (e.loy) for (const s in e.loy) out.push(`🤝 ${npcLabel(S, s)} ${sign(e.loy[s])}`);
   if (e.traitLoy) out.push(`${TRAIT[e.traitLoy.trait].name} Unit members loyalty ${sign(e.traitLoy.d)}`);
   if (e.traitAny) out.push(`if ${e.traitAny.slot ? npcLabel(S, e.traitAny.slot) + ' is ' : 'any NPC is '}${(e.traitAny.traits || [e.traitAny.trait]).map(t => TRAIT[t].name).join('/')}: ${effText(S, e.traitAny.eff)}`);
   if (e.reveal) out.push(`reveals ${npcLabel(S, e.reveal)}'s trait`);
@@ -389,7 +400,7 @@ function effText(S, e) {
   if (e.flag) out.push(`flag ${e.flag}`);
   if (e.ach) out.push(`🏅 ${ACH[e.ach].name}`);
   if (e.why) out.push(`(${e.why})`);
-  return out.join(', ') || 'no change';
+  return out;
 }
 function statLabel(st) { return st === 'LOYB' ? 'd20 + A1C loyalty' : st ? st : 'plain d20'; }
 function specText(S, ch) {

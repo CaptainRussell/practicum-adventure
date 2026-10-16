@@ -217,8 +217,8 @@ function publicView(slot) {
   if (S.phase === 'inject' && S.inject) {
     const inj = S.inject, mm = inj.idx != null && !spinning() ? MURPHY[inj.idx] : null;
     v.inject = { stage: inj.stage, wheel: inj.filter ? INJECT_WHEELS[inj.filter] : null, name: mm ? mm.name : null, text: mm ? fill(S, mm.text || '') : '', note: inj.note ? fill(S, inj.note) : null, type: mm ? mm.type : null,
-      effHtml: mm && !mm.options ? effHtml(effText(S, mm.eff)) : null,
-      options: mm && mm.options ? mm.options.map(o => ({ t: fill(S, o.t), html: effHtml(effText(S, o.eff)) })).concat(mm.tackle && !inj.blocked
+      effHtml: mm && !mm.options ? effLines(S, mm.eff) : null,
+      options: mm && mm.options ? mm.options.map(o => ({ t: fill(S, o.t), html: effLines(S, o.eff) })).concat(mm.tackle && !inj.blocked
         ? [(() => { const r = bestRoller(mm.tackle.stat, mm.tackle.m), b = rollBonus(r, mm.tackle.stat, mm.tackle.m) + leanBonus(S), need = Math.min(20, Math.max(2, mm.tackle.dc + DIFFICULTY.dcPlus - b));
             return { t: `Tackle it (${mm.tackle.stat} roll)`, html: tackleRows(mm), tackle: true }; })()] : []) : null,
       tackle: inj.stage === 'tackle' ? { stat: mm.tackle.stat, dc: mm.tackle.dc + DIFFICULTY.dcPlus, roller: inj.rollerLocked ? inj.roller : null, vote: !inj.rollerLocked, m: mm.tackle.m,

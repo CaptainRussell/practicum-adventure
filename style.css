@@ -959,3 +959,18 @@ body.gm{font-family:var(--ui);font-size:14px;line-height:1.45;background:#0e1020
 .ph-band.danger{letter-spacing:-.5px}
 .orgcard .orgloy{justify-content:center;margin-top:5px} /* the 0-5 loyalty pips under the band */
 .orgcard .orgloy i{width:18px;height:10px}
+/* sidebar unit cards stay inside the panel: long names wrap, the trait trims, pips + band wrap if needed */
+.ugrid,.pgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.npc.mini,.pgrid .pcard{min-width:0}
+.npc.mini>div,.pgrid .pcard>div{min-width:0}
+.npc.mini .nm{overflow-wrap:anywhere}
+.npc.mini .tr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.npc.mini .loyrow{flex-wrap:wrap;gap:4px}
+.npc.mini .lband{font-size:7px;padding:2px 4px}
+/* effect lists: one effect per line ("🎯 Mission +3", "🤝 SrA Condon-Matzke +1"); fitLines() shrinks long ones */
+.effls{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%}
+.effl{white-space:nowrap;overflow:hidden;max-width:100%;text-align:center}
+.optgrid>.choice,.optgrid>.choice>div{min-width:0} /* a long effect line shrinks instead of widening the card */
+.effi{display:inline-block;white-space:nowrap}
+.effl.wrap,.effl.wrap .effi{white-space:normal;overflow:visible}
+.effl.wrap .effi{display:inline}

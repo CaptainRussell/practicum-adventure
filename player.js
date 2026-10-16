@@ -260,7 +260,7 @@ function render() {
   $('#app').innerHTML = `<div class="pl">${hud ? renderHud(S) : '<div></div>'}
     <div class="stage ${full ? 'full' : ''}"><div class="main">${renderMain(S)}</div>${full ? '' : `<div class="side">${renderSide(S)}</div>`}</div></div>
     ${S.showBoard ? renderBoardOverlay() : ''}${renderJoinBox(S)}${renderActorBanner(S)}${renderResultCard(S)}${renderNotice(S)}`;
-  fitCard();
+  fitCard(); fitLines($('#app'));
   // the GM only pushes state when something changes, so redraw ourselves when a wheel/die finishes
   clearTimeout(P.spinT);
   if (Date.now() < (S.spinUntil || 0)) P.spinT = setTimeout(render, S.spinUntil - Date.now() + 80);
@@ -686,10 +686,10 @@ function renderInject(S) {
       <div class="whoroll">🎲 ${esc(r ? rankName(r).toUpperCase() : '?')}, ROLL ON YOUR PHONE!</div>${pu}</div>`; }
   const vote = m.options && inj.stage === 'result' && !inj.blocked;
   return `<div class="titlescr injscr"><div class="bigcard ${cls}"><div class="sectlbl">${INJECT_WHEELS[m.type].icon} ${INJECT_WHEELS[m.type].name}</div><h2 style="margin-top:10px">${esc(m.name)}</h2>
-    <div class="bt">${esc(fill(S, m.text || ''))}</div>${m.options ? '' : `<div class="bt injeff">${effHtml(effText(S, m.eff))}</div>`}
+    <div class="bt">${esc(fill(S, m.text || ''))}</div>${m.options ? '' : `<div class="bt injeff">${effLines(S, m.eff)}</div>`}
     ${inj.note ? `<div class="bt" style="color:var(--gold)">${esc(fill(S, inj.note))}</div>` : ''}</div>
     ${vote ? `<div class="whoroll" style="font-size:16px">✋ HOW DO YOU RESPOND? <span class="ptsub">vote on your phone</span></div>
-      <div class="optgrid" style="width:100%;grid-template-columns:repeat(${m.options.length + (m.tackle ? 1 : 0)},1fr)">${m.options.map((o, i) => `<div class="choice" style="grid-template-columns:48px 1fr;position:relative"><div class="key">${'AB'[i] || i + 1}</div><div><div class="ct">${esc(fill(S, o.t))}</div><div class="arrows">${effHtml(effText(S, o.eff))}</div></div>${voteDots(S, i)}</div>`).join('')}
+      <div class="optgrid" style="width:100%;grid-template-columns:repeat(${m.options.length + (m.tackle ? 1 : 0)},1fr)">${m.options.map((o, i) => `<div class="choice" style="grid-template-columns:48px 1fr;position:relative"><div class="key">${'AB'[i] || i + 1}</div><div><div class="ct">${esc(fill(S, o.t))}</div><div class="arrows">${effLines(S, o.eff)}</div></div>${voteDots(S, i)}</div>`).join('')}
         ${m.tackle ? `<div class="choice" style="grid-template-columns:48px 1fr;position:relative"><div class="key">💪</div><div><div class="ct">💪 TACKLE IT · ${m.tackle.stat} roll</div>${tackleRows(m)}</div>${voteDots(S, m.options.length)}</div>` : ''}</div>` : ''}${pu}</div>`;
 }
 

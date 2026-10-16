@@ -134,6 +134,7 @@ function phRender() {
       <div class="ph-tabs"><button class="${PH.tab === 'game' ? 'on' : ''} ${PH.tab === 'kit' && PH.kitBack ? 'glow' : ''}" data-p="tab" data-a="game">🎮 GAME</button><button class="${PH.tab === 'kit' ? 'on' : ''} ${kitGlow ? 'glow' : ''}" data-p="tab" data-a="kit">🎒 KIT</button><button class="${PH.tab === 'org' ? 'on' : ''}" data-p="tab" data-a="org" ${v.unit ? '' : 'disabled'}>🏢 ORG</button></div>
       ${PH.toast ? `<div class="ph-toast">${esc(PH.toast)}</div>` : ''}`;
   }
+  fitLines(app); // long effect lines (big names) shrink to fit their button
   // just picked an icon: scroll down to the uniform / hair options once they appear
   if (PH.toLook && PH.v && PH.v.phase === 'avatars') { const el = document.getElementById('phLook'); if (el) { PH.toLook = false; setTimeout(() => el.scrollIntoView({ block: 'start' }), 60); } }
   if (keep) { const el = document.getElementById(keep.id); if (el) { el.value = keep.v; el.focus(); try { el.setSelectionRange(keep.s, keep.s); } catch (e) { } } }
