@@ -1174,7 +1174,7 @@ function pickUnit(id) {
     const own = (u.slots || [])[i] || sl;
     const name = (sl.pool === 'lower' ? lower : upper).shift();
     return { slot: sl.s, rank: own.rank === 'Civ.' ? civTitle(name) : own.rank, pub: own.pub, enlisted: sl.enlisted, name,
-      trait: traits[i], revealed: true, loy: DIFFICULTY.startLoy, out: 0, broken: false };
+      trait: traits[i], revealed: true, loy: TRAIT[traits[i]].loy0 ?? DIFFICULTY.startLoy, out: 0, broken: false };
   });
   S.cc = `${u.ccRank} ${upper.shift()}`;
   // named characters outside the Unit (Wing CC, a visiting general...), from names nobody is using

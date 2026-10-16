@@ -25,7 +25,7 @@ const DIFFICULTY = {
   squadronShare: 0.7, // a ⚔️ mission comes from the squadron's own pool this often (else the generic core)
   restMain: 2,     // Rest Stop: the meter the team picks goes up this much...
   restOthers: 1,   // ...and every other meter goes up this much
-  startLoy: 2,     // every Unit member's starting loyalty (Ally at 5)
+  startLoy: 2,     // starting loyalty for a trait without its own loy0 (Ally at 5)
   dangerAt: 2,    // a meter at or below this flashes DANGER on the projector and phones
   deocsStops: 2,   // a DEOCS Survey shows the exact meter values for this many stops
   crisisIgHp: 4,   // a Mission Failure crisis adds this much IG HP at the inspection
@@ -260,19 +260,20 @@ const POOL_LOWER = ['Brady', 'Estes', 'Martinez', 'Condon-Matzke', 'Bendinger', 
 // vet = takes years in the Air Force: never drawn for the newest Airman (slot B)
 // reward = what triggers automatically (once per game per member unless it says 'while'); see traitReward() in app.js
 // bp = Breaking Point effect, applied automatically when loyalty hits 0
+// loy0 = starting loyalty (1 wary types, 2 most, 3 eager types; averages DIFFICULTY.startLoy)
 const TRAITS = [
-  { id: 'burnout',  icon: '🔥', name: 'Burning Out',        what: 'Quietly overloaded',                      reward: 'First Rest Stop: +2 loyalty and +1 ❤️',     bpText: 'Requests separation',                    bp: { mis: -2 } },
-  { id: 'genius',   icon: '💡', name: 'Secret Genius',      what: 'Has a process fix nobody asked about',     reward: 'First 💡 idea you adopt: +3 🎯 and +1 loyalty',           bpText: 'Takes the idea to a rival unit',         bp: { tru: -1 } },
-  { id: 'family',   icon: '🏠', name: 'Family Crisis',      what: 'Performance dip from a home issue',        reward: 'First time the First Sergeant or a Rest Stop shows them care: +2 more loyalty and +1 ❤️',                      bpText: 'Emergency leave: out for 2 nodes',       bp: { out: 2 } },
-  { id: 'bender',   icon: '⚠️', name: 'Rule Bender',        what: 'Cuts corners to look good',                reward: 'While at loyalty 4+: tips you off when a choice smells like a shortcut ⚠️',        bpText: 'Their shortcut becomes YOUR problem',    bp: { tru: -2 } },
-  { id: 'climber',  icon: '🏆', name: 'Climber',            what: 'Wants recognition',                        reward: 'First 3⭐ 🎤 encounter (public praise): +2 loyalty',             bpText: 'Goes over your head to the Sq CC',       bp: { tru: -2 } },
-  { id: 'silent',   icon: '🤐', name: 'Silent Struggler',   what: "Won't ask for help",                       reward: 'First time they reach loyalty 4 (they finally open up): +2 🎯',                   bpText: 'Misses a critical task',                 bp: { mis: -2 } },
-  { id: 'cynic', vet: true,    icon: '🤨', name: 'Cynic with a Heart', what: 'Resists change, loyal if heard',           reward: 'Becomes an Ally at loyalty 4 instead of 5',           bpText: 'Spreads negativity',                     bp: { mor: -2 } },
-  { id: 'gossip',   icon: '📢', name: 'The Gossip',         what: 'Everything said spreads',                  reward: 'While at loyalty 3+: every Wheel of Success also +1 ❤️. At 1 or less: every Wheel of Failure also −1 ❤️',            bpText: 'Rumor mill',                             bp: { mor: -1, tru: -1 } },
-  { id: 'overach',  icon: '🏃', name: 'Over-Achiever',      what: 'Volunteers for everything',                reward: 'First Rest Stop (rested, they deliver): +2 🎯. Volunteering them at the BX costs 2 loyalty, not 1',          bpText: 'Collapses: out for 1 node',              bp: { mor: -2, out: 1 } },
-  { id: 'mentor', vet: true,   icon: '🎓', name: 'Mentor-in-Waiting',  what: 'Wants to train others',                    reward: 'Becomes an Ally: +1 🎯, +1 ❤️, and the newest Airman +2 loyalty',         bpText: 'Disengages',                             bp: { mor: -1 } },
-  { id: 'coaster', vet: true,  icon: '😴', name: 'The Coaster',        what: 'Bored, doing the minimum',                 reward: 'Volunteer them for the BX Saturday detail: +1 loyalty instead of −1, and +2 🎯 more',             bpText: 'Drags others down',                      bp: { mis: -1 } },
-  { id: 'witness',  icon: '🕵️', name: 'The Witness',        what: 'Knows about a problem in the unit',        reward: `At loyalty 4+ when the IG arrives, they tip you off: Press target ${DIFFICULTY.examDC - 3}`, bpText: `Reports it to the IG: boss HP ${DIFFICULTY.bossHp + 3}`, bp: { flag: 'WITNESS_IG' } },
+  { id: 'burnout',  icon: '🔥', name: 'Burning Out',        what: 'Quietly overloaded', loy0: 1,                      reward: 'First Rest Stop: +2 loyalty and +1 ❤️',     bpText: 'Requests separation',                    bp: { mis: -2 } },
+  { id: 'genius',   icon: '💡', name: 'Secret Genius',      what: 'Has a process fix nobody asked about', loy0: 2,     reward: 'First 💡 idea you adopt: +3 🎯 and +1 loyalty',           bpText: 'Takes the idea to a rival unit',         bp: { tru: -1 } },
+  { id: 'family',   icon: '🏠', name: 'Family Crisis',      what: 'Performance dip from a home issue', loy0: 2,        reward: 'First time the First Sergeant or a Rest Stop shows them care: +2 more loyalty and +1 ❤️',                      bpText: 'Emergency leave: out for 2 nodes',       bp: { out: 2 } },
+  { id: 'bender',   icon: '⚠️', name: 'Rule Bender',        what: 'Cuts corners to look good', loy0: 2,                reward: 'While at loyalty 4+: tips you off when a choice smells like a shortcut ⚠️',        bpText: 'Their shortcut becomes YOUR problem',    bp: { tru: -2 } },
+  { id: 'climber',  icon: '🏆', name: 'Climber',            what: 'Wants recognition', loy0: 3,                        reward: 'First 3⭐ 🎤 encounter (public praise): +2 loyalty',             bpText: 'Goes over your head to the Sq CC',       bp: { tru: -2 } },
+  { id: 'silent',   icon: '🤐', name: 'Silent Struggler',   what: "Won't ask for help", loy0: 2,                       reward: 'First time they reach loyalty 4 (they finally open up): +2 🎯',                   bpText: 'Misses a critical task',                 bp: { mis: -2 } },
+  { id: 'cynic', vet: true,    icon: '🤨', name: 'Cynic with a Heart', what: 'Resists change, loyal if heard', loy0: 1,           reward: 'Becomes an Ally at loyalty 4 instead of 5',           bpText: 'Spreads negativity',                     bp: { mor: -2 } },
+  { id: 'gossip',   icon: '📢', name: 'The Gossip',         what: 'Everything said spreads', loy0: 3,                  reward: 'While at loyalty 3+: every Wheel of Success also +1 ❤️. At 1 or less: every Wheel of Failure also −1 ❤️',            bpText: 'Rumor mill',                             bp: { mor: -1, tru: -1 } },
+  { id: 'overach',  icon: '🏃', name: 'Over-Achiever',      what: 'Volunteers for everything', loy0: 3,                reward: 'First Rest Stop (rested, they deliver): +2 🎯. Volunteering them at the BX costs 2 loyalty, not 1',          bpText: 'Collapses: out for 1 node',              bp: { mor: -2, out: 1 } },
+  { id: 'mentor', vet: true,   icon: '🎓', name: 'Mentor-in-Waiting',  what: 'Wants to train others', loy0: 3,                    reward: 'Becomes an Ally: +1 🎯, +1 ❤️, and the newest Airman +2 loyalty',         bpText: 'Disengages',                             bp: { mor: -1 } },
+  { id: 'coaster', vet: true,  icon: '😴', name: 'The Coaster',        what: 'Bored, doing the minimum', loy0: 1,                 reward: 'Volunteer them for the BX Saturday detail: +1 loyalty instead of −1, and +2 🎯 more',             bpText: 'Drags others down',                      bp: { mis: -1 } },
+  { id: 'witness',  icon: '🕵️', name: 'The Witness',        what: 'Knows about a problem in the unit', loy0: 1,        reward: `At loyalty 4+ when the IG arrives, they tip you off: Press target ${DIFFICULTY.examDC - 3}`, bpText: `Reports it to the IG: boss HP ${DIFFICULTY.bossHp + 3}`, bp: { flag: 'WITNESS_IG' } },
 ];
 const TRAIT = Object.fromEntries(TRAITS.map(t => [t.id, t]));
 
