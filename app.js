@@ -872,7 +872,7 @@ function rollPreview() {
 /* ---- map ---- */
 // 7, 6 or 5 stops (the GM picks before the map opens), then the IG. Slay the Spire style, but every
 // stop has a ROLE (a beat), so every run follows the same arc and only the details change:
-//   opener (❓ or ⚔️) → warm-up → the test (💀 or 🔦) → supply → final push (💀, ⚔️ or ❓) → prep (🏕️ or 🛒) → IG.
+//   opener (❓ or ⚔️) → warm-up → the test (💀 or 🔦) → supply → final push (💀, ⚔️ or ❓) → one 🏕️ Rest Stop → IG.
 // Each beat lists the nodes it always offers (fixed) and what fills the rest (fill: weights).
 // Scenarios can repeat at a stop; other types can't. Paths branch and merge at random (never crossing).
 const ROUTE_BEATS = {
@@ -882,10 +882,10 @@ const ROUTE_BEATS = {
   supply: { name: 'Supply run', fixed: ['depot'],           fill: [['crisis', 60], ['unknown', 40]],               width: [2, 3] },
   push:   { name: 'Mid push',   fixed: ['crisis'],          fill: [['unknown', 40], ['spot', 30], ['crisis', 30]], width: [2, 3] },
   final:  { name: 'Final push', fixed: ['elite', 'crisis', 'unknown'], fill: [],                                   width: [3, 3] },
-  prep:   { name: 'Prep',       fixed: ['rest', 'depot'],   fill: [],                                              width: [2, 2] },
+  prep:   { name: 'Prep',       fixed: ['rest'],            fill: [],                                              width: [1, 1] }, // always one Rest Stop before the IG
 };
 // Route length: the GM picks 7, 6 or 5 stops (remembered in this browser). Shorter routes drop middle
-// beats but always keep the opener, the test, the final push and the prep stop.
+// beats but always keep the opener, the test, the final push and the Rest Stop.
 const STOP_PLANS = {
   7: ['open', 'warm', 'test', 'supply', 'push', 'final', 'prep'],
   6: ['open', 'warm', 'test', 'supply', 'final', 'prep'],
