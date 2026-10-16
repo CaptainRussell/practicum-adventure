@@ -436,9 +436,7 @@ function renderIntro(S) {
     <div class="objgrid">${OBJECTIVES.map((o, i) => `<div class="obj"><div class="oi">${o.icon}</div><div><b>${i + 1}. ${esc(o.name)}</b><div>${esc(o.text)}</div></div></div>`).join('')}</div></div>`;
   if (S.introPage === 1) return `<div class="intro">
     <div class="ptitle" style="text-align:center">HOW TO PLAY</div>
-    <div class="steps">${INTRO_STEPS.map(([ic, h, t], i) => `<div class="step"><div class="sn">${i + 1}</div><div class="si">${ic}</div><div><b>${esc(h)}</b><div>${esc(t)}</div></div></div>`).join('')}</div>
-    <div class="banner gold" style="font-size:12px;line-height:1.7">${esc(INTRO_WIN)}</div>
-    <div class="banner" style="font-size:12px">${esc(INTRO_LOSE)}</div></div>`;
+    <div class="steps">${INTRO_STEPS.map(([ic, h, t], i) => `<div class="step"><div class="sn">${i + 1}</div><div class="si">${ic}</div><div><b>${esc(h)}</b><div>${esc(t)}</div></div></div>`).join('')}</div></div>`;
   // Two jobs, nothing else: keep the 4 meters high, and never break integrity. (Full legend: the Field Guide.)
   if (S.introPage === 3) return renderIntegrity();
   return `<div class="intro readscr"><div class="ptitle" style="text-align:center">READING THE SCREEN</div>

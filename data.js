@@ -1075,12 +1075,12 @@ const GAME_OVER_TEXT = 'RELIEVED OF COMMAND FOR CAUSE (FAILURE TO MAINTAIN CONFI
 
 /* ---------------- intro screens (shown before class select) ---------------- */
 const INTRO_STEPS = [
-  ['🧑‍✈️', 'You are a leadership team', 'Your party runs a flight in a squadron you choose. You win or lose TOGETHER against the scenario (and the GM).'],
-  ['🗺️', 'Follow the route', 'Travel the stops on the route map (5 to 7, set by the GM), then face the final boss: the Inspector General.'],
-  ['🔀', 'Make choices', 'Every choice helps some meters and hurts others. You can never max them all, so balance them.'],
-  ['🎲', 'Roll the dice', 'Risky choices need a d20 roll plus your stat. The team votes on who rolls.'],
-  ['🎤', 'Act it out', 'Some choices make you play the scene. A wheel picks who talks; the GM plays the other side and rates you 1-3 stars.'],
-  ['🎡', 'Injects every other stop', 'After every other stop a d6 picks the Wheel of Failure, Meh or Success. Your squadron also has a weak spot that keeps draining. You vote on how to respond.'],
+  ['👥', 'Lead as a team', 'You run a flight together. You win or lose as one.'],
+  ['🗺️', 'Follow the route', 'Pick your path stop by stop. The IG waits at the end.'],
+  ['🔀', 'Make choices', 'Every choice helps some meters and hurts others.'],
+  ['🎲', 'Roll the dice', 'Risky choices need a d20 roll plus a stat.'],
+  ['🎤', 'Act it out', 'Play the scene. The GM rates you 1-3 stars.'],
+  ['🎡', 'Expect injects', 'Every other stop, something happens. Vote on how to respond.'],
 ];
 const INTRO_WIN = 'WIN: keep all 4 meters balanced (your WEAKEST meter counts most), beat the IG, earn achievements. Top 3 teams on the leaderboard earn extra credit.';
 const INTRO_LOSE = 'LOSE: one integrity violation = instant GAME OVER. A meter at zero = a Crisis Event (a lost Airman, a fired leader, a failed mission). A second Crisis Event = GAME OVER. No respawns.';

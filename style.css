@@ -974,3 +974,7 @@ body.gm{font-family:var(--ui);font-size:14px;line-height:1.45;background:#0e1020
 .effi{display:inline-block;white-space:nowrap}
 .effl.wrap,.effl.wrap .effi{white-space:normal;overflow:visible}
 .effl.wrap .effi{display:inline}
+/* How to Play: short cards, so bigger text */
+.steps .step{font-size:clamp(18px,3.6vh,32px);padding:clamp(10px,2vh,18px) 16px;align-items:center}
+.steps .step .si{font-size:clamp(34px,6vh,60px)}
+.steps .step b{font-size:clamp(11px,1.9vh,17px)}
