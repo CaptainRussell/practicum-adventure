@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Practicum Adventure · Test Bench</title>
+<!-- Test bench: the projector plus four simulated phones on one screen, all in this
+     browser. Open the GM console (index.html) in its own tab; it hosts the room.
+     Not for practicum day. Needs http:// (python -m http.server), not file://. -->
+<style>
+  :root { --bg: #0d0d24; --panel: #17173a; --line: #34346e; --ink: #e8e8ff; --dim: #9a9ac8; --gold: #ffd23f; --good: #7dff6b; --bad: #ff5d5d; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 15px; margin: 0 8px 0 0; }
+  button, .btn { background: #26265a; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; text-decoration: none; }
+  button:hover, .btn:hover { border-color: var(--gold); }
+  button.pri { background: #3a3a10; border-color: var(--gold); }
+  input { background: #0d0d24; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; width: 90px; font: inherit; }
+  .status { margin-left: auto; color: var(--dim); }
+  .status b { color: var(--gold); }
+  .warn { color: var(--bad); }
+  main { display: grid; gap: 10px; padding: 10px; }
+  main.both { grid-template-columns: minmax(0, 1fr); }
+  .frame { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px; min-width: 0; }
+  .frame h2 { font-size: 12px; margin: 0 0 6px; display: flex; gap: 6px; align-items: center; color: var(--dim); text-transform: uppercase; letter-spacing: .05em; }
+  .frame h2 .sp { flex: 1; }
+  .frame h2 button, .frame h2 .btn { padding: 1px 6px; font-size: 11px; text-transform: none; letter-spacing: 0; }
+  .scaler { position: relative; overflow: hidden; width: 100%; }
+  .scaler iframe { position: absolute; top: 0; left: 0; border: 0; transform-origin: 0 0; background: #000; }
+  .phones { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .phone.big { grid-column: span 2; }
+  .empty { display: flex; align-items: center; justify-content: center; text-align: center; color: var(--dim); height: 100%; padding: 20px; }
+  main.phonesOnly #projFrame, main.projOnly #phoneRow { display: none; }
+  #notes { width: 100%; min-height: 110px; background: #0d0d24; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px; font: 13px/1.4 ui-monospace, monospace; }
+  @media (max-width: 900px) { .phones { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧪 Test Bench</h1>
+  <a class="btn pri" href="index.html" target="practicumGM">1 · Open GM console</a>
+  <button class="pri" id="connect">2 · Connect phones</button>
+  <button id="rejoin" title="Reload every phone (use after New run in the GM console)">🔁 Rejoin all</button>
+  <span>Cadets:</span>
+  <input id="n0" value="Able"><input id="n1" value="Baker"><input id="n2" value="Charlie"><input id="n3" value="Dog">
+  <button id="v-both">Projector + phones</button><button id="v-phones">Phones only</button><button id="v-proj">Projector only</button>
+  <span class="status" id="status"></span>
+</header>
+<main id="main" class="both">
+  <section class="frame" id="projFrame">
+    <h2>🖥️ Projector <span class="sp"></span><button id="projReload">reload</button><a class="btn" href="index.html#player" target="_blank">pop out</a></h2>
+    <div class="scaler" data-w="1280" data-h="720"><iframe id="proj" src="index.html#player" title="Projector"></iframe></div>
+  </section>
+  <section id="phoneRow" class="phones"></section>
+  <section class="frame">
+    <h2>📝 Evaluation notes <span class="sp"></span><span id="saved"></span><button id="dl">download .md</button></h2>
+    <textarea id="notes" placeholder="Jot what breaks, confuses, drags or delights. Prefix with the phase and role, e.g. [map][P2 Baker] vote button didn't highlight. Saved in this browser."></textarea>
+  </section>
+</main>
+<script>
+const PHONES = 4, PW = 390, PH = 780;
+const $ = s => document.querySelector(s);
+const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { } } };
+let connected = false;
+
+// names persist between sessions
+for (let i = 0; i < PHONES; i++) { const el = $('#n' + i), k = 'tb_name' + i; if (ls.get(k)) el.value = ls.get(k); el.oninput = () => ls.set(k, el.value.trim()); }
+
+function room() { return ls.get('sq_room'); }
+function phoneUrl(i) { return `join.html?room=${encodeURIComponent(room())}&name=${encodeURIComponent($('#n' + i).value.trim() || 'P' + (i + 1))}&cid=p${i + 1}&auto=1`; }
+
+function buildPhones() {
+  const row = $('#phoneRow');
+  row.innerHTML = Array.from({ length: PHONES }, (_, i) => `<section class="frame phone" id="ph${i}">
+    <h2>📱 P${i + 1} <span class="sp" id="pl${i}"></span><button data-big="${i}" title="Make this phone bigger">⤢</button><button data-reload="${i}">reload</button><a class="btn" id="pop${i}" target="_blank">pop out</a></h2>
+    <div class="scaler" data-w="${PW}" data-h="${PH}">${connected && room() ? `<iframe title="Phone ${i + 1}"></iframe>` : `<div class="empty"><span>Click <b>Connect phones</b> above.</span></div>`}</div></section>`).join('');
+  for (let i = 0; i < PHONES; i++) { $('#pl' + i).textContent = $('#n' + i).value; if (room()) $('#pop' + i).href = phoneUrl(i); }
+  fit();
+  if (connected) reloadAll();
+}
+function reloadPhone(i) { const f = $(`#ph${i} iframe`); if (f) f.src = phoneUrl(i); }
+// the GM seats phones in the order they connect, so stagger them: P1 joins first and gets slot 1
+function reloadAll() { for (let i = 0; i < PHONES; i++) setTimeout(() => reloadPhone(i), i * 1500); }
+
+// keep each iframe at its native size (1280x720 projector, 390x780 phone) and scale it to its column
+function fit() {
+  document.querySelectorAll('.scaler').forEach(s => {
+    const w = +s.dataset.w, h = +s.dataset.h, k = s.clientWidth / w;
+    s.style.height = (h * k) + 'px';
+    const f = s.querySelector('iframe'); if (f) { f.style.width = w + 'px'; f.style.height = h + 'px'; f.style.transform = `scale(${k})`; }
+  });
+}
+addEventListener('resize', fit);
+
+function status() {
+  const r = room();
+  $('#status').innerHTML = r ? `Room <b>${r}</b> · ${connected ? 'phones connected' : 'phones idle'}` : '<span class="warn">No room yet: open the GM console first</span>';
+}
+// the GM console writes sq_room; "New room code" in the GM sidebar changes it
+addEventListener('storage', e => { if (e.key === 'sq_room') { status(); if (connected) buildPhones(); } });
+
+$('#connect').onclick = () => {
+  if (!room()) return alert('Open the GM console first (button 1). It creates the room.');
+  connected = true; buildPhones(); status();
+};
+$('#rejoin').onclick = () => { if (connected) reloadAll(); };
+$('#projReload').onclick = () => { $('#proj').src = 'index.html#player'; };
+$('#phoneRow').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.reload != null) reloadPhone(+b.dataset.reload);
+  if (b.dataset.big != null) { $('#ph' + b.dataset.big).classList.toggle('big'); fit(); }
+};
+const view = v => { $('#main').className = v; ls.set('tb_view', v); fit(); };
+$('#v-both').onclick = () => view('both'); $('#v-phones').onclick = () => view('phonesOnly'); $('#v-proj').onclick = () => view('projOnly');
+if (ls.get('tb_view')) view(ls.get('tb_view'));
+
+// notes autosave + download
+const notes = $('#notes'); notes.value = ls.get('tb_notes') || '';
+let t; notes.oninput = () => { clearTimeout(t); t = setTimeout(() => { ls.set('tb_notes', notes.value); $('#saved').textContent = 'saved'; setTimeout(() => $('#saved').textContent = '', 1200); }, 400); };
+$('#dl').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([`# Playtest notes ${new Date().toISOString().slice(0, 16)}\n\n${notes.value}\n`], { type: 'text/markdown' }));
+  a.download = 'playtest-notes.md'; a.click();
+};
+
+buildPhones(); status();
+</script>
+</body>
+</html>

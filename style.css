@@ -30,8 +30,8 @@ body.player::after{content:"";position:fixed;inset:0;pointer-events:none;z-index
 .meter.fog .band{height:26px;display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:12px;background:#000;border:3px solid #fff2;color:var(--c)}
 .meter.fog.strong .band{border-color:var(--good);color:var(--good)}
 .meter.fog.steady .band{border-color:#fff4;color:var(--text)}
-.meter.fog.danger .band{border-color:var(--bad);color:#fff;background:#3a0010;animation:fogdanger .7s steps(2) infinite}
-@keyframes fogdanger{50%{background:var(--bad);border-color:#fff}}
+.meter.fog.danger .band{border-color:var(--bad);color:#fff;background:#3a0010;animation:fogdanger 1.8s ease-in-out infinite}
+@keyframes fogdanger{50%{background:#7a0020;box-shadow:0 0 12px #ff2e6380}}
 .deocs-tag{grid-column:1/-1;justify-self:center;font-family:var(--pixel);font-size:9px;color:var(--gold);margin-top:-8px}
 .hud .right{display:flex;gap:14px;align-items:center;font-family:var(--pixel);font-size:11px}
 .tok{display:flex;flex-direction:column;align-items:center;gap:3px;opacity:1}
@@ -391,7 +391,7 @@ body.phone{font-family:var(--vt);font-size:22px;line-height:1.15;min-height:100v
 .optgrid.bx .choice .ct{font-size:21px}
 .ph-band{font-family:var(--pixel);font-size:7px;text-align:center;padding:3px 0;border:2px solid #fff3;background:#000}
 .ph-band.strong{border-color:var(--good);color:var(--good)}
-.ph-band.danger{border-color:var(--bad);color:#fff;background:#3a0010;animation:fogdanger .7s steps(2) infinite}
+.ph-band.danger{border-color:var(--bad);color:var(--bad);background:#000}
 .ph-h{font-family:var(--pixel);font-size:13px;color:var(--gold);margin:12px 0 6px;line-height:1.5}
 .ph-card{background:var(--panel);border:4px solid var(--line);padding:10px 12px;margin:8px 0}
 .ph-center{text-align:center}
@@ -682,3 +682,219 @@ body.gm{font-family:var(--ui);font-size:14px;line-height:1.45;background:#0e1020
 .ph-danger{border:3px solid var(--bad);background:#3a0010;padding:6px 8px;margin:6px 0;font-size:18px;line-height:1.1}
 .ph-danger small{color:var(--gold)}
 .objchip i{font-style:normal;font-family:'Segoe UI Emoji','Apple Color Emoji',sans-serif;font-size:15px;vertical-align:middle}
+
+/* zoom out to the route map before an inject / level-up */
+.hop{width:min(1200px,94vw);display:flex;flex-direction:column;align-items:center;gap:10px}
+.hopt{font-family:var(--pixel);font-size:30px;text-shadow:3px 3px 0 #000;animation:hopt .5s ease-out}
+.hopmap{width:100%;height:68vh;animation:hopzoom 1.4s ease-out}
+.hopmap > div{height:100%}
+.hopmap .powerups,.hopmap .sub,.hopmap .ptitle{display:none}
+@keyframes hopzoom{from{transform:scale(1.6);opacity:.2}to{transform:scale(1);opacity:1}}
+@keyframes hopt{from{transform:translateY(-20px);opacity:0}to{transform:none;opacity:1}}
+
+/* effect chips never split from their numbers; Tackle-it laid out as rows */
+.nw{white-space:nowrap;display:inline-block}
+.tkrow{font-size:20px;line-height:1.25;margin-top:3px}
+.tkrow b{color:var(--gold)}
+.tkok{color:var(--good)} .tkbad{color:#ffb3c1}
+.tkbox{text-align:left;display:inline-block}
+.powerups.decide{border-color:var(--gold);animation:availglow 1.6s ease-in-out infinite}
+.rdecide{margin-top:10px;border:3px solid var(--gold);background:#2a2200;color:var(--gold);font-family:var(--pixel);font-size:12px;padding:8px 10px;text-align:left;animation:availglow 1.6s ease-in-out infinite}
+.rdecide div{font-family:var(--vt);font-size:22px;color:#fff;margin-top:4px}
+
+/* tie: the Flight Commander's vote glows (no banner) */
+.votes .vd.tieglow img{box-shadow:0 0 0 2px #ffd23f,0 0 14px 4px #ffd23fcc;animation:tieglow 1.4s ease-in-out infinite}
+.ph-voters .tieglow{text-shadow:0 0 8px #ffd23f;font-weight:bold}
+@keyframes tieglow{50%{box-shadow:0 0 0 2px #ffd23f,0 0 4px 1px #ffd23f66}}
+
+/* setup tutorial: point at the real tab buttons */
+.ph-point{border:3px dashed var(--accent);background:#0d2236;padding:10px 12px;margin:8px 0;text-align:center;line-height:1.2}
+.ph-point b{color:var(--accent)}
+.ph-arrow{font-size:34px;animation:bob 1s steps(2) infinite}
+
+/* class select: each perk in its own box, side by side */
+.perkhd{font-family:var(--pixel);font-size:9px;color:var(--gold);margin-top:4px}
+.perkpair{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.perkopt{position:relative;border:2px solid #ffd23f55;background:#000a;padding:5px 7px 14px;font-size:16px;line-height:1.1}
+.perkopt b{display:block;font-family:var(--pixel);font-size:9px;color:var(--gold);line-height:1.4;margin-bottom:3px}
+.perkopt i{position:absolute;right:5px;bottom:2px;font-style:normal;font-family:var(--pixel);font-size:7px;color:var(--dim)}
+
+/* class card: stats are a small footnote (they matter least) */
+.statline{font-size:15px;color:var(--dim);text-align:right;margin-top:2px;letter-spacing:.5px}
+.statline b{color:var(--text)}
+/* class select must fit a 720p projector: tighter cards (stats are a footnote now) */
+.classgrid{gap:8px}
+.classgrid .ccard{padding:6px 10px;gap:3px}
+.classgrid .ccard .chead .ic{font-size:30px}
+.classgrid .ccard .cline{font-size:16px;line-height:1.1}
+.classgrid .ccard .ab{font-size:16px;line-height:1.05}
+.classgrid .perkopt{font-size:14px;line-height:1.05;padding:4px 6px 11px}
+.classgrid .perkhd{margin-top:2px}
+
+/* layout review: size follows impact */
+.ptsub{font-size:.45em;color:var(--dim);text-shadow:none;vertical-align:middle}
+.sitems1{display:flex;flex-direction:column;gap:3px}
+.sitems1 span{font-size:18px;line-height:1.1;border:2px solid #ffd23f55;background:#1e1a06;padding:2px 6px}
+.ugrid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.npc.mini{grid-template-columns:30px 1fr;gap:6px;padding:4px 5px}
+.npc.mini img{width:30px;height:30px}
+.npc.mini .nm{font-size:9px;line-height:1.3}
+.npc.mini .tr{font-size:15px;line-height:1}
+.npc.mini .loy i{width:9px;height:6px}
+.rollbig{font-family:var(--pixel);font-size:17px;color:#000;background:var(--gold);padding:10px 12px;text-align:center;border:3px solid #000;box-shadow:4px 4px 0 #000}
+.rollbig b{font-size:22px} .rollbig span{font-size:14px}
+.verdict2{font-size:40px} .verdict2.up{color:var(--good)} .verdict2.dn{color:var(--bad)}
+.rmath{font-size:20px;color:var(--dim);margin-top:2px}
+.injscr .bigcard{padding:10px 18px} .injscr .bigcard h2{font-size:26px} .injscr .bigcard .bt{font-size:22px}
+.injscr .choice .ct{font-size:20px}
+.blog{font-size:17px;line-height:1.15;opacity:.85}
+
+/* squadron starting meters as bands (exact numbers stay hidden); ▲/▼ = which side of the band it starts on */
+.ustart.bands{display:flex;flex-wrap:wrap;gap:4px}
+.ustart.bands .sb{font-family:var(--pixel);font-size:8px;padding:3px 4px;border:2px solid #fff3;background:#000;color:var(--text);white-space:nowrap}
+.ustart.bands .sb.strong{border-color:var(--good);color:var(--good)}
+.ustart.bands .sb.danger{border-color:var(--bad);color:var(--bad)}
+.ustart.bands .sb.hi{border-color:#7dff6b88}
+.ustart.bands .sb.lo{border-color:#ff5d5d99;color:#ffb3c1}
+.ustart.bands{align-items:center;flex-wrap:nowrap}
+.ustart.bands .sbl{font-family:var(--pixel);font-size:8px;color:var(--dim);margin-right:2px}
+.ustart.bands .sb{font-size:11px;padding:2px 6px}
+.ustart.bands .sb.hi{color:var(--good)}
+.ustart.bands .sb{font-size:9px;padding:3px 5px}
+.ustart.bands .sb.steady{color:var(--dim)}
+.ustart.bands{flex-wrap:wrap;gap:3px}
+.u3 .unitcard{min-width:0}
+.unitgrid.u3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ustart.bands .sb{font-size:8px;padding:3px 4px}
+
+/* class card footer: specialty meter(s) big on the left, stats small in the bottom-right corner */
+.classgrid .ccard{display:flex;flex-direction:column}
+.cfoot{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;gap:8px;padding-top:4px}
+.cspec{font-family:var(--pixel);font-size:10px;color:var(--dim);display:flex;align-items:center;gap:6px}
+.cspec .mtag{font-size:20px;padding:3px 8px}
+.cfoot .statline{margin-top:0}
+.classgrid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.classgrid .ccard{min-width:0}
+.cspec{font-size:8px;gap:4px;flex:none}
+.cspec .mtag{font-size:13px;padding:2px 6px}
+.cfoot .statline{white-space:nowrap;font-size:13px}
+.cfoot{gap:4px}
+.cfoot .statline{font-size:11px;letter-spacing:0}
+.cspec{font-size:7px}
+.cspec .mtag{font-size:12px;padding:2px 5px}
+.cfoot{flex-wrap:wrap}
+.cfoot .statline{margin-left:auto}
+
+/* class card footer (final): specialty centred, caption under it, stats as a full-width strip at the very bottom */
+.cfoot{flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:3px;margin-top:auto;padding-top:6px}
+.cspec{flex-direction:column;align-items:center;gap:2px;font-size:inherit}
+.cspec-tags{display:flex;gap:6px;justify-content:center}
+.cspec .mtag{font-size:16px;padding:3px 10px}
+.cspec-lbl{font-family:var(--pixel);font-size:7px;color:var(--dim);letter-spacing:2px}
+.cfoot .statline{margin:0;text-align:center;font-size:12px;border-top:2px solid #ffffff14;padding-top:3px;white-space:nowrap}
+
+/* footer: "FOCUS" sits beside the meter on one line, so the stats strip can be bigger */
+.cspec{flex-direction:row;justify-content:center;gap:8px}
+.cspec-lbl{font-size:9px;letter-spacing:1px;color:var(--gold)}
+.cfoot .statline{font-size:17px;padding-top:4px}
+.cspec-tags:has(.mtag + .mtag) .mtag{font-size:12px;padding:3px 6px} .cspec-tags{flex-wrap:nowrap;min-width:0}
+
+/* class select without perks: more room, bigger type */
+.classgrid .ccard{padding:12px 16px;gap:8px}
+.classgrid .ccard h3{font-size:16px}
+.classgrid .ccard .chead .ic{font-size:44px}
+.classgrid .ccard .cline{font-size:22px}
+.classgrid .ccard .ab{font-size:23px;line-height:1.2}
+.cspec .mtag{font-size:20px;padding:4px 12px}
+.cspec-lbl{font-size:11px}
+.cfoot .statline{font-size:22px}
+/* the REQUIRED / name tag never wraps; the class name takes the remaining room */
+.classgrid .ccard .chead{display:flex;align-items:center;gap:8px}
+.classgrid .ccard .chead h3{flex:1;min-width:0}
+.classgrid .ccard .who{position:static;flex:none;white-space:nowrap;font-size:10px}
+
+/* rank insignia next to names */
+.rkins{display:inline-block;vertical-align:middle;margin-right:5px;flex:none;filter:drop-shadow(1px 1px 0 #000)}
+.nm .rkins{height:14px;width:auto}
+.cline .rkins{height:20px;width:auto}
+.ccname .rkins{height:22px;width:auto}
+.ph-nm .rkins{height:14px;width:auto}
+.cline{display:flex;align-items:center}
+.cline .rkins{height:28px;margin-right:8px}
+.orgcard .nm .rkins,.npc .nm .rkins{height:16px}
+
+/* briefing page 4: integrity on its own screen */
+.integscr{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;height:100%;text-align:center}
+.ig-skull{font-size:110px;line-height:1}
+.ig-big{font-family:var(--pixel);font-size:30px;color:#fff;background:#3a0010;border:4px solid var(--bad);padding:16px 26px;box-shadow:0 0 30px #ff2e6355}
+.ig-big b{color:var(--bad)}
+.ig-list{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.ig-list span{font-size:28px;border:3px solid #ff2e6388;background:#000;padding:8px 14px}
+.ig-t{font-size:26px;max-width:900px;color:var(--text)}
+.ig-t.gold{color:var(--gold);font-family:var(--pixel);font-size:16px}
+
+/* ---- rank insignia as the class badge ---- */
+.clsins{display:inline-flex;align-items:center;vertical-align:middle}
+.clsins .rkins{margin:0}
+.bigic .clsins{display:inline-flex}
+.sidepatch{color:var(--c);font-size:inherit}
+
+/* ---- 🎤 act-it-out badge: bottom-right of the choice, never over the text ---- */
+.choice.hasmic{padding-bottom:46px}
+.choice .micbadge{position:absolute;right:8px;bottom:8px;font-family:var(--pixel);font-size:12px;background:var(--gold);color:#000;padding:7px 10px;border:3px solid #000;box-shadow:3px 3px 0 #000;animation:micpulse 1.4s ease-in-out infinite}
+.choice.hasmic .votes{right:200px}
+@keyframes micpulse{50%{transform:scale(1.07);box-shadow:0 0 14px var(--gold)}}
+.choice .realres{font-size:22px;color:var(--text)}
+.choice .realres b{font-family:var(--pixel);font-size:11px;color:var(--gold);margin-right:6px}
+.ph-mic{display:inline-block;margin-left:6px;font-family:var(--pixel);font-size:9px;background:var(--gold);color:#000;padding:3px 6px;vertical-align:middle}
+
+/* ---- squadron select: the 4 meters, named and loud ---- */
+.unitcard .bands4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:6px 0 4px}
+.sb4{border:3px solid var(--mc);background:#000;padding:4px 6px;text-align:center;line-height:1.1}
+.sb4 .sbn{display:block;font-family:var(--pixel);font-size:9px;color:var(--mc)}
+.sb4 .sbw{display:block;font-family:var(--pixel);font-size:13px;margin-top:4px}
+.sb4.strong .sbw{color:var(--good)} .sb4.steady .sbw{color:var(--gold)}
+.sb4.danger{border-color:var(--bad);background:#3a0010;animation:fogdanger 1.8s ease-in-out infinite}
+.sb4.danger .sbw{color:#fff}
+/* squadron reveal + its warning */
+.unitrev .unitwarn{margin-top:22px;border:6px solid var(--warn);background:#1e1206;padding:18px 26px;max-width:1000px;text-align:center}
+.unitwarn .uwh{font-family:var(--pixel);font-size:20px;color:var(--warn);line-height:1.5}
+.unitwarn .uwt{font-size:34px;margin-top:8px}
+.unitwarn .uwm{font-size:30px;margin-top:8px}
+.unitwarn .uws{font-size:24px;color:var(--dim);margin-top:8px}
+
+/* ---- who rolls: the roller vote ---- */
+.rollvote{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin:6px 0;width:100%}
+.rollvote .rv{position:relative;background:var(--panel);border:4px solid var(--cc);padding:6px 8px 34px;display:flex;gap:8px;align-items:center}
+.rollvote .rv img{width:40px;height:40px;image-rendering:pixelated}
+.rollvote .nm{font-family:var(--pixel);font-size:10px;line-height:1.5}
+.rollvote .rvb{font-size:22px}
+
+/* ---- crisis screen ---- */
+.crisisloss{border:4px solid var(--bad);background:#3a0010;color:#fff;font-size:24px;padding:8px 12px;margin:6px 0}
+.helpline{border:3px solid var(--accent);background:#06202a;color:#cfefff;font-size:20px;padding:6px 10px;margin:6px 0}
+
+/* ---- achievements: small bar along the bottom ---- */
+.achbar{position:fixed;right:18px;bottom:12px;z-index:85;display:flex;gap:10px;align-items:center;background:#000;border:3px solid var(--gold);padding:6px 12px;max-width:520px;animation:achin 4.5s forwards;pointer-events:none}
+.achbar .ai{font-size:28px}
+.achbar b{font-family:var(--pixel);font-size:10px;color:var(--gold);font-weight:400}
+.achbar i{font-family:var(--pixel);font-size:9px;color:var(--good);font-style:normal}
+.achbar small{display:block;font-size:17px;line-height:1.05;margin-top:2px}
+@keyframes achin{0%{transform:translateY(80px);opacity:0}8%,88%{transform:none;opacity:1}100%{transform:translateY(80px);opacity:0}}
+.ph-int{font-size:6px;color:var(--gold)}
+.u3 .unitcard{grid-template-columns:auto minmax(0,1fr)}
+.u3 .unitcard > div{min-width:0}
+.unitcard .bands4{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.sb4{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:5px 8px}
+.sb4 .sbn{font-size:10px}
+.sb4 .sbw{font-size:13px;margin-top:0}
+.unitgrid.u3 .unitcard .votes{bottom:auto;top:6px}
+.sb4{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:6px;row-gap:3px;align-items:center;padding:4px 6px;text-align:left}
+.sb4 .sbi{grid-row:1/3;font-size:22px;line-height:1}
+.sb4 .sbn{font-size:9px}
+.sb4 .sbw{font-size:14px;letter-spacing:1px}
+.choice.hasmic{padding-bottom:44px!important}
+.choice.hasmic .votes{bottom:8px}
+.rollvote .rv{flex-wrap:wrap;padding-bottom:6px}
+.rollvote .rv .votes{position:static;width:100%;justify-content:flex-end;min-height:0}
+.ph-bossbtn{padding:18px 14px}.ph-bossbtn b{font-size:16px}

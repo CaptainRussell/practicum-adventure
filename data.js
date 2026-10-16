@@ -14,7 +14,6 @@ const DIFFICULTY = {
   injectOdds: { bad: 3, mixed: 2, good: 1 }, // when an inject hits, a d6 picks the wheel:
                   //   1-3 Wheel of Failure, 4-5 Wheel of Meh, 6 Wheel of Success
   drainEvery: 2,   // the squadron's tendency (weak spot) hits after every 2nd stop
-  boostMax: 2,     // meter points the team can spend on one roll (+2 each)
   bossHp: 26,      // Inspector General hit points
   bossAttack: 4,   // the IG hits your weakest meter this hard after each phase
   examDC: 15,      // boss: target for a cadet's Press roll (3 lower if The Witness was handled)
@@ -29,6 +28,7 @@ const DIFFICULTY = {
   startLoy: 2,     // every Unit member's starting loyalty (Ally at 5)
   dangerAt: 2,    // a meter at or below this flashes DANGER on the projector and phones
   deocsStops: 2,   // a DEOCS Survey shows the exact meter values for this many stops
+  crisisIgHp: 4,   // a Mission Failure crisis adds this much IG HP at the inspection
 };
 const DC_NORMAL = 13 + DIFFICULTY.dcPlus, DC_HARD = 16 + DIFFICULTY.dcPlus;
 
@@ -58,7 +58,7 @@ const CLASSES = [
   { id: 'fc', color: '#ffd23f', name: 'FLIGHT COMMANDER', icon: '👑', rank: 'Capt', rankLong: 'Captain', guards: '🎯 + tie-breaks', spec: ['mis'],
     stats: { CMD: 3, CHA: 1, INS: 1, GRIT: 2 },
     ability: null, abilityText: 'Command Token: Rock, Paper, Rank. Any tied vote is resolved by your choice.',
-    perks: [ { id: 'typ', name: 'Trust Your People', text: 'Once: a teammate rolls a CMD check with your CMD' },
+    perks: [ { id: 'lead', name: 'Lead From the Front', text: 'Once: after a failed check (or Tackle it), you take it on yourself: it counts as a pass, but ⭐ −1' },
              { id: 'hold', name: 'Hold the Line', text: 'Once: when a meter would drop to 0, it stops at 1 (fires on its own)' } ],
     ups:   [ { id: 'battle', name: 'Battle-Tested', text: '+1 CMD and +1 GRIT', stats: { CMD: 1, GRIT: 1 } },
              { id: 'huddle', name: 'Huddle', text: 'Right now: +1 to every meter', now: { mis: 1, mor: 1, tru: 1, res: 1 } } ] },
@@ -80,7 +80,7 @@ const CLASSES = [
     stats: { CMD: 1, CHA: 3, INS: 1, GRIT: 1 },
     ability: { id: 'ear', name: "Commander's Ear", text: 'Cancel the most recent ⭐ loss' },
     perks: [ { id: 'readroom', name: 'Read the Room', text: 'Once: see the exact effects of every choice on this mission' },
-             { id: 'confidant', name: "Commander's Confidant", text: "Once: cancel the commander's negative perk for the rest of the game" } ],
+             { id: 'confidant', name: "Commander's Confidant", text: "Passive: the commander's negative perk never applies (switches on by itself when the org chart is shown)" } ],
     ups:   [ { id: 'golden', name: 'Golden Child', text: 'All ⭐ losses reduced by 1 (min 1)' },
              { id: 'favor', name: "Commander's Favor", text: 'Right now: +3 ⭐', now: { tru: 3 } } ] },
   { id: 'ra', color: '#3fd8ff', name: 'RESOURCE ADVISOR', icon: '📦', rank: 'TSgt', rankLong: 'Technical Sergeant', guards: '📦', spec: ['res'],
@@ -101,7 +101,7 @@ const CLASSES = [
 const CLASS = Object.fromEntries(CLASSES.map(c => [c.id, c]));
 
 /* ---------------- units ----------------
-   start   starting meters (every squadron has a weak spot)
+   start   starting meters: one STRONG (7), one in DANGER (2), two STEADY, so squadrons differ at a glance
    drain   the squadron's tendency: that meter drops 1 after every DIFFICULTY.drainEvery stops
    cc      the commander: a positive and a negative perk, and their intent (priority meter).
            hook = what the perk does in the engine:
@@ -118,16 +118,16 @@ const CLASS = Object.fromEntries(CLASSES.map(c => [c.id, c]));
    traitW  trait weights for this squadron (unlisted traits weigh 1) */
 const UNITS = [
   { id: 'wk', name: '4TH AMXS', sq: '4th Aircraft Maintenance Squadron', icon: '🔧', color: '#ff9f43',
-    start: { mis: 6, mor: 3, tru: 5, res: 3 }, ccRank: 'Lt Col',
+    start: { mis: 7, mor: 4, tru: 5, res: 2 }, ccRank: 'Lt Col',
     drain: { k: 'res', name: 'OPS TEMPO', text: 'Jets break faster than parts arrive' },
     cc: { intent: 'mis',
       pos: { name: 'Maintenance Pride', text: 'Every passed 🎯 check gives +1 🎯 more.', hook: { afterPass: { m: 'mis', eff: { mis: 1 } } } },
-      neg: { name: 'Ops Tempo Hawk', text: 'Every Rest Stop gives 1 less: rest is for after the jets fly.', hook: { restLess: true } } },
+      neg: { name: 'Jets Before Rest', text: 'Every Rest Stop gives 1 less: rest is for after the jets fly.', hook: { restLess: true } } },
     slots: [ { rank: 'SSgt', pub: 'Crew chief, best wrench on the line' }, { rank: 'Amn', pub: 'Fresh out of tech school, eager' },
              { rank: 'MSgt', pub: 'Production superintendent, 18 years in' }, { rank: 'Civ.', pub: 'Contract logistics rep' } ],
     traitW: { burnout: 3, overach: 2, silent: 2 } },
   { id: 'gg', name: '56TH SFS', sq: '56th Security Forces Squadron', icon: '🛡️', color: '#3fd8ff',
-    start: { mis: 6, mor: 3, tru: 5, res: 4 }, ccRank: 'Lt Col',
+    start: { mis: 7, mor: 2, tru: 5, res: 4 }, ccRank: 'Lt Col',
     drain: { k: 'mor', name: '12-HOUR SHIFTS', text: 'Nights, weekends and holidays on the gate wear people down' },
     cc: { intent: 'tru',
       pos: { name: 'Defender Ethos', text: 'A 3⭐ 🎤 encounter also gives +1 ❤️.', hook: { stars3: { mor: 1 } } },
@@ -136,7 +136,7 @@ const UNITS = [
              { rank: 'TSgt', pub: 'Flight sergeant, runs the night shift' }, { rank: '1st Lt', pub: 'Deputy flight commander, eager to prove themself' } ],
     traitW: { burnout: 3, bender: 2, family: 2 } },
   { id: 'pp', name: '6TH CS', sq: '6th Communications Squadron', icon: '📡', color: '#7dff6b',
-    start: { mis: 3, mor: 6, tru: 4, res: 5 }, ccRank: 'Maj',
+    start: { mis: 2, mor: 7, tru: 4, res: 5 }, ccRank: 'Maj',
     drain: { k: 'mis', name: 'TICKET BACKLOG', text: 'Comfy chairs, slow tickets: the queue keeps growing' },
     cc: { intent: 'mis',
       pos: { name: 'Early Adopter', text: "Adopting a subordinate's idea gives +1 ⭐ and +1 🎯.", hook: { idea: { tru: 1, mis: 1 } } },
@@ -145,7 +145,7 @@ const UNITS = [
              { rank: 'TSgt', pub: 'Help desk lead, has seen every ticket' }, { rank: 'Civ.', pub: 'Contractor sysadmin' } ],
     traitW: { coaster: 3, genius: 3, cynic: 2 } },
   { id: 'sr', name: '92ND LRS', sq: '92nd Logistics Readiness Squadron', icon: '🚚', color: '#ffd23f',
-    start: { mis: 5, mor: 5, tru: 4, res: 3 }, ccRank: 'Lt Col',
+    start: { mis: 5, mor: 4, tru: 2, res: 7 }, ccRank: 'Lt Col',
     drain: { k: 'tru', name: 'LATE DELIVERIES', text: 'Every unit on base blames supply' },
     cc: { intent: 'tru',
       pos: { name: 'Logistician', text: 'The BX allows TWO purchases per visit.', hook: { depot2: true } },
@@ -154,7 +154,7 @@ const UNITS = [
              { rank: 'TSgt', pub: 'Supply NCOIC, knows where everything is' }, { rank: 'Civ.', pub: 'Budget analyst' } ],
     traitW: { climber: 2, gossip: 2, overach: 2 } },
   { id: 'sa', name: '7TH IS', sq: '7th Intelligence Squadron', icon: '🔍', color: '#b18cff',
-    start: { mis: 5, mor: 4, tru: 3, res: 5 }, ccRank: 'Lt Col',
+    start: { mis: 7, mor: 4, tru: 2, res: 5 }, ccRank: 'Lt Col',
     drain: { k: 'mor', name: 'WINDOWLESS VAULT', text: 'No sunlight, no phones, no talking about work at home' },
     cc: { intent: 'tru',
       pos: { name: 'Quiet Professional', text: 'Every passed ⭐ check gives +1 ⭐ more.', hook: { afterPass: { m: 'tru', eff: { tru: 1 } } } },
@@ -163,7 +163,7 @@ const UNITS = [
              { rank: 'MSgt', pub: 'Ops superintendent' }, { rank: 'Civ.', pub: 'Security manager' } ],
     traitW: { silent: 3, witness: 2, mentor: 2 } },
   { id: 'ch', name: '55TH FSS', sq: '55th Force Support Squadron', icon: '🍔', color: '#ff7ae0',
-    start: { mis: 3, mor: 6, tru: 4, res: 4 }, ccRank: 'Maj',
+    start: { mis: 2, mor: 7, tru: 5, res: 4 }, ccRank: 'Maj',
     drain: { k: 'res', name: 'SHORT-STAFFED', text: 'Never enough hands at the dining facility' },
     cc: { intent: 'mis',
       pos: { name: 'People Person', text: 'Every ❤️ gain is +1.', hook: { gain: { k: 'mor', d: 1 } } },
@@ -737,25 +737,42 @@ const MISSIONS = [
         stars: [ { tru: -1 }, { tru: 1 }, { tru: 3 } ] } ] },
 ];
 
-/* ---------------- crisis events (a meter hit 0) ---------------- */
+/* ---------------- crisis events (a meter hit 0) ----------------
+   A meter at 0 is a casualty, not a reset. The moment the current event is resolved, the crisis
+   strikes: its loss is permanent (applied in the engine, see crisisLoss in app.js), then the team
+   picks how to dig out. Every recovery costs something. A SECOND crisis = GAME OVER.
+   loss   what the crisis takes from the team (shown on screen)
+   death  per-squadron text for Mission Failure (what was destroyed / who was hurt) */
 const CRISES = {
-  mis: { title: 'MISSION FAILURE', icon: '💥', text: 'The wing noticed your flight missed a major deliverable.',
+  mis: { title: 'MISSION FAILURE', icon: '💥', loss: `Every team item is lost in the fallout, and the IG already has the report: +${DIFFICULTY.crisisIgHp} IG HP at the inspection.`,
+    death: {
+      wk: 'A jet your flight released with an open write-up lost an engine on takeoff. The crew ejected; one is in the ICU. The aircraft is gone.',
+      gg: 'A gate runner got onto the flightline through a post your flight left short-handed. A Defender was badly hurt stopping them.',
+      pp: 'The base network went down during a real-world alert. The recall never went out, and the wing missed its response window.',
+      sr: 'A fuel truck your flight kept running past its maintenance date caught fire on the ramp. A driver was burned and two trucks are gone.',
+      sa: 'A threat report your flight sat on reached the deployed unit a day late. They drove into the area it warned about. People were hurt.',
+      ch: 'The youth center your flight kept short-staffed ran a field trip with half the supervision it needed. A child was seriously hurt.',
+    },
     choices: [
-      { t: '"All hands, fix it now"', kind: 'fx', eff: { set: { mis: 3 }, mor: -2 } },
-      { t: 'Brief the CC on the recovery plan', mic: true, kind: 'stars', pre: { set: { mis: 2 } }, stars: [ { tru: -2 }, { tru: -1 }, {} ] } ] },
-  mor: { title: 'MUTINY.EXE', icon: '😡', text: 'An anonymous climate survey is brutal, and {X:transfer} requests a transfer.',
+      { t: '"All hands, fix it now": nobody goes home', kind: 'fx', eff: { set: { mis: 3 }, mor: -3 } },
+      { t: 'Brief the Wing CC yourself: what happened and the recovery plan', mic: true, kind: 'stars', pre: { set: { mis: 2 } }, stars: [ { tru: -3 }, { tru: -2 }, { tru: -1 } ] } ] },
+  mor: { title: 'LOST AN AIRMAN', icon: '🕯️', loss: 'Every Unit member −1 loyalty. The flight will never be the same.', help: true,
+    death: 'An Airman in your flight died by suicide. The warning signs were there: Morale hit zero, and nobody acted in time.',
     choices: [
-      { t: 'Town hall: listen, no excuses', mic: true, kind: 'stars', pre: { set: { mor: 2 }, res: -1 }, stars: [ { mor: 1 }, { mor: 2 }, { mor: 3 } ] },
-      { t: 'Pizza and a down day', kind: 'fx', eff: { set: { mor: 3 }, mis: -2, res: -1 } } ] },
-  tru: { title: "YOU'RE ON NOTICE", icon: '😠', text: 'The CC calls you in: "I\'m not confident in this flight."',
+      { t: 'Stand down for a day: chaplain, mental health and leadership walk the shop', kind: 'fx', eff: { set: { mor: 3 }, mis: -2, res: -2 } },
+      { t: 'Hold a town hall: say it plainly, listen, and point everyone to help', mic: true, kind: 'stars', pre: { set: { mor: 2 } }, stars: [ { tru: -2, mis: -1 }, { mis: -1 }, { mor: 1 } ] } ] },
+  tru: { title: 'RELIEVED OF COMMAND', icon: '🪓', loss: "The Flight Commander is FIRED: no votes, rolls, perk or 👑 for the rest of the game. The tie-break passes to the next cadet.",
+    death: '{CC} calls you in: "I no longer have confidence in your flight commander." The Flight Commander is relieved, effective now.',
     choices: [
-      { t: 'Own it and present a plan', mic: true, kind: 'stars', pre: { set: { tru: 2 }, ach: 'buck' }, stars: [ { tru: 1 }, { tru: 2 }, { tru: 3 } ] },
-      { t: 'Accept a CC babysitter (for 2 stops, every ⭐ gain is 1 less)', kind: 'fx', eff: { set: { tru: 3 }, flag: 'BABYSITTER' } } ] },
-  res: { title: 'OUT OF GAS', icon: '⛽', text: "The budget is gone, your people are maxed out, and there's no time left.",
+      { t: 'The acting lead briefs {CC} on a turnaround plan', mic: true, kind: 'stars', pre: { set: { tru: 2 } }, stars: [ { tru: -1, mor: -2 }, { mor: -2 }, { tru: 1, mor: -1 } ] },
+      { t: 'Accept a babysitter from group (for 2 stops, every ⭐ gain is 1 less)', kind: 'fx', eff: { set: { tru: 3 }, mor: -2, flag: 'BABYSITTER' } } ] },
+  res: { title: 'OUT OF GAS', icon: '⛽', loss: 'Your lowest-loyalty Unit member quits the unit for good, and every team item is gone.',
+    death: 'The money and the people ran out at the same time. Shifts went uncovered, and someone finally walked out.',
     choices: [
-      { t: 'Beg the group for help', mic: true, show: [['res', 2], ['tru', -1]], kind: 'stars', stars: [ { set: { res: 2 }, tru: -2 }, { set: { res: 3 }, tru: -2 }, { set: { res: 3 }, tru: -1 } ] },
-      { t: 'Cut a program', kind: 'fx', eff: { set: { res: 3 }, mis: -1, mor: -1 } } ] },
+      { t: 'Beg group for money and bodies', mic: true, kind: 'stars', stars: [ { set: { res: 2 }, tru: -3 }, { set: { res: 3 }, tru: -2 }, { set: { res: 3 }, tru: -1 } ] },
+      { t: 'Cut a program and the people who run it', kind: 'fx', eff: { set: { res: 3 }, mis: -2, mor: -2 } } ] },
 };
+const CRISIS_HELP = 'If you or someone you know is struggling: call or text 988, then press 1 (Military / Veterans Crisis Line). You can also talk to a chaplain or Military OneSource (800-342-9647).';
 
 /* ---------------- injects (Wheels of Failure / Meh / Success) ---------------- */
 // Most injects come with a choice: the team votes on HOW to respond (options).
@@ -1027,7 +1044,6 @@ const ACHIEVEMENTS = [
   { id: 'clearcomms', icon: '📣', pts: 10, name: 'Clear Comms',               text: 'Earned 3⭐ on a 🎤 encounter' },
   { id: 'opendoor',  icon: '🚪', pts: 15, name: 'Open Door',                  text: 'Had 2+ Unit members as Allies at once' },
   { id: 'ideas',     icon: '💡', pts: 10, name: 'Ideas Welcome',              text: "Adopted or piloted a subordinate's idea" },
-  { id: 'murphy',    icon: '🌪️', pts: 0, name: 'Murphy Survivor',            text: 'Survived 2+ Crisis Events' },
   { id: 'balanced',  icon: '⚖️', pts: 25, name: 'Balanced Leader',            text: 'Finished with every meter at 5+' },
   { id: 'crit',      icon: '🎲', pts: 0, name: 'Critical Hit',               text: 'Rolled a natural 20' },
   { id: 'nobody',    icon: '🤝', pts: 5, name: 'Nobody Left Behind',         text: 'No Unit member ever dropped to loyalty 0', hidden: true },
@@ -1054,12 +1070,12 @@ const INTRO_STEPS = [
   ['🧑‍✈️', 'You are a leadership team', 'Your party runs a flight in a squadron you choose. You win or lose TOGETHER against the scenario (and the GM).'],
   ['🗺️', 'Follow the route', 'Travel the stops on the route map (5 to 7, set by the GM), then face the final boss: the Inspector General.'],
   ['🔀', 'Make choices', 'Every choice helps some meters and hurts others. You can never max them all, so balance them.'],
-  ['🎲', 'Roll the dice', 'Risky choices need a d20 roll plus your class stat. Before you roll, spend meter points for +2 each.'],
+  ['🎲', 'Roll the dice', 'Risky choices need a d20 roll plus your class stat. The team votes on who rolls.'],
   ['🎤', 'Act it out', 'Some choices make you play the scene. A wheel picks who talks; the GM plays the other side and rates you 1-3 stars.'],
   ['🎡', 'Injects every other stop', 'After every other stop a d6 picks the Wheel of Failure, Meh or Success. Your squadron also has a weak spot that keeps draining. You vote on how to respond.'],
 ];
 const INTRO_WIN = 'WIN: keep all 4 meters balanced (your WEAKEST meter counts most), beat the IG, earn achievements. Top 3 teams on the leaderboard earn extra credit.';
-const INTRO_LOSE = 'LOSE: one integrity violation = instant GAME OVER. No respawns.';
+const INTRO_LOSE = 'LOSE: one integrity violation = instant GAME OVER. A meter at zero = a Crisis Event (a lost Airman, a fired leader, a failed mission). A second Crisis Event = GAME OVER. No respawns.';
 // READING THE SCREEN (intro page 3): only the two things that matter most
 const INTRO_METERS = {
   mis: 'Is the job getting done?',
@@ -1077,14 +1093,14 @@ const LEGEND = [
   ['📦', 'RESOURCES', 'Budget, people-hours, time, supplies'],
   ['🟢 🟡 🔴', 'HIDDEN METERS', `Meters show STRONG (7+), STEADY (${DIFFICULTY.dangerAt + 1}-6) or DANGER (${DIFFICULTY.dangerAt} or lower, flashing red). A 📋 DEOCS Survey shows the exact numbers for ${DIFFICULTY.deocsStops} stops.`],
   ['<span class="up">▲</span> <span class="dn">▼</span> ❔', 'ARROWS', 'Green raises a meter, red lowers it. Doubled = bigger swing. ❔ = depends on your roll or performance'],
-  ['💪', 'BOOST', `Before a roll: spend a 📦, ❤️ or ⭐ point for +2 (max ${DIFFICULTY.boostMax})`],
   ['🎤', 'ACT IT OUT', 'Dialogue encounter: the GM rates you 1-3 stars'],
   ['👑', 'COMMAND TOKEN', 'Rock, Paper, Rank: the Flight Commander resolves any tied vote. That is all it does.'],
   ['🎁', 'PERKS', 'Each cadet has one perk, usable once. It glows gold on your phone when it can help: tap it to ask the GM.'],
   ['🔦', 'SPOTLIGHT', 'A wheel picks one cadet (never the same one twice) to decide alone. Everyone else stays silent.'],
   ['🟩🟩🟩', 'LOYALTY', 'Each Unit member has 0-5 loyalty. At 5 they become an Ally; at 0 they hit a Breaking Point. Everyone\'s trait is visible on the org chart.'],
   ['⚔️ 💀 🏕️ 🛒 ❓', 'MAP STOPS', 'Scenario · Elite (harder, bigger rewards) · Rest Stop · Base Exchange (BX) · Unknown'],
-  ['🎡', 'INJECT CHECKPOINT', 'The 🎡 waypoints between stops (on every path, under a 🎡 in the stop row). Every route passes one: a d6 picks the Wheel of Failure, Meh or Success and someone spins it.'],
+  ['🎡', 'INJECT CHECKPOINT', 'The 🎡 waypoints between stops. The team picks which waypoint to take (it also locks in the path to the next stop); then a d6 picks the Wheel of Failure, Meh or Success and someone spins it.'],
+  ['🚨', 'CRISIS EVENT', 'A meter hits 0: the crisis strikes right away and takes something for good (an Airman, your Flight Commander, your gear). A second Crisis Event = GAME OVER.'],
   ['CMD CHA<br>INS GRIT', 'CLASS STATS', 'Added to your d20 rolls. CMD Command (orders, decisions) · CHA Charisma (persuade, counsel) · INS Insight (read people, plan) · GRIT Grit (endure, execute)'],
   ['📱🎲', 'YOUR TURN', 'Random events rotate through the team: when it\'s your turn, a ROLL / SPIN button appears on your phone'],
 ];
@@ -1193,7 +1209,7 @@ const DECODER = [
   ['Inject wheels', "Real life. You don't control it; you control your response."],
   ["Commander's perks and intent", 'Every boss has things they reward and things that set them off, and a priority they will judge you on. Learn them early.'],
   ['Squadron tendency', 'Every unit has a chronic weak spot (SF morale, cyber backlog...). Leaders plan around it instead of being surprised by it.'],
-  ['💪 Boosts', 'Throwing money, people or political capital at a problem works, but it is never free.'],
+  ['🚨 Crisis Events', 'A meter at zero is not a setback, it is a casualty: a lost Airman, a fired leader, a failed mission. Leaders watch the meters so it never gets there.'],
   ['The Inspector General', 'UEI / IG inspections, and every commander who will ask "How do you know?"'],
   ['Lowest-meter scoring', "Leadership is balance: you're judged by your weakest area"],
 ];

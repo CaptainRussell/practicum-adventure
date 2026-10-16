@@ -21,7 +21,7 @@
 - Phones fill the party slots in join order. From their phone, cadets pick their class, perk, pilot and level-up upgrade, **vote** on choices (votes show on the projector and next to each choice on your console), **tap to roll** when they're the roller, pick their stat for the boss exercise, and **ask** you to use their ability or a Leadership Token. Those requests appear in the sidebar with Approve / Dismiss.
 - **Cadet turns:** every random event (squadron roll, inject check, Murphy's wheel, unknown-stop d6, loot d4 and loot wheel, fumble wheel, hot-seat roll) is handed to a cadet, rotating through the team. That cadet gets a big ROLL / SPIN button on their phone, and the projector shows "YOUR TURN, CAPT HELLE." Your console shows a yellow "Waiting on…" bar with a **Press it for them** button.
 - **Votes:** the team votes on their phones for the route (top or bottom path), Rest Stop and Base Exchange (BX) options, mission choices, and **how to respond to injects** (most Murphy results have two responses). Votes show as avatars on the projector and 🗳️ counts on your buttons; you click the winner.
-- **Before every d20 check:** the 👑 holder picks the roller on their phone. Anyone can **💪 boost** (spend 1 📦/❤️/⭐ for +2, max 2 per roll, paid when it's rolled). Every check rolls the die (there is no "play it safe" option). The projector and your console show the odds ("need 11+ (50%)").
+- **Before every d20 check (and every Tackle it):** the team **votes on who rolls**; phones and the projector show each cadet's bonus and odds ("needs 11+ (50%)"). You click the winner to lock it in, then that cadet taps ROLL. There are no boosts.
 - **⚡ Usable now:** when a token, item, class ability or perk would help, it appears on the projector and on phones (flashing if it's urgent, e.g. a Waiver after a failed roll). Cadets tap it to ask you; approve it in the sidebar.
 - You still lock in every decision. Anything a phone can do, you can also do from the console, so a cadet without a phone just tells you.
 - **New run** disconnects the last party's phones. ✖ next to a name removes that cadet.
@@ -35,10 +35,11 @@
 5. **The team votes on the squadron** on their phones, then you show the crew manifest. On the org chart screen the team **votes on their team patch** (their leaderboard name). Votes show on the projector and as 🗳️ counts on your buttons. Click the winner to lock it in. If you skip it, the top-voted patch is used. NPCs are drawn from the cadet roster, and nobody in the current party can be drawn.
 6. **Open the route map**. Each stop has two options (top and bottom path); the team votes and you click the winner.
 7. On missions, click the letter the party chooses:
-   - 🎲 checks: the 👑 holder picks who rolls, the team decides on boosts or playing it safe, then the roller taps ROLL (or you click **Roll the d20**). All dice are digital and animate on the projector.
+   - 🎲 checks: the team votes for the roller, you lock it in, then the roller taps ROLL (or you click **Roll the d20**). All dice are digital and animate on the projector.
+   - 🎤 encounters: once you rate the stars, the choice card shows the real meter changes.
    - 🎤 encounters: start the act clock, play the NPC, then rate them 1–3 stars.
-8. After every other stop (stops 2, 4, 6...), an inject hits: a cadet rolls the d6 to pick the wheel, and another spins it. Change `injectEvery` in `DIFFICULTY` (`data.js`) to adjust this. Loot drops pop up with an explanation; the team bag holds 3 items (a 4th pushes out the oldest). The route has 6 stops; after stop 3 the party levels up. Short on time? The map panel has a "skip to the boss" button.
-9. **Boss: Lt Col Cacic (IG)**. Run the Audit. Then the Interview: everyone rolls, and the two lowest rolls answer the questions. Then the No-Notice Exercise: each cadet picks a stat and rolls their own d20 on their phone; it resolves when the last one rolls.
+8. After every other stop (stops 2, 4, 6...), the route map opens on the **🎡 inject waypoints**: the team votes for one (it also locks in the path to the next stop), then the inject hits: a cadet rolls the d6 to pick the wheel, and another spins it. Change `injectEvery` in `DIFFICULTY` (`data.js`) to adjust this. Loot drops pop up with an explanation; the team bag holds 3 items (a 4th pushes out the oldest). The route has 6 stops; after stop 3 the team picks a **⬆️ level-up waypoint** the same way. Short on time? The map panel has a "skip to the boss" button.
+9. **Boss: Lt Col Cacic (IG)**. Run the Audit (every Ally deals 2 damage). Three rounds: each cadet picks **🗡️ Press** (rolls their best stat) or **🛡️ Defend** (blocks 2 of the IG's attack). Round 2 opens with the Interview: everyone rolls, and the two lowest rolls answer the questions.
 10. **Results**: enter a team name and click **Save to leaderboard**, then **Power down** to start the reality debrief.
 11. **Debrief**: switch between the Decoder and the Replay timeline (🔦 spotlights an event on the projector). Score the rubric sliders, then **Save grades**.
 
@@ -48,6 +49,11 @@
 - **Signature missions:** Security Forces can draw Gate Runner, Round in the Ceiling, and Friendly Fire. Asleep at the Wheel shows up for SF, Maintenance, and LRS. Wake Me Up Later is more likely for Comm/Cyber.
 - All of these numbers are in `DIFFICULTY` at the top of `data.js`. If parties are getting crushed, lower `dcPlus` or `bossHp`.
 - New scenarios (M13-M24): DUI, dorm party, fight club, paintball in the command post, asleep at the wheel, round in the ceiling, domestic violence report, missed movement, gate runner, insubordination, napping in an exercise, and a spouse's death. Five of them hide integrity traps. In the serious ones, the person in trouble is always an unnamed Airman, never a roster name.
+
+## Crisis Events (real fail states)
+- When a meter hits 0, a Crisis Event strikes as soon as the current event is resolved (your next Continue). If the team fixes the meter before then (an item, a perk), it's cancelled.
+- Every crisis takes something for good: **Morale** = an Airman in the flight dies by suicide (every Unit member −1 loyalty; the screen shows the 988 / Military Crisis Line); **Trust** = the CC fires the Flight Commander (no votes, rolls or perk; the 👑 passes to the cadet with the best CMD); **Mission** = a squadron-specific disaster (all items lost, IG +4 HP); **Resources** = the lowest-loyalty Unit member quits for good and all items are lost. Then the team picks a costly way to dig out.
+- **A second Crisis Event (or a meter hitting 0 in the IG fight after one) = GAME OVER.**
 
 ## Hidden meters and the DEOCS Survey
 - The projector and phones don't show meter numbers. Each meter reads **STRONG** (7+), **STEADY** (3-6) or **DANGER** (2 or lower, flashing red). Your console always shows the real numbers.

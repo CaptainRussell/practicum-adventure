@@ -31,7 +31,7 @@ function netStart() {
   peer.on('open', () => { NET.status = 'live'; NET.err = ''; renderGM(); push(true); });
   peer.on('connection', conn => {
     conn.on('data', d => onClient(conn, d));
-    conn.on('close', () => { for (const k in NET.conns) if (NET.conns[k] === conn) delete NET.conns[k]; renderGM(); });
+    conn.on('close', () => { for (const k in NET.conns) if (NET.conns[k] === conn) delete NET.conns[k]; renderGM(); push(true); });
   });
   peer.on('disconnected', () => { NET.status = 'reconnecting'; try { peer.reconnect(); } catch (e) { } renderGM(); });
   peer.on('error', e => {
@@ -44,6 +44,10 @@ function netStart() {
 function netStop() {
   for (const k in NET.conns) { try { NET.conns[k].send({ t: 'bye' }); NET.conns[k].close(); } catch (e) { } }
   NET.conns = {};
+}
+// every seat has a cadet whose phone is connected right now (then the projector hides the join QR)
+function seatsFull() {
+  return S.party.length > 0 && S.party.every((p, i) => p.name.trim() && Object.entries(S.clients || {}).some(([cid, c]) => c.slot === i && NET.conns[cid] && NET.conns[cid].open));
 }
 function phonesOnline() { return Object.keys(NET.conns).length; }
 
@@ -93,11 +97,12 @@ function onClient(conn, d) {
     case 'up': if (S.phase !== 'levelup' || !CLASS[me.cls].ups.some(u => u.id === d.v)) return netSendTo(cid);
       return apply(() => { me.up = d.v; });
     case 'vote': {
+      if (S.party[slot] && S.party[slot].fired) return netSendTo(cid); // relieved of command: no more votes
       // what can be voted on depends on the screen: route stop, rest/depot option, or mission choice
       const c = S.cur; let ok = false;
       // in a meeting: no vote this stop, and none on the route right after being pulled in
-      if (slot === S.offline || (S.phase === 'map' && slot === S.offlineNext)) return netSendTo(cid);
-      if (S.phase === 'map') ok = available().some(([t, i]) => `${t},${i}` === String(d.v));
+      if (isOut(S, slot) || (S.phase === 'map' && slot === S.offlineNext)) return netSendTo(cid);
+      if (S.phase === 'map') ok = available().some(([t, i]) => `${t},${i}` === String(d.v)) || wpOptions().some(o => o.key === String(d.v));
       else if (S.phase === 'unit' && !S.unitRolled) ok = UNITS.some(u => u.id === String(d.v));
       else if (S.phase === 'manifest' && !S.patch) ok = patchFree(S, String(d.v)); // team patch vote (GM locks the winner)
       else if (S.phase === 'node' && c && (c.step === 'choose' || c.step === 'who') && (c.type === 'rest' || c.type === 'depot'))
@@ -113,20 +118,11 @@ function onClient(conn, d) {
       if (!ok) return netSendTo(cid);
       return apply(() => { S.votes = S.votes || {}; S.votes[slot] = d.v; });
     }
-    // before a d20 check: any cadet can add a boost or volunteer to roll
-    case 'boost': case 'unboost': case 'roller': {
-      const c = S.cur;
-      // Tackle it: any cadet can volunteer to roll
-      if (d.t === 'roller' && S.phase === 'inject' && S.inject && S.inject.stage === 'tackle') {
-        if (S.offline === slot || spinning()) return netSendTo(cid);
-        return apply(() => { S.inject.roller = slot; setActor('tackle', slot); sfx('click'); });
-      }
-      if (S.phase !== 'node' || !c || c.step !== 'roll' || spinning() || S.offline === slot) return netSendTo(cid);
-      if (c.type === 'spot' && slot !== c.slot) return netSendTo(cid); // spotlight: everyone else stays out of it
-      if (d.t === 'boost') { if (!canBoost(d.v)) return netSendTo(cid); return apply(() => { c.boost = c.boost || {}; c.boost[d.v] = (c.boost[d.v] || 0) + 1; sfx('click'); }); }
-      if (d.t === 'unboost') return apply(() => { c.boost = {}; });
-      if (c.spec.check.stat === 'LOYB' || c.type === 'spot') return netSendTo(cid);
-      return apply(() => { c.roller = slot; sfx('click'); }); // "I'll roll"
+    // before a team d20 check (scenario check or Tackle it): vote for who rolls ("r2" = the third cadet)
+    case 'rvote': {
+      const t = +d.v;
+      if (!rollerVoteOpen(S) || spinning() || isOut(S, slot) || !S.party[t] || isOut(S, t)) return netSendTo(cid);
+      return apply(() => { S.votes = S.votes || {}; S.votes[slot] = 'r' + t; });
     }
     case 'act': {
       // the cadet whose turn it is presses their roll/spin button
@@ -135,15 +131,14 @@ function onClient(conn, d) {
     }
     case 'roll': {
       const c = S.cur;
-      if (S.phase !== 'node' || !c || c.step !== 'roll' || (c.roller ?? S.tokenHolder) !== slot || spinning() || S.offline === slot) return netSendTo(cid);
+      if (S.phase !== 'node' || !c || c.step !== 'roll' || !c.rollerLocked || c.roller !== slot || spinning() || isOut(S, slot)) return netSendTo(cid);
       return apply(() => resolveRoll(slot, {}));
     }
     case 'bact': { // boss: this cadet's action for the round (null clears it)
       if (S.phase !== 'boss' || !S.boss || S.boss.stage !== 'act' || spinning()) return netSendTo(cid);
       if (d.v == null) return apply(() => { delete S.boss.acts[slot]; });
-      const a = d.v && typeof d.v === 'object' ? { type: String(d.v.type), stat: d.v.stat, k: d.v.k, to: d.v.to != null ? +d.v.to : undefined, slot: d.v.slot } : null;
+      const a = d.v && typeof d.v === 'object' ? { type: String(d.v.type) } : null;
       if (!a || !bossActOk(slot, a)) return netSendTo(cid);
-      Object.keys(a).forEach(k => a[k] === undefined && delete a[k]);
       return apply(() => { S.boss.acts[slot] = a; });
     }
     case 'team': { // any cadet can name the team while the party forms
@@ -173,7 +168,8 @@ function publicView(slot) {
   const c = S.cur, u = unitObj();
   const v = {
     phase: S.phase, introPage: S.introPage, you: slot, room: roomCode(), spinning: spinning(),
-    party: S.party.map((p, i) => ({ name: p.name, cls: p.cls, perk: p.perk, av: p.av, g: p.g || null, uni: p.uni || '', hair: p.hair || '', up: p.up, used: p.used,
+    crown: crownIdx(S),
+    party: S.party.map((p, i) => ({ fired: !!p.fired, name: p.name, cls: p.cls, perk: p.perk, av: p.av, g: p.g || null, uni: p.uni || '', hair: p.hair || '', up: p.up, used: p.used,
       st: p.cls ? Object.fromEntries(STATS.map(x => [x, statOf(i, x)])) : null, perkUsed: !!(p.perk && S.flags['perkUsed_' + p.perk]) })),
     tokenHolder: S.tokenHolder, offline: S.offline, offlineNext: S.offlineNext, unit: S.unit, cc: S.cc, notice: S.notice || null,
     branch: !!S.branch, objectives: S.phase === 'intro' || S.phase === 'debrief',
@@ -184,7 +180,8 @@ function publicView(slot) {
     unitPicked: !!S.unitRolled, benderTell: benderTell(S),
     map: S.map ? S.map.tiers.map(t => t.map(n => ({ type: n.type, done: n.done, visited: n.visited }))) : null, pos: S.pos, links: S.map ? S.map.links : null, levelAfter: S.map ? S.map.levelAfter || 3 : 3,
     avail: S.phase === 'map' ? available().map(([t, i]) => `${t},${i}`) : [],
-    votes: S.votes || {}, voters: votingOpen(S) ? S.party.filter((_, i) => i !== S.offline && !(S.phase === 'map' && i === S.offlineNext)).length : 0,
+    wpOpts: S.phase === 'map' ? wpOptions().map(o => ({ key: o.key, icon: CHECKPOINT[o.kind].icon, name: CHECKPOINT[o.kind].name, then: `${o.then.icon} ${o.then.name}` })) : [],
+    votes: S.votes || {}, voters: votingOpen(S) ? S.party.filter((_, i) => !isOut(S, i) && !(S.phase === 'map' && i === S.offlineNext)).length : 0,
     actor: S.actor || null, danger: dangerInfo(S), actorTable: S.actor && !spinning() ? actorTable(S) : null,
     usable: usableNow(S),
     itemInfo: (S.items || []).map(id => { const l = LOOT.find(x => x.id === id); return { id, icon: l.icon, name: l.name, text: fill(S, l.text), color: lootColor(l) }; }),
@@ -196,19 +193,20 @@ function publicView(slot) {
   if (S.phase === 'node' && c && (c.type === 'rest' || c.type === 'depot') && (c.step === 'choose' || c.step === 'who'))
     v.options = stopOptions().map(o => ({ key: o.key, html: mt(esc(o.label)), dis: !!o.dis }));
   if (c && S.phase === 'node') {
-    v.cur = { type: c.type, step: c.step, choice: c.choice, roller: c.roller ?? S.tokenHolder, lead: c.lead ?? null, result: c.result || null, stars: c.stars || null,
+    v.cur = { type: c.type, step: c.step, choice: c.choice, roller: c.rollerLocked ? c.roller : null, rollerVote: c.step === 'roll' && !c.rollerLocked, lead: c.lead ?? null, result: c.result || null, stars: c.stars || null,
       slot: c.type === 'spot' ? c.slot : null, trade: c.trade || null,
       roll: c.rollRes ? { d20: c.rollRes.d20, total: c.rollRes.total, dc: c.rollRes.dc, pass: c.rollRes.pass, nat: c.rollRes.nat, safe: !!c.rollRes.safe } : null,
       check: c.step === 'roll' && c.spec && c.spec.check ? { stat: c.spec.check.stat } : null };
     if (c.step === 'roll' && c.spec && c.spec.check) {
       const p = rollPreview(), st = c.spec.check.stat;
-      Object.assign(v.cur, { boost: c.boost || {}, safe: !!c.safe, odds: rollOdds(p, c.safe), typ: !!c.typ,
-        canBoost: Object.fromEntries(BOOST_METERS.map(k => [k, canBoost(k)])),
+      Object.assign(v.cur, { safe: !!c.safe, odds: rollOdds(p, c.safe), typ: !!c.typ,
+        odds4: S.party.map((_, i) => isOut(S, i) ? null : rollerOdds(S, i)),
         stats: st && st !== 'LOYB' ? S.party.map((_, i) => rollBonus(i, st, c.spec.check.m)) : null,
         spec: st && st !== 'LOYB' ? S.party.map((_, i) => isSpec(i, c.spec.check.m)) : null });
     }
-    if (m) v.mission = { title: m.title, icon: m.icon, sob: m.sob, text: fill(S, m.text), cc: !!m.cc,
-      compartmented: arrowsHidden(S), choices: m.choices.map(ch => ({ t: fill(S, ch.t), show: arrowsHidden(S) ? null : ch.show || null, mic: !!ch.mic, intel: c.intel ? specText(S, ch) : null,
+    if (m) v.mission = { title: m.title, icon: m.icon, sob: m.sob, text: fill(S, m.text), cc: !!m.cc, loss: m.loss ? fill(S, m.loss) : null, help: !!m.help,
+      realres: c.step === 'done' ? effChips(Object.fromEntries(resultSummary(S).meters)) : null,
+      compartmented: arrowsHidden(S), choices: m.choices.map(ch => ({ t: fill(S, ch.t), show: arrowsHidden(S) ? null : choiceShow(ch), mic: !!ch.mic, intel: c.intel ? specText(S, ch) : null,
         req: ch.req || null, locked: !!(ch.req && !gateOpen(ch.req)), smell: !!(ch.trap && benderTell(S)) })) };
   }
   if (S.phase === 'inject' && S.inject) {
@@ -217,15 +215,16 @@ function publicView(slot) {
       effHtml: mm && !mm.options ? effHtml(effText(S, mm.eff)) : null,
       options: mm && mm.options ? mm.options.map(o => ({ t: fill(S, o.t), html: effHtml(effText(S, o.eff)) })).concat(mm.tackle && !inj.blocked
         ? [(() => { const r = bestRoller(mm.tackle.stat, mm.tackle.m), b = rollBonus(r, mm.tackle.stat, mm.tackle.m), need = Math.min(20, Math.max(2, mm.tackle.dc + DIFFICULTY.dcPlus - b));
-            return { t: `Tackle it (${mm.tackle.stat} check)`, html: `${esc(cadetName(r))} rolls (${mm.tackle.stat} ${sign(b)}): need ${need}+ (${(21 - need) * 5}%). Pass: no loss. Fail: ${effHtml(effText(S, mm.tackle.fail || {}))}`, tackle: true }; })()] : []) : null,
-      tackle: inj.stage === 'tackle' ? { stat: mm.tackle.stat, dc: mm.tackle.dc + DIFFICULTY.dcPlus, roller: inj.roller, m: mm.tackle.m,
+            return { t: `Tackle it (${mm.tackle.stat} roll)`, html: tackleRows(mm), tackle: true }; })()] : []) : null,
+      tackle: inj.stage === 'tackle' ? { stat: mm.tackle.stat, dc: mm.tackle.dc + DIFFICULTY.dcPlus, roller: inj.rollerLocked ? inj.roller : null, vote: !inj.rollerLocked, m: mm.tackle.m,
+        odds4: S.party.map((_, i) => isOut(S, i) ? null : tackleOdds(S, mm, i)),
         bonus: S.party.map((_, i) => rollBonus(i, mm.tackle.stat, mm.tackle.m)), spec: S.party.map((_, i) => isSpec(i, mm.tackle.m)) } : null };
   }
   if (S.boss) {
     const Bs = S.boss, others = Object.entries(Bs.acts).filter(([s2]) => +s2 !== slot).map(([, a]) => a);
     v.boss = { hp: Bs.hp, max: Bs.max, round: Bs.round, stage: Bs.stage, atk: Bs.atk, adverse: Bs.adverse, weak: Bs.weak, dc: examDC(Bs),
       roundName: Bs.round ? BOSS_ROUNDS[Bs.round - 1].name : null,
-      who: Bs.p2.who, q: Bs.p2.who ? Bs.p2.q : null,
+      who: Bs.p2.who, q: Bs.p2.who ? Bs.p2.q : null, best: slot != null && S.party[slot] ? (() => { const st = bestStat(slot); return { stat: st, v: statOf(slot, st) }; })() : null,
       my: slot != null ? Bs.acts[slot] || null : null, myText: slot != null && Bs.acts[slot] ? bossActText(slot, Bs.acts[slot]) : null,
       locked: S.party.map((_, i) => !!Bs.acts[i]),
       takenStats: others.filter(a => a.type === 'press').map(a => a.stat), allyTaken: others.some(a => a.type === 'ally'),
