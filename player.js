@@ -408,8 +408,7 @@ function renderMain(S) {
       return `<div style="display:flex;flex-direction:column;gap:8px;height:100%;padding-bottom:50px"><div class="ptitle" style="text-align:center">CHOOSE YOUR SQUADRON <span class="ptsub">· vote on your phone 📱</span></div>
         <div class="unitgrid u3">${UNITS.map((x, i) => `<div class="unitcard" style="--c:${x.color};position:relative"><div class="ui">${x.icon}</div><div><div class="unm">${x.name}</div><div class="usq">${x.sq}</div>
           <div class="ustart bands4">${METERS.map(m => { const b = meterBand(x.start[m.k]); return `<div class="sb4 ${b.cls}" style="--mc:${m.color}"><span class="sbi">${m.icon}</span><span class="sbn">${m.name}</span><span class="sbw">${b.word}</span></div>`; }).join('')}</div>
-          <div class="ucc"><span class="up">👍 ${esc(x.cc.pos.name)}</span>: ${mt(esc(x.cc.pos.text))}</div>
-          <div class="ucc" style="${confidantIdx(S) >= 0 ? 'opacity:.45;text-decoration:line-through' : ''}"><span class="dn">👎 ${esc(x.cc.neg.name)}</span>: ${mt(esc(x.cc.neg.text))}</div>${confidantIdx(S) >= 0 ? '<div class="ucc xo-off">🗣️ Cancelled by your XO (Commander\'s Confidant)</div>' : ''}</div>${voteDots(S, x.id)}</div>`).join('')}</div></div>`; }
+          <div class="uwarn"><b>⚠️ SQUADRON WARNING: ${esc(x.drain.name)}</b><div>${esc(x.drain.text)}. ${meterTag(x.drain.k)} −1 every ${DIFFICULTY.drainEvery} stops</div></div></div>${voteDots(S, x.id)}</div>`).join('')}</div></div>`; }
     case 'patch': return renderPatch(S);
     case 'manifest': return renderManifest(S);
     case 'map': return renderMap(S);
