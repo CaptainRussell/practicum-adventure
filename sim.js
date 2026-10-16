@@ -54,7 +54,7 @@
     if (c.step === 'stars') { if (c.lead == null) { doActor(); } rateStars(starRoll(), S.cur.lead ?? 0); S.spinUntil = 0; return; }
     if (c.step === 'done') {
       doActor();
-      if (active && memoTarget(S)) { const i = S.party.findIndex(p => p.perk === 'memo'); if (i >= 0 && perkWhen(S, S.party[i], i)) { usePerk(i); S.notice = null; return; } }
+      if (active && memoTarget(S)) { const i = S.party.findIndex(p => p.perk === 'mti'); if (i >= 0 && perkWhen(S, S.party[i], i)) { usePerk(i); S.notice = null; return; } }
       afterNode(); return;
     }
   }

@@ -256,8 +256,8 @@ function drawBoss(cv) {
 function render() {
   const S = P.S; if (!S) return;
   document.body.className = 'player' + (S.phase === 'debrief' ? ' reality' : '') + (S.phase === 'join' ? ' joining' : '');
-  const full = ['title', 'join', 'intro', 'party', 'perks', 'avatars', 'boss', 'results', 'debrief', 'levelup', 'unit', 'manifest'].includes(S.phase);
-  const hud = !['title', 'join', 'intro', 'debrief', 'party', 'perks', 'avatars', 'unit'].includes(S.phase);
+  const full = ['title', 'join', 'intro', 'party', 'perks', 'kit', 'avatars', 'boss', 'results', 'debrief', 'levelup', 'unit', 'patch', 'manifest'].includes(S.phase);
+  const hud = !['title', 'join', 'intro', 'debrief', 'party', 'perks', 'kit', 'avatars', 'unit'].includes(S.phase);
   $('#app').innerHTML = `<div class="pl">${hud ? renderHud(S) : '<div></div>'}
     <div class="stage ${full ? 'full' : ''}"><div class="main">${renderMain(S)}</div>${full ? '' : `<div class="side">${renderSide(S)}</div>`}</div></div>
     ${S.showBoard ? renderBoardOverlay() : ''}${renderJoinBox(S)}${renderActorBanner(S)}${renderResultCard(S)}${renderNotice(S)}`;
@@ -398,6 +398,7 @@ function renderMain(S) {
     case 'intro': return renderIntro(S);
     case 'party': return renderParty(S);
     case 'perks': return renderPerks(S);
+    case 'kit': return renderKitCheck(S);
     case 'avatars': return renderAvatars(S);
     case 'unit': { const u = S.unitRolled && UNITS.find(x => x.id === S.unit);
       if (u) return `<div class="titlescr unitrev" style="--c:${u.color}"><div style="font-size:150px;line-height:1">${u.icon}</div><div class="ptitle" style="color:${u.color};font-size:64px">${u.name}</div><div class="unitsq">${u.sq.toUpperCase()}</div>
@@ -408,7 +409,8 @@ function renderMain(S) {
         <div class="unitgrid u3">${UNITS.map((x, i) => `<div class="unitcard" style="--c:${x.color};position:relative"><div class="ui">${x.icon}</div><div><div class="unm">${x.name}</div><div class="usq">${x.sq}</div>
           <div class="ustart bands4">${METERS.map(m => { const b = meterBand(x.start[m.k]); return `<div class="sb4 ${b.cls}" style="--mc:${m.color}"><span class="sbi">${m.icon}</span><span class="sbn">${m.name}</span><span class="sbw">${b.word}</span></div>`; }).join('')}</div>
           <div class="ucc"><span class="up">👍 ${esc(x.cc.pos.name)}</span>: ${mt(esc(x.cc.pos.text))}</div>
-          <div class="ucc"><span class="dn">👎 ${esc(x.cc.neg.name)}</span>: ${mt(esc(x.cc.neg.text))}</div></div>${voteDots(S, x.id)}</div>`).join('')}</div></div>`; }
+          <div class="ucc" style="${confidantIdx(S) >= 0 ? 'opacity:.45;text-decoration:line-through' : ''}"><span class="dn">👎 ${esc(x.cc.neg.name)}</span>: ${mt(esc(x.cc.neg.text))}</div>${confidantIdx(S) >= 0 ? '<div class="ucc xo-off">🗣️ Cancelled by your XO (Commander\'s Confidant)</div>' : ''}</div>${voteDots(S, x.id)}</div>`).join('')}</div></div>`; }
+    case 'patch': return renderPatch(S);
     case 'manifest': return renderManifest(S);
     case 'map': return renderMap(S);
     case 'node': return renderNode(S);
@@ -471,6 +473,15 @@ function renderParty(S) {
 }
 
 // Perk reveal: one card per cadet showing ONLY their class's two perks.
+// Kit check (after perks, before the squadron vote): everyone looks at their kit on their phone
+function renderKitCheck(S) {
+  return `<div class="kitchk"><div class="ptitle">🎒 CHECK YOUR KIT</div>
+    <div class="sub">On your phone: tap <b>🎒 KIT</b> to see your class, stats, ability and perk, then tap <b>🎮 GAME</b> to come back.</div>
+    <div class="kitrow">${S.party.map(p => { const c = CLASS[p.cls], pk = c.perks.find(k => k.id === p.perk);
+      return `<div class="ccard ${p.kitOk ? 'taken' : ''}" style="${p.kitOk ? `border-color:${c.color}` : ''}"><div class="chead"><img src="${avatarOf(p)}" style="width:48px;height:48px;image-rendering:pixelated"><div><h3>${insignia(p)}${esc(rankName(p))}</h3><div class="sub" style="font-size:19px;color:${c.color}">${c.name}</div></div></div>
+        <div class="kitline">⚡ <b>${esc(c.ability ? c.ability.name : 'Command Token')}</b></div><div class="kitline">🎁 <b>${esc(pk ? pk.name : '-')}</b></div>
+        <div class="kitst">${p.kitOk ? '✅ CHECKED' : '⏳ checking…'}</div></div>`; }).join('')}</div></div>`;
+}
 function renderPerks(S) {
   return `<div style="display:flex;flex-direction:column;gap:12px;height:100%"><div class="ptitle" style="text-align:center;font-size:24px">🎁 PERKS REVEALED: PICK ONE</div>
     <div class="sub" style="text-align:center;font-size:22px">Each cadet chooses one perk for their class (on your phone or tell the GM)</div>
@@ -503,7 +514,14 @@ function renderManifest(S) {
       <div class="orgline"></div>
       <div class="orgrow">${S.npcs.slice().sort((a, b) => rankIdx(a.rank) - rankIdx(b.rank)).map(n => { const t = TRAIT[n.trait]; return `<div class="orgcard"><img src="${avatar(n.name + n.rank)}"><div class="nm">${insignia(n.rank)}${esc(n.rank)} ${esc(n.name)}</div><div class="rk">${esc(n.pub)}</div><div class="rk" style="color:var(--good)">${t.icon} ${esc(t.name)}</div><div class="rk">🎁 ${mt(esc(t.reward))}</div></div>`; }).join('')}</div>
     </div>
-    <div class="patchrow"><span class="sectlbl">🎖️ TEAM PATCH = TEAM NAME<br>${S.patch ? 'LOCKED IN ✅' : 'VOTE ON YOUR PHONE ✋'}</span>${(PATCHES[S.unit] || []).map(p => { const taken = (P.usedPatches || []).includes(`${S.unit}:${p.id}`); return `<span class="pch ${S.patch === p.id ? 'on' : S.patch ? 'off' : ''} ${taken ? 'taken' : ''}" style="--c:${u.color}"><b>${p.icon}</b>${esc(p.name)}${taken ? '<br>TAKEN' : ''}${S.patch ? '' : voteDots(S, p.id)}</span>`; }).join('')}</div>${renderTie(S)}</div>`;
+    ${patchOf(S) ? `<div class="patchrow"><span class="sectlbl">🎖️ YOUR TEAM PATCH</span><span class="pch on" style="--c:${u.color}"><b>${patchOf(S).icon}</b>${esc(patchOf(S).name)}</span></div>` : ''}</div>`;
+}
+// Team patch = team name: its own screen after the squadron reveal, before the org chart
+function renderPatch(S) {
+  const u = UNITS.find(x => x.id === S.unit);
+  return `<div class="patchscr"><div class="ptitle">🎖️ PICK YOUR TEAM PATCH</div>
+    <div class="sub">${u.icon} ${esc(u.sq)} · the patch is your team's name on the leaderboard · ${S.patch ? 'LOCKED IN ✅' : 'vote on your phone ✋'}</div>
+    <div class="patchrow big">${(PATCHES[S.unit] || []).map(p => { const taken = (P.usedPatches || []).includes(`${S.unit}:${p.id}`); return `<span class="pch ${S.patch === p.id ? 'on' : S.patch ? 'off' : ''} ${taken ? 'taken' : ''}" style="--c:${u.color}"><b>${p.icon}</b>${esc(p.name)}${taken ? '<br>TAKEN' : ''}${S.patch ? '' : voteDots(S, p.id)}</span>`; }).join('')}</div>${renderTie(S)}</div>`;
 }
 
 // Two lanes: at every stop the party picks the top or bottom option (votes show as avatars).

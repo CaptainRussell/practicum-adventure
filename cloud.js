@@ -18,7 +18,7 @@ const CLOUD = {
   collection: 'leaderboard',
   pullEvery: 5 * 60000,
   // screens that show or use the board (the org chart checks which patches are taken)
-  boardPhases: ['title', 'manifest', 'results', 'debrief'],
+  boardPhases: ['title', 'patch', 'manifest', 'results', 'debrief'],
 };
 const CLOUD_FIELDS = ['callsign', 'unit', 'grade', 'score', 'low', 'stars', 'ach', 'gameOver', 'cadets', 'date', 'patch', 'patchKey'];
 const CL = { last: 0, tried: 0, err: '', busy: false, timer: null }; // last = last good sync, tried = last attempt

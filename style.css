@@ -32,8 +32,8 @@ body.player.joining::after{display:none} /* no scanlines over the join QR: phone
 @keyframes blinkb{50%{border-color:var(--bad)}}
 /* hidden meters: a band word instead of the number (a DEOCS Survey shows the real bar) */
 .meter.fog .band{height:26px;display:flex;align-items:center;justify-content:center;font-family:var(--pixel);font-size:12px;background:#000;border:3px solid #fff2;color:var(--c)}
-.meter.fog.strong .band{border-color:var(--good);color:var(--good)}
-.meter.fog.steady .band{border-color:#fff4;color:var(--text)}
+.meter.fog.strong .band{border-color:var(--good);background:var(--good);color:#06210a} /* STRONG = solid green, STEADY = muted, DANGER = red glow */
+.meter.fog.steady .band{border-color:#fff3;color:var(--dim)}
 .meter.fog.danger .band{border-color:var(--bad);color:#fff;background:#3a0010;animation:fogdanger 1.8s ease-in-out infinite}
 @keyframes fogdanger{50%{background:#7a0020;box-shadow:0 0 12px #ff2e6380}}
 .deocs-tag{grid-column:1/-1;justify-self:center;font-family:var(--pixel);font-size:9px;color:var(--gold);margin-top:-8px}
@@ -362,6 +362,19 @@ body.player.reality .mtag{color:#1c2430}
 /* phone join box + votes on the projector */
 .joinbox{position:fixed;right:18px;bottom:18px;z-index:30;display:flex;gap:14px;align-items:center;background:#000;border:4px solid var(--accent);padding:10px 14px;box-shadow:6px 6px 0 #0008}
 .joinbox img{width:150px;height:150px;image-rendering:pixelated;background:#fff}
+.patchscr{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;text-align:center}
+.patchscr .sub{font-size:24px}
+.patchrow.big{justify-content:center;flex-wrap:wrap;gap:20px}
+.patchrow.big .pch{flex-direction:column;gap:12px;font-size:15px;padding:18px 20px;min-width:190px}
+.patchrow.big .pch b{width:120px;height:120px;font-size:68px;border-width:5px}
+.ucc.xo-off{color:var(--good);font-size:.9em}
+.kitchk{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center}
+.kitchk .sub{font-size:26px}
+.kitchk .kitrow{display:flex;flex-wrap:wrap;justify-content:center;gap:16px;width:100%}
+.kitchk .ccard{width:280px;text-align:left}
+.kitchk .kitline{font-size:20px;margin-top:6px}
+.kitchk .kitst{font-family:var(--pixel);font-size:12px;margin-top:10px;color:var(--gold)}
+.kitchk .ccard.taken .kitst{color:var(--good)}
 /* the join screen: the QR as big as the projector allows, room code beside it */
 .joinscr{height:100%;display:flex;align-items:center;justify-content:center;gap:48px;padding:20px;flex-wrap:wrap}
 .joinscr .jqr{height:min(86vh,60vw);width:auto;aspect-ratio:1;image-rendering:pixelated;background:#fff;border:8px solid #fff;box-shadow:0 0 0 6px var(--accent)}
@@ -404,7 +417,8 @@ body.phone{font-family:var(--vt);font-size:22px;line-height:1.15;min-height:100v
 .optgrid.bx .choice{padding:6px 10px}
 .optgrid.bx .choice .ct{font-size:21px}
 .ph-band{font-family:var(--pixel);font-size:8px;text-align:center;padding:4px 0;border:2px solid #fff3;background:#000}
-.ph-band.strong{border-color:var(--good);color:var(--good)}
+.ph-band.strong{border-color:var(--good);background:var(--good);color:#06210a}
+.ph-band.steady{color:var(--dim)}
 .ph-band.danger{border-color:var(--bad);color:#fff;background:#3a0010;animation:fogdanger 1.8s ease-in-out infinite} /* same red glow as the projector */
 .ph-h{font-family:var(--pixel);font-size:13px;color:var(--gold);margin:12px 0 6px;line-height:1.5}
 .ph-card{background:var(--panel);border:4px solid var(--line);padding:10px 12px;margin:8px 0}
@@ -864,7 +878,7 @@ body.gm{font-family:var(--ui);font-size:14px;line-height:1.45;background:#0e1020
 .sb4{border:3px solid var(--mc);background:#000;padding:4px 6px;text-align:center;line-height:1.1}
 .sb4 .sbn{display:block;font-family:var(--pixel);font-size:9px;color:var(--mc)}
 .sb4 .sbw{display:block;font-family:var(--pixel);font-size:13px;margin-top:4px}
-.sb4.strong .sbw{color:var(--good)} .sb4.steady .sbw{color:var(--gold)}
+.sb4.strong .sbw{color:var(--good)} .sb4.steady .sbw{color:var(--dim)}
 .sb4.danger{border-color:var(--bad);background:#3a0010;animation:fogdanger 1.8s ease-in-out infinite}
 .sb4.danger .sbw{color:#fff}
 /* squadron reveal + its warning */

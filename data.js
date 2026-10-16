@@ -2,7 +2,7 @@
    PRACTICUM ADVENTURE - game content
    Everything a GM might want to tune lives in this file.
    Meter keys: mis (Mission) mor (Morale) tru (Trust) res (Resources)
-   NPC slots:  A SSgt, B A1C, C TSgt, D Civilian
+   NPC slots:  A SSgt, B A1C, C SSgt, D SrA (the org chart is all enlisted, Amn to SSgt)
    Text placeholders: {A} {B} {C} {D} {CC} are swapped for drawn names.
    ===================================================================== */
 
@@ -65,7 +65,7 @@ const CLASSES = [
              { id: 'huddle', name: 'Huddle', text: 'Right now: +1 to every meter', now: { mis: 1, mor: 1, tru: 1, res: 1 } } ] },
   { id: 'chief', color: '#ff9f43', name: 'SENIOR ENLISTED LEADER', icon: '🎖️', rank: 'SMSgt', rankLong: 'Senior Master Sergeant', guards: '⭐ + the enlisted force', spec: ['tru'],
     stats: { CMD: 2, CHA: 2, INS: 2, GRIT: 2 },
-    ability: { id: 'pcs', name: 'Talent Management', text: 'Once: PCS one enlisted Unit member out. A hand-picked replacement arrives one rank higher, with a new trait, at loyalty 4 and already an Ally' },
+    ability: { id: 'pcs', name: 'Talent Management', text: 'Once: PCS one enlisted Unit member out. A hand-picked replacement arrives one rank higher (up to SSgt), with a new trait, at loyalty 4 and already an Ally' },
     perks: [ { id: 'beenthere', name: 'Been There', text: 'Once: cancel a Wheel of Failure result after it lands' },
              { id: 'ncopull', name: 'Senior NCO Pull', text: 'Once: one Unit member +3 loyalty' } ],
     ups:   [ { id: 'standards', name: 'Standards Bearer', text: '+1 🎯 after every check you roll' },
@@ -79,9 +79,9 @@ const CLASSES = [
              { id: 'wingman', name: 'Wingman Program', text: 'Right now: +2 ❤️ and +2 loyalty to the lowest-loyalty Unit member', now: { mor: 2 } } ] },
   { id: 'xo', color: '#b18cff', name: 'EXECUTIVE OFFICER', icon: '🗣️', rank: '1st Lt', rankLong: 'First Lieutenant', guards: '⭐ + the commander', spec: ['tru'],
     stats: { CMD: 1, CHA: 3, INS: 1, GRIT: 1 },
-    ability: { id: 'ear', name: "Commander's Ear", text: 'Cancel the most recent ⭐ loss' },
+    ability: { id: 'confidant', auto: true, name: "Commander's Confidant", text: "Passive: the commander's negative perk never applies (it's crossed out from squadron select on)" },
     perks: [ { id: 'readroom', name: 'Read the Room', text: 'Once: see the exact effects of every choice on this mission' },
-             { id: 'confidant', name: "Commander's Confidant", text: "Passive: the commander's negative perk never applies (switches on by itself when the org chart is shown)" } ],
+             { id: 'ear', name: "Commander's Ear", text: 'Once: cancel the most recent ⭐ loss' } ],
     ups:   [ { id: 'golden', name: 'Golden Child', text: 'All ⭐ losses reduced by 1 (min 1)' },
              { id: 'favor', name: "Commander's Favor", text: 'Right now: +3 ⭐', now: { tru: 3 } } ] },
   { id: 'utm', color: '#3fd8ff', name: 'UNIT TRAINING MANAGER', icon: '📚', rank: 'TSgt', rankLong: 'Technical Sergeant', guards: '🎯 + upgrade training', spec: ['mis'],
@@ -94,7 +94,7 @@ const CLASSES = [
   { id: 'plans', color: '#ff7ae0', name: 'PLANS OFFICER', icon: '🧠', rank: '2d Lt', rankLong: 'Second Lieutenant', guards: '📦', spec: ['res'],
     stats: { CMD: 1, CHA: 1, INS: 3, GRIT: 1 },
     ability: { id: 'foresight', name: 'Foresight', text: 'Once: the next inject skips the d6 and comes from the Wheel of Success' },
-    perks: [ { id: 'memo', name: 'Write a Memorandum', text: 'Once: reroll a failed d20' },
+    perks: [ { id: 'prepo', name: 'Pre-Positioned Supplies', text: 'Once, at a BX: the next purchase costs no 📦 (you staged the gear ahead of time)' },
              { id: 'emergency', name: 'Emergency Fund', text: 'Once: +3 📦 right now' } ],
     ups:   [ { id: 'contingency', name: 'Contingency Plan', text: 'Halve the next Wheel of Failure result' },
              { id: 'cell', name: 'Planning Cell', text: 'Right now: +2 🎯 and +1 📦', now: { mis: 2, res: 1 } } ] },
@@ -115,7 +115,7 @@ const CLASS = Object.fromEntries(CLASSES.map(c => [c.id, c]));
              depot2           the Base Exchange (BX) allows two purchases per visit
              depotTax {eff}   every BX purchase also costs eff
              noArrows         choices show no ▲▼ arrows (Read the Room still shows exact effects)
-   slots   the 4 Unit members (A best hand, B newest Airman, C senior NCO, D civilian): rank + description
+   slots   the 4 Unit members (A best hand, B newest Airman, C most experienced, D admin): all enlisted, Amn to SSgt: rank + description
    traitW  trait weights for this squadron (unlisted traits weigh 1) */
 const UNITS = [
   { id: 'wk', name: '4TH AMXS', sq: '4th Aircraft Maintenance Squadron', icon: '🔧', color: '#ff9f43',
@@ -125,7 +125,7 @@ const UNITS = [
       pos: { name: 'Maintenance Pride', text: 'Every passed 🎯 check gives +1 🎯 more.', hook: { afterPass: { m: 'mis', eff: { mis: 1 } } } },
       neg: { name: 'Jets Before Rest', text: 'Every Rest Stop gives 1 less: rest is for after the jets fly.', hook: { restLess: true } } },
     slots: [ { rank: 'SSgt', pub: 'Crew chief, best wrench on the line' }, { rank: 'Amn', pub: 'Fresh out of tech school, eager' },
-             { rank: 'MSgt', pub: 'Production superintendent, 18 years in' }, { rank: 'Civ.', pub: 'Contract logistics rep' } ],
+             { rank: 'SSgt', pub: 'Expediter, eight years on the flightline' }, { rank: 'SrA', pub: 'Supply liaison, runs parts out to the jets' } ],
     traitW: { burnout: 3, overach: 2, silent: 2 } },
   { id: 'gg', name: '56TH SFS', sq: '56th Security Forces Squadron', icon: '🛡️', color: '#3fd8ff',
     start: { mis: 7, mor: 2, tru: 5, res: 4 }, ccRank: 'Lt Col',
@@ -134,7 +134,7 @@ const UNITS = [
       pos: { name: 'Defender Ethos', text: 'A 3⭐ 🎤 encounter also gives +1 ❤️.', hook: { stars3: { mor: 1 } } },
       neg: { name: 'Inspection Ready', text: 'Every failed 🎯 check also costs ⭐ −1: the CC notices every miss.', hook: { afterFail: { m: 'mis', eff: { tru: -1 } } } } },
     slots: [ { rank: 'SrA', pub: 'Gate sentry, knows every regular by name' }, { rank: 'Amn', pub: 'Newest Defender, still learning post orders' },
-             { rank: 'TSgt', pub: 'Flight sergeant, runs the night shift' }, { rank: '1st Lt', pub: 'Deputy flight commander, eager to prove themself' } ],
+             { rank: 'SSgt', pub: 'Patrol lead, runs the night shift' }, { rank: 'SrA', pub: 'Armorer, knows every weapon in the vault' } ],
     traitW: { burnout: 3, bender: 2, family: 2 } },
   { id: 'pp', name: '6TH CS', sq: '6th Communications Squadron', icon: '📡', color: '#7dff6b',
     start: { mis: 2, mor: 7, tru: 4, res: 5 }, ccRank: 'Maj',
@@ -143,7 +143,7 @@ const UNITS = [
       pos: { name: 'Early Adopter', text: "Adopting a subordinate's idea gives +1 ⭐ and +1 🎯.", hook: { idea: { tru: 1, mis: 1 } } },
       neg: { name: 'Death by PowerPoint', text: 'A 1⭐ 🎤 encounter also costs ⭐ −1: the CC wants polished briefs.', hook: { stars1: { tru: -1 } } } },
     slots: [ { rank: 'SrA', pub: 'The network whisperer' }, { rank: 'A1C', pub: 'Just passed Security+, wants to hack everything' },
-             { rank: 'TSgt', pub: 'Help desk lead, has seen every ticket' }, { rank: 'Civ.', pub: 'Contractor sysadmin' } ],
+             { rank: 'SSgt', pub: 'Help desk lead, has seen every ticket' }, { rank: 'SrA', pub: 'Cyber transport tech, pulls cable all day' } ],
     traitW: { coaster: 3, genius: 3, cynic: 2 } },
   { id: 'sr', name: '92ND LRS', sq: '92nd Logistics Readiness Squadron', icon: '🚚', color: '#ffd23f',
     start: { mis: 5, mor: 4, tru: 2, res: 7 }, ccRank: 'Lt Col',
@@ -152,7 +152,7 @@ const UNITS = [
       pos: { name: 'Logistician', text: 'The BX allows TWO purchases per visit.', hook: { depot2: true } },
       neg: { name: 'Tight Wallet', text: 'Every 📦 gain is reduced by 1.', hook: { gain: { k: 'res', d: -1 } } } },
     slots: [ { rank: 'SSgt', pub: 'Vehicle ops dispatcher' }, { rank: 'A1C', pub: 'Newest in the warehouse' },
-             { rank: 'TSgt', pub: 'Supply NCOIC, knows where everything is' }, { rank: 'Civ.', pub: 'Budget analyst' } ],
+             { rank: 'SSgt', pub: 'Supply lead, knows where everything is' }, { rank: 'SrA', pub: 'Unit resource tracker, owns the spend plan' } ],
     traitW: { climber: 2, gossip: 2, overach: 2 } },
   { id: 'sa', name: '7TH IS', sq: '7th Intelligence Squadron', icon: '🔍', color: '#b18cff',
     start: { mis: 7, mor: 4, tru: 2, res: 5 }, ccRank: 'Lt Col',
@@ -161,7 +161,7 @@ const UNITS = [
       pos: { name: 'Quiet Professional', text: 'Every passed ⭐ check gives +1 ⭐ more.', hook: { afterPass: { m: 'tru', eff: { tru: 1 } } } },
       neg: { name: 'Compartmented', text: 'Choices show no ▲▼ arrows: you decide on the facts alone (Read the Room still works).', hook: { noArrows: true } } },
     slots: [ { rank: 'SSgt', pub: 'Senior analyst' }, { rank: 'A1C', pub: 'New linguist, three months on station' },
-             { rank: 'MSgt', pub: 'Ops superintendent' }, { rank: 'Civ.', pub: 'Security manager' } ],
+             { rank: 'SSgt', pub: 'Mission supervisor' }, { rank: 'SrA', pub: 'Unit security monitor' } ],
     traitW: { silent: 3, witness: 2, mentor: 2 } },
   { id: 'ch', name: '55TH FSS', sq: '55th Force Support Squadron', icon: '🍔', color: '#ff7ae0',
     start: { mis: 2, mor: 7, tru: 5, res: 4 }, ccRank: 'Maj',
@@ -170,18 +170,18 @@ const UNITS = [
       pos: { name: 'People Person', text: 'Every ❤️ gain is +1.', hook: { gain: { k: 'mor', d: 1 } } },
       neg: { name: 'Budget Squeeze', text: 'Every BX purchase costs 1 extra 📦.', hook: { depotTax: { res: -1 } } } },
     slots: [ { rank: 'SSgt', pub: 'Dining facility shift lead' }, { rank: 'A1C', pub: 'Fitness center desk, first assignment' },
-             { rank: 'TSgt', pub: 'Lodging manager' }, { rank: 'Civ.', pub: 'Community programs director' } ],
+             { rank: 'SSgt', pub: 'Lodging shift supervisor' }, { rank: 'SrA', pub: 'Community programs coordinator' } ],
     traitW: { family: 2, gossip: 3, mentor: 2 } },
 ];
 
 /* ---------------- NPCs ---------------- */
 // Default slots; each squadron's own ranks and descriptions (UNITS[].slots) override these.
-// A, B and C are enlisted (Talent Management can PCS them); D is the civilian.
+// All four are enlisted, Amn to SSgt (Talent Management can PCS any of them).
 const SLOTS = [
   { s: 'A', rank: 'SSgt', pub: 'Your best technician', pool: 'lower', enlisted: true },
   { s: 'B', rank: 'A1C',  pub: "Three months on station, doesn't know much", pool: 'lower', enlisted: true },
-  { s: 'C', rank: 'TSgt', pub: '16 years in, seen it all, a bit salty', pool: 'upper', enlisted: true },
-  { s: 'D', rank: 'Civ.', pub: 'Runs the budget / admin', pool: 'upper', enlisted: false },
+  { s: 'C', rank: 'SSgt', pub: 'Eight years in, seen it all, a bit salty', pool: 'upper', enlisted: true },
+  { s: 'D', rank: 'SrA', pub: 'Runs the unit admin and the budget', pool: 'upper', enlisted: true },
 ];
 // Gender for each roster name: 'm' or 'f'. A civilian Unit member shows as "Mr. Warner" / "Ms. Warner"
 // instead of "Civ. Warner" (a name missing here falls back to "Civ.").
@@ -247,7 +247,7 @@ const EXTRAS = {
   nd2:        { rank: 'Amn',     pool: 'lower', generic: 'another' },
 };
 const civTitle = name => ({ m: 'Mr.', f: 'Ms.' })[GENDER[name]] || 'Civ.';
-// NPC name pools (last names only). Upper = POC: TSgt, Civilian, Squadron CC.
+// NPC name pools (last names only). Upper = POC: Unit members C and D, the Squadron CC.
 // Lower = AS200/250/500: SSgt, A1C. Edit these lists to update the roster.
 const POOL_UPPER = ['Donahoe', 'Luhring', 'Hyman', 'Figueroa-Baca', 'Metz', 'Plassman', 'Alt', 'Kingery', 'Albert',
   'Cerfogli', 'Chien', 'Edwardson', 'Salas', 'Warner', 'Gross'];
@@ -256,6 +256,7 @@ const POOL_LOWER = ['Brady', 'Estes', 'Martinez', 'Condon-Matzke', 'Bendinger', 
   'Urbanowicz', 'Utterback', 'Dybvig', 'Hemauer', 'Hoang', 'Kasparek', 'Wenthold', 'Bennett', 'Call',
   'Jons', 'Peter', 'States', 'Tjaden'];
 
+// vet = takes years in the Air Force: never drawn for the newest Airman (slot B)
 // reward = what triggers automatically (once per game per member unless it says 'while'); see traitReward() in app.js
 // bp = Breaking Point effect, applied automatically when loyalty hits 0
 const TRAITS = [
@@ -265,11 +266,11 @@ const TRAITS = [
   { id: 'bender',   icon: '⚠️', name: 'Rule Bender',        what: 'Cuts corners to look good',                reward: 'While at loyalty 4+: tips you off when a choice smells like a shortcut ⚠️',        bpText: 'Their shortcut becomes YOUR problem',    bp: { tru: -2 } },
   { id: 'climber',  icon: '🏆', name: 'Climber',            what: 'Wants recognition',                        reward: 'First 3⭐ 🎤 encounter (public praise): +2 loyalty',             bpText: 'Goes over your head to the Sq CC',       bp: { tru: -2 } },
   { id: 'silent',   icon: '🤐', name: 'Silent Struggler',   what: "Won't ask for help",                       reward: 'First time they reach loyalty 4 (they finally open up): +2 🎯',                   bpText: 'Misses a critical task',                 bp: { mis: -2 } },
-  { id: 'cynic',    icon: '🤨', name: 'Cynic with a Heart', what: 'Resists change, loyal if heard',           reward: 'Becomes an Ally at loyalty 4 instead of 5',           bpText: 'Spreads negativity',                     bp: { mor: -2 } },
+  { id: 'cynic', vet: true,    icon: '🤨', name: 'Cynic with a Heart', what: 'Resists change, loyal if heard',           reward: 'Becomes an Ally at loyalty 4 instead of 5',           bpText: 'Spreads negativity',                     bp: { mor: -2 } },
   { id: 'gossip',   icon: '📢', name: 'The Gossip',         what: 'Everything said spreads',                  reward: 'While at loyalty 3+: every Wheel of Success also +1 ❤️. At 1 or less: every Wheel of Failure also −1 ❤️',            bpText: 'Rumor mill',                             bp: { mor: -1, tru: -1 } },
   { id: 'overach',  icon: '🏃', name: 'Over-Achiever',      what: 'Volunteers for everything',                reward: 'First Rest Stop (rested, they deliver): +2 🎯. Volunteering them at the BX costs 2 loyalty, not 1',          bpText: 'Collapses: out for 1 node',              bp: { mor: -2, out: 1 } },
-  { id: 'mentor',   icon: '🎓', name: 'Mentor-in-Waiting',  what: 'Wants to train others',                    reward: 'Becomes an Ally: +1 🎯, +1 ❤️, and the newest Airman +2 loyalty',         bpText: 'Disengages',                             bp: { mor: -1 } },
-  { id: 'coaster',  icon: '😴', name: 'The Coaster',        what: 'Bored, doing the minimum',                 reward: 'Volunteer them for the BX Saturday detail: +1 loyalty instead of −1, and +2 🎯 more',             bpText: 'Drags others down',                      bp: { mis: -1 } },
+  { id: 'mentor', vet: true,   icon: '🎓', name: 'Mentor-in-Waiting',  what: 'Wants to train others',                    reward: 'Becomes an Ally: +1 🎯, +1 ❤️, and the newest Airman +2 loyalty',         bpText: 'Disengages',                             bp: { mor: -1 } },
+  { id: 'coaster', vet: true,  icon: '😴', name: 'The Coaster',        what: 'Bored, doing the minimum',                 reward: 'Volunteer them for the BX Saturday detail: +1 loyalty instead of −1, and +2 🎯 more',             bpText: 'Drags others down',                      bp: { mis: -1 } },
   { id: 'witness',  icon: '🕵️', name: 'The Witness',        what: 'Knows about a problem in the unit',        reward: `At loyalty 4+ when the IG arrives, they tip you off: Press target ${DIFFICULTY.examDC - 3}`, bpText: `Reports it to the IG: boss HP ${DIFFICULTY.bossHp + 3}`, bp: { flag: 'WITNESS_IG' } },
 ];
 const TRAIT = Object.fromEntries(TRAITS.map(t => [t.id, t]));
@@ -437,15 +438,15 @@ const MISSIONS = [
   /* ---- from cadet feedback. The person in serious trouble is always an unnamed
      Airman, never a roster name, since NPC names are real classmates. ---- */
   { id: 'M13', title: 'DUI AT 0200', sob: 'Accountability · Care for Airmen', icon: '🚔',
-    text: '0200: the city police call. A Senior Airman from your flight was arrested for DUI downtown. They never called the safe-ride program. Their supervisor, {A}, takes the call with you: "Can we keep this off the CC\'s desk? They\'re a good kid."',
+    text: '0200: the city police call. A Senior Airman from your flight was arrested for DUI downtown. They never called the safe-ride program. Their supervisor, {C}, takes the call with you: "Can we keep this off the CC\'s desk? They\'re a good kid."',
     choices: [
-      { t: 'Keep it quiet; {A} handles it', trap: true, show: [['mor', 1], ['tru', 1]], kind: 'fx',
+      { t: 'Keep it quiet; {C} handles it', trap: true, show: [['mor', 1], ['tru', 1]], kind: 'fx',
         eff: { mor: 1, tru: 1, flag: 'HID_DUI' } },
-      { t: 'Notify the CC and First Sergeant tonight', mic: true, show: [['tru', '?'], ['mor', -1]], kind: 'stars', pre: { ach: 'hardright' }, stars: [{ mor: -1, tru: -1, loy: { A: -1 } }, { tru: 2, mor: -1, loy: { A: -1 } }, { tru: 3, mor: -1, loy: { A: -1 } }] },
+      { t: 'Notify the CC and First Sergeant tonight', mic: true, show: [['tru', '?'], ['mor', -1]], kind: 'stars', pre: { ach: 'hardright' }, stars: [{ mor: -1, tru: -1, loy: { C: -1 } }, { tru: 2, mor: -1, loy: { C: -1 } }, { tru: 3, mor: -1, loy: { C: -1 } }] },
       { t: 'Report it, then counsel the Airman in the morning', mic: true, show: [['tru', 1], ['mor', '?']], kind: 'stars', pre: { tru: 1, ach: 'hardright' },
-        stars: [ { mor: -2 }, { mor: 1 }, { mor: 2, loy: { A: 1 } } ] },
+        stars: [ { mor: -2 }, { mor: 1 }, { mor: 2, loy: { C: 1 } } ] },
       { t: 'Report it + restrict the whole flight to base for a month', show: [['tru', 1], ['mor', -2]], kind: 'fx',
-        eff: { tru: 1, mor: -3, loy: { A: -1, B: -1 }, ach: 'hardright', why: 'Everyone punished for one person' } },
+        eff: { tru: 1, mor: -3, loy: { C: -1, B: -1 }, ach: 'hardright', why: 'Everyone punished for one person' } },
     ] },
   { id: 'M14', title: 'DORM PARTY', sob: 'Standards · Discipline', icon: '🍺', off: true,
     text: 'Saturday night dorm walk-through. {B} (age 20) is holding a beer at a party. A Senior Airman bought the alcohol. The music stops and everyone looks at you.',
@@ -647,7 +648,7 @@ const MISSIONS = [
       { t: 'Call the commissary for an emergency buy', show: [['res', '?'], ['tru', 1]], kind: 'check', pre: { ach: 'hardright' },
         check: { stat: 'CHA', dc: 13, m: 'res', pass: { res: -1, mor: 1, tru: 1 }, fail: { res: -3 } } } ] },
   { id: 'M33', title: 'FOUR SECONDS', sob: 'Integrity · Standards', icon: '⏱️', home: ['ch'],
-    text: '{B} runs the fitness assessment cell. {X:msgt} is popular, up for promotion, and just failed the run by four seconds. {X:msgt.He} asks {B} to "round it." {B} comes to you.',
+    text: '{B} is pulling a week as a fitness assessment cell augmentee. {X:msgt} is popular, up for promotion, and just failed the run by four seconds. {X:msgt.He} asks {B} to "round it." {B} comes to you.',
     choices: [
       { t: 'Back {B}: the score stands', show: [['tru', 1], ['mor', -1]], kind: 'fx', eff: { tru: 1, mor: -1, loy: { B: 1 }, ach: 'hardright' } },
       { t: "Round it. It's four seconds.", trap: true, show: [['mor', 1], ['tru', 1]], kind: 'fx', eff: { mor: 1, tru: 1, flag: 'FALSE_PT' } },
@@ -655,7 +656,7 @@ const MISSIONS = [
         stars: [ { mor: -1 }, { mor: 1 }, { mor: 2, loy: { B: 1 } } ] },
       { t: 'Offer a supervised retest next week, by the book', show: [['mor', '?'], ['res', -1]], kind: 'check', pre: { ach: 'hardright' }, check: { stat: 'CMD', dc: 13, m: 'mor', pass: { mor: 1, tru: 1, res: -1 }, fail: { res: -1, mor: -1 } } } ] },
   { id: 'M34', title: 'DIRTY TOWELS', sob: 'Feedback · Root Cause', icon: '🛏️', home: ['ch'],
-    text: "A visiting colonel's spouse complained to {X:wing}, the Wing CC, about the VIP suite. {X:wing.He} forwarded it to {CC} with one line: \"Fix this.\" {C} runs lodging and is furious at the cleaning contractor, {X:contractor}.",
+    text: "A visiting colonel's spouse complained to {X:wing}, the Wing CC, about the VIP suite. {X:wing.He} forwarded it to {CC} with one line: \"Fix this.\" {C} supervises the lodging front desk and is furious at the cleaning contractor, {X:contractor}.",
     choices: [
       { t: 'Apologize personally and comp the stay', mic: true, show: [['tru', '?'], ['res', -2]], kind: 'stars', stars: [{ res: -2, tru: -1 }, { tru: 2, res: -2 }, { tru: 3, res: -2 }] },
       { t: 'Let {C} handle it with {X:contractor}', show: [['tru', -1]], kind: 'fx', eff: { tru: -1, loy: { C: 1 } } },
@@ -936,14 +937,14 @@ const WING_VISIT = { title: 'WING CC VISIT', icon: '🦅', sob: 'Articulating Id
    Same choice format as missions. */
 const SPOTLIGHTS = [
   { id: 'SP_fc', cls: 'fc', title: 'ONE NOMINATION', icon: '🏅', sob: 'Spotlight · Recognition',
-    text: '{A} carried the flight this quarter; {C} quietly mentored three new Airmen. The awards package is due tomorrow and you get ONE nomination. The flight is watching.',
+    text: 'Airman of the Quarter is due tomorrow and the flight gets ONE nomination in the Airman category. {D} carried the section\'s workload all quarter; {B}, three months on station, finished their CDCs early and logged 60 volunteer hours. The flight is watching.',
     choices: [
-      { t: 'Nominate {A}: the numbers speak', show: [['mis', 1], ['mor', '?']], kind: 'fx', eff: { mis: 1, loy: { A: 2, C: -1 } } },
-      { t: 'Nominate {C}: mentoring is the mission', show: [['mor', '?'], ['mis', '?']], kind: 'check', check: { stat: 'CHA', dc: 13, m: 'mor', pass: { mor: 1, loy: { C: 2, A: -1 } }, fail: { mor: -1, loy: { A: -1 } } } },
+      { t: 'Nominate {D}: the numbers speak', show: [['mis', 1], ['mor', '?']], kind: 'fx', eff: { mis: 1, loy: { D: 2, B: -1 } } },
+      { t: 'Nominate {B}: initiative is the mission', show: [['mor', '?'], ['mis', '?']], kind: 'check', check: { stat: 'CHA', dc: 13, m: 'mor', pass: { mor: 1, loy: { B: 2, D: -1 } }, fail: { mor: -1, loy: { D: -1 } } } },
       { t: 'Write both packages and let the CC pick', show: [['tru', '?'], ['res', -1]], kind: 'check', pre: { res: -1 },
-        check: { stat: 'CMD', dc: 13, m: 'tru', pass: { tru: 2, loy: { A: 1, C: 1 } }, fail: { tru: -1 } } },
+        check: { stat: 'CMD', dc: 13, m: 'tru', pass: { tru: 2, loy: { D: 1, B: 1 } }, fail: { tru: -1 } } },
       { t: 'Tell them both in person why, before it posts', mic: true, show: [['mor', '?']], kind: 'stars',
-        stars: [ { loy: { A: -1, C: -1 } }, { mor: 1 }, { mor: 2, loy: { A: 1, C: 1 } } ] } ] },
+        stars: [ { loy: { D: -1, B: -1 } }, { mor: 1 }, { mor: 2, loy: { D: 1, B: 1 } } ] } ] },
   { id: 'SP_chief', cls: 'chief', title: 'OUT OF STANDARDS', icon: '🎖️', sob: 'Spotlight · Standards',
     text: "Outside wing HQ you see {B}: hands in pockets, uniform a mess, on the phone, just as the Wing CC, {X:wing}, pulls up. Everyone nearby is watching what the Chief does.",
     choices: [
@@ -971,15 +972,15 @@ const SPOTLIGHTS = [
         check: { stat: 'CHA', dc: 13, m: 'tru', pass: { tru: 2 }, fail: { tru: -1 } } },
       { t: 'Ask {C} to brief it instead', show: [['tru', -1]], kind: 'fx', eff: { tru: -1, loy: { C: -1 } } } ] },
   { id: 'SP_utm', cls: 'utm', title: 'PENCIL WHIP', icon: '📚', sob: 'Spotlight · Integrity',
-    text: "The wing's training inspection is Friday. {A} is three tasks short on their upgrade, and their supervisor {C} asks you to just sign the tasks off in the training system: \"They can do it. We'll train it next month.\"",
+    text: "The wing's training inspection is Friday. {B} is three tasks short on their 5-level upgrade, and their supervisor {C} asks you to just sign the tasks off in the training system: \"They can do it. We'll train it next month.\"",
     choices: [
-      { t: 'Sign them off. {A} really can do the work.', trap: true, show: [['mis', 2]], kind: 'fx', eff: { mis: 2, flag: 'PENCIL_WHIP' } },
+      { t: 'Sign them off. {B} really can do the work.', trap: true, show: [['mis', 2]], kind: 'fx', eff: { mis: 2, flag: 'PENCIL_WHIP' } },
       { t: 'Run a hands-on training blitz this week', show: [['mis', '?'], ['mor', -1]], kind: 'check',
-        check: { stat: 'GRIT', dc: 13, m: 'mis', pass: { mis: 2, mor: -1, loy: { A: 1 } }, fail: { mor: -1, mis: -1 } } },
+        check: { stat: 'GRIT', dc: 13, m: 'mis', pass: { mis: 2, mor: -1, loy: { B: 1 } }, fail: { mor: -1, mis: -1 } } },
       { t: 'Brief {CC} on the gap and a get-well date', mic: true, show: [['tru', '?']], kind: 'stars',
         stars: [ { tru: -1 }, { tru: 1 }, { tru: 2, mis: 1 } ] },
       { t: 'Make {C} the trainer and put the plan in writing', show: [['mis', 1], ['res', -1]], kind: 'check', pre: { res: -1 },
-        check: { stat: 'INS', dc: 13, m: 'mis', pass: { mis: 1, loy: { A: 1, C: 1 } }, fail: { loy: { C: -1 } } } } ] },
+        check: { stat: 'INS', dc: 13, m: 'mis', pass: { mis: 1, loy: { B: 1, C: 1 } }, fail: { loy: { C: -1 } } } } ] },
   { id: 'SP_plans', cls: 'plans', title: 'WRITE THE EXERCISE', icon: '🗂️', sob: 'Spotlight · Planning',
     text: "Wing asked YOU to write next week's readiness exercise. You know exactly where your own flight is weakest. Nobody would know if you went easy.",
     choices: [

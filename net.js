@@ -104,7 +104,7 @@ function onClient(conn, d) {
       if (isOut(S, slot) || (S.phase === 'map' && slot === S.offlineNext)) return netSendTo(cid);
       if (S.phase === 'map') ok = available().some(([t, i]) => `${t},${i}` === String(d.v)) || wpOptions().some(o => o.key === String(d.v));
       else if (S.phase === 'unit' && !S.unitRolled) ok = UNITS.some(u => u.id === String(d.v));
-      else if (S.phase === 'manifest' && !S.patch) ok = patchFree(S, String(d.v)); // team patch vote (GM locks the winner)
+      else if (S.phase === 'patch' && !S.patch) ok = patchFree(S, String(d.v)); // team patch vote (GM locks the winner)
       else if (S.phase === 'node' && c && (c.step === 'choose' || c.step === 'who') && (c.type === 'rest' || c.type === 'depot'))
         ok = stopOptions().some(o => o.key === String(d.v) && !o.dis);
       else if (S.phase === 'node' && c && c.step === 'brief' && curMission()) {
@@ -141,8 +141,13 @@ function onClient(conn, d) {
       if (!a || !bossActOk(slot, a)) return netSendTo(cid);
       return apply(() => { S.boss.acts[slot] = a; });
     }
+    case 'kit': { // the cadet opened their kit and came back to the game tab
+      if (S.phase !== 'kit' || slot == null || !S.party[slot] || S.party[slot].kitOk) return netSendTo(cid);
+      S.party[slot].kitOk = true; save(); push(true); renderGM();
+      return;
+    }
     case 'team': { // any cadet can name the team while the party forms
-      if (!['title', 'join', 'intro', 'party', 'perks', 'avatars'].includes(S.phase)) return netSendTo(cid);
+      if (!['title', 'join', 'intro', 'party', 'perks', 'kit', 'avatars'].includes(S.phase)) return netSendTo(cid);
       S.callsign = String(d.v || '').trim().slice(0, 14); save(); push(true); renderGM();
       return;
     }
@@ -169,7 +174,7 @@ function publicView(slot) {
   const v = {
     phase: S.phase, introPage: S.introPage, you: slot, room: roomCode(), spinning: spinning(),
     crown: crownIdx(S),
-    party: S.party.map((p, i) => ({ fired: !!p.fired, name: p.name, cls: p.cls, perk: p.perk, av: p.av, g: p.g || null, uni: p.uni || '', hair: p.hair || '', up: p.up, used: p.used,
+    party: S.party.map((p, i) => ({ fired: !!p.fired, name: p.name, cls: p.cls, perk: p.perk, av: p.av, g: p.g || null, uni: p.uni || '', hair: p.hair || '', up: p.up, used: p.used, kitOk: !!p.kitOk,
       st: p.cls ? Object.fromEntries(STATS.map(x => [x, statOf(i, x)])) : null, perkUsed: !!(p.perk && S.flags['perkUsed_' + p.perk]) })),
     tokenHolder: S.tokenHolder, offline: S.offline, offlineNext: S.offlineNext, unit: S.unit, cc: S.cc, notice: S.notice || null,
     branch: !!S.branch, objectives: S.phase === 'intro' || S.phase === 'debrief',
@@ -186,7 +191,7 @@ function publicView(slot) {
     usable: usableNow(S),
     itemInfo: (S.items || []).map(id => { const l = LOOT.find(x => x.id === id); return { id, icon: l.icon, name: l.name, text: fill(S, l.text), color: lootColor(l) }; }),
     ach: S.ach, final: S.final ? { g: S.final.grade.g, title: S.final.grade.title, total: S.final.total } : null,
-    team: S.callsign || '', patch: patchOf(S), patches: S.phase === 'manifest' ? (PATCHES[S.unit] || []).map(p => ({ ...p, taken: !patchFree(S, p.id) })) : null, tie: voteTie(S) ? tieText(S) : null,
+    team: S.callsign || '', patch: patchOf(S), patches: S.phase === 'patch' ? (PATCHES[S.unit] || []).map(p => ({ ...p, taken: !patchFree(S, p.id) })) : null, tie: voteTie(S) ? tieText(S) : null,
     result: resultReady(S) ? { head: resultHeadline(S), ...resultSummary(S) } : null,
     gameOver: S.gameOver,
   };

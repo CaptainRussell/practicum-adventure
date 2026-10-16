@@ -82,7 +82,8 @@ function onTap(e) {
       return phConnect();
     }
     case 'rejoin': PH.ended = false; return phConnect();
-    case 'tab': PH.tab = arg; if (arg === 'kit') PH.kitBack = !PH.kitSeen || PH.kitBack; if (arg === 'game') PH.kitBack = false; if (arg === 'kit' && PH.v && PH.v.you != null && PH.v.party[PH.v.you].perk) PH.kitSeen = true; window.scrollTo(0, 0); return phRender();
+    case 'tab': if (arg === 'game' && PH.tab === 'kit' && PH.v && PH.v.phase === 'kit') phSend({ t: 'kit' });
+      PH.tab = arg; if (arg === 'kit') PH.kitBack = !PH.kitSeen || PH.kitBack || (PH.v && PH.v.phase === 'kit'); if (arg === 'game') PH.kitBack = false; if (arg === 'kit' && PH.v && PH.v.you != null && PH.v.party[PH.v.you].perk) PH.kitSeen = true; window.scrollTo(0, 0); return phRender();
     case 'cls': case 'perk': case 'up': case 'look': return phSend({ t: a, v: arg });
     case 'av': PH.toLook = true; return phSend({ t: 'av', v: +arg }); // after the pick, glide down to uniform / hair
     case 'vote': return phSend({ t: 'vote', v: /^\d+$/.test(arg) ? +arg : arg });
@@ -124,7 +125,7 @@ function phRender() {
   if (PH.status !== 'live' || !PH.v) app.innerHTML = phJoinScreen();
   else {
     const v = PH.v, me = v.you != null ? v.party[v.you] : null;
-    const kitGlow = me && me.cls && PH.tab !== 'kit' && me.perk && !PH.kitSeen;
+    const kitGlow = me && me.cls && PH.tab !== 'kit' && me.perk && (v.phase === 'kit' ? !me.kitOk : !PH.kitSeen);
     const note = v.notice ? `<div class="ph-card ph-result"><div class="ph-h" style="margin-top:0">${v.notice.icon} ${esc(v.notice.title)}</div>${mt(esc(v.notice.text))}<div class="ph-note">Waiting for the GM to continue...</div></div>` : '';
     const body = PH.tab === 'kit' ? phKit(v, me) : PH.tab === 'org' ? phOrg(v) : note + phActor(v) + phGame(v, me) + phNow(v, me);
     app.innerHTML = `<div class="ph-wrap">${phHeader(v, me)}${body}</div>
@@ -178,7 +179,7 @@ function phActor(v) {
 
 // GAME tab: only what you can use RIGHT NOW (everything else lives in the KIT tab)
 function phNow(v, me) {
-  if (!me || !me.cls || ['title', 'join', 'intro', 'party', 'perks', 'avatars', 'results', 'debrief'].includes(v.phase)) return '';
+  if (!me || !me.cls || ['title', 'join', 'intro', 'party', 'perks', 'kit', 'avatars', 'results', 'debrief'].includes(v.phase)) return '';
   const list = myUsable(v); if (!list.length) return '';
   return `<div class="ph-h" style="color:var(--gold)">⚡ YOU CAN USE NOW</div>` + list.map(u => pbtn('req', u.req, `${u.icon} <b>${esc(u.label)}</b>${u.who != null ? ' <small>(yours)</small>' : ' <small>(team)</small>'}<br><small>${mt(esc(u.hint))} · tap to ask the GM</small>`, { cls: 'avail' + (u.hot ? ' hot' : '') })).join('');
 }
@@ -203,9 +204,11 @@ function phGame(v, me) {
       return `<div class="ph-card">✅ You're in, <b>${esc(me.name)}</b>!<br><br>Watch the projector while the GM explains the game. Next you pick your character icon, then your class.</div>${guideLink}`;
     case 'party': return phParty(v, me);
     case 'perks': { const cls = CLASS[me.cls];
-      return `<div class="ph-h">🎁 PICK YOUR PERK</div><div class="ph-card">${clsIcon(me.cls, 20)} <b>${esc(rankName(me))}</b>, pick ONE perk for your ${cls.name}. Each perk works once per game, including the IG fight.</div>`
+      return `<div class="ph-h">🎁 PICK YOUR PERK</div><div class="ph-card">${clsIcon(me.cls, 20)} <b>${esc(rankName(me))}</b>, pick ONE perk for your ${cls.name}. Each perk works once per game.</div>`
         + cls.perks.map(p => pbtn('perk', p.id, `<b>${esc(p.name)}</b><br><small>${mt(esc(p.text))}</small>`, { cls: cls3(me.perk === p.id, !me.perk) })).join('')
-        + (me.perk ? `<div class="ph-card ph-center">✅ Locked in. Waiting for the rest of the team...</div>${PH.kitSeen ? '' : '<div class="ph-point">🎒 Your class, stats, ability and perk live in your KIT.<br><b>Tap the glowing 🎒 KIT tab at the bottom of the screen.</b><div class="ph-arrow">👇</div></div>'}` : ''); }
+        + (me.perk ? '<div class="ph-card ph-center">✅ Locked in. Waiting for the rest of the team...</div>' : ''); }
+    case 'kit': return me.kitOk ? '<div class="ph-card ph-center">✅ Kit checked. Your kit is always one tap away in the 🎒 KIT tab.<br><br>Waiting for the rest of the team...</div>'
+      : '<div class="ph-h">🎒 CHECK YOUR KIT</div><div class="ph-card">Before you pick a squadron, look at what you\'re bringing: your class, stats, ability and perk.</div><div class="ph-point"><b>Tap the glowing 🎒 KIT tab at the bottom of the screen.</b><div class="ph-arrow">👇</div></div>';
     case 'avatars': return `<div class="ph-h">PICK YOUR CHARACTER ICON</div><div class="ph-note">Your icon also sets your gender in the game.</div>` + AV_GROUPS.map(G => `<div class="ph-h">${G.label}</div><div class="ph-avgrid">${G.idx.map(k => {
       const who = v.party.find(p => p.av === k); const mine = me.av === k;
       return `<button class="ph-av ${mine ? 'sel' : me.av == null && !who ? 'need' : ''}" data-p="av" data-a="${k}" ${who && !mine ? 'disabled' : ''}><img src="${who ? avatarOf(who) : presetAvatar(k)}"><span>${avNum(k)}${who && !mine ? ' · ' + esc(rankName(who)) : ''}</span></button>`; }).join('')}</div>`).join('') + phLook(me);
@@ -217,15 +220,16 @@ function phGame(v, me) {
         const voters = Object.keys(votes).filter(s2 => String(votes[s2]) === u.id).map(s2 => v.party[+s2] && rankName(v.party[+s2])).filter(Boolean);
         return pbtn('vote', u.id, `${u.icon} <b>${esc(u.sq)}</b>${voters.length ? `<div class="ph-voters">✋ ${voterHtml(v, voters)}</div>` : ''}`, { cls: cls3(String(votes[v.you]) === u.id, !voted(v)) });
       }).join(''); }
-    case 'manifest': { // team patch: a team vote, like the squadron (the GM locks in the winner)
+    case 'patch': { // team patch: a team vote, like the squadron (the GM locks in the winner)
       const votes = v.votes || {};
       const pick = v.patch ? `<div class="ph-card ph-center">🎖️ TEAM PATCH LOCKED IN<br><span style="font-size:40px">${v.patch.icon}</span><br><b>${esc(v.patch.name)}</b></div>`
         : `<div class="ph-h">✋ VOTE ON YOUR TEAM PATCH</div><div class="ph-note">The patch is your team's name on the leaderboard. Vote as a team; the Flight Commander breaks ties.</div>${tieLine(v)}<div class="ph-row">${(v.patches || []).map(p => {
           const voters = Object.keys(votes).filter(s2 => String(votes[s2]) === p.id).map(s2 => v.party[+s2] && rankName(v.party[+s2])).filter(Boolean);
           return pbtn('vote', p.id, `<span style="font-size:34px">${p.icon}</span><br><small>${esc(p.name)}${p.taken ? '<br>TAKEN' : ''}</small>${voters.length ? `<div class="ph-voters">✋ ${voterHtml(v, voters)}</div>` : ''}`, { cls: cls3(String(votes[v.you]) === p.id, !voted(v) && !p.taken), dis: p.taken });
         }).join('')}</div>`;
-      return pick + `
-      <div class="ph-card ph-center">🏢 Your org chart is on the projector, and in the <b>ORG</b> tab below any time.</div>` + phOrg(v); }
+      return pick; }
+    case 'manifest': return `${v.patch ? `<div class="ph-card ph-center"><span style="font-size:34px">${v.patch.icon}</span><br><b>${esc(v.patch.name)}</b></div>` : ''}
+      <div class="ph-card ph-center">🏢 Your org chart is on the projector, and in the <b>ORG</b> tab below any time.</div>` + phOrg(v);
     case 'map': {
       const votes = v.votes || {}, away = v.offlineNext === v.you;
       const wps = (v.wpOpts || []).map(o => { const voters = Object.keys(votes).filter(s => String(votes[s]) === o.key).map(s => v.party[+s] && rankName(v.party[+s])).filter(Boolean);
@@ -440,9 +444,9 @@ function phKit(v, me) {
     <div class="ph-card"><div class="stats">${STATS.map(s => `<div>${s}<b>+${me.st ? me.st[s] : c.stats[s]}</b></div>`).join('')}</div>
       <small>${STATS.map(s => `<b>${s}</b> ${STAT_INFO[s].name}: ${STAT_INFO[s].text}`).join('<br>')}</small></div>`;
   h += `<div class="ph-h">🎒 YOUR KIT <small class="ph-legend">gold = usable now</small></div>`;
-  if (c.ability) h += row('ability', clsIcon(me.cls, 20), c.ability.name, c.ability.text, me.used ? 'used' : 'once');
+  if (c.ability) h += row('ability', clsIcon(me.cls, 20), c.ability.name, c.ability.text, c.ability.auto ? (v.ccInfo && v.ccInfo.negOff ? 'active' : 'passive') : me.used ? 'used' : 'once');
   else h += row(null, '👑', 'Command Token', c.abilityText, '');
-  if (perk) h += row('perk:' + perk.id, '🎁', perk.name, perk.text, ['confidant', 'hold'].includes(perk.id) ? (me.perkUsed ? (perk.id === 'confidant' ? 'active' : 'used') : 'passive') : me.perkUsed ? 'used' : 'once');
+  if (perk) h += row('perk:' + perk.id, '🎁', perk.name, perk.text, perk.id === 'hold' ? (me.perkUsed ? 'used' : 'passive') : me.perkUsed ? 'used' : 'once');
   if (up) h += row(null, '⬆️', up.name, up.text, 'upgrade');
   h += `<div class="ph-h">🧺 TEAM ITEMS (${(v.itemInfo || []).length}/3)</div>`;
   h += (v.itemInfo || []).length ? v.itemInfo.map(l => row('item:' + l.id, l.icon, l.name, l.text, '')).join('')
