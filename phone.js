@@ -447,7 +447,7 @@ function phKit(v, me) {
   h += `<div class="ph-h">🎒 YOUR KIT <small class="ph-legend">gold = usable now</small></div>`;
   if (c.ability) h += row('ability', clsIcon(me.cls, 20), c.ability.name, c.ability.text, c.ability.auto ? (v.ccInfo && v.ccInfo.negOff ? 'active' : 'passive') : me.used ? 'used' : 'once');
   else h += row(null, '👑', 'Command Token', c.abilityText, 'passive');
-  if (perk) h += row('perk:' + perk.id, perk.icon || '🎁', perk.name, perk.text, me.perkUsed ? 'used' : 'once');
+  if (perk) h += row('perk:' + perk.id, perk.icon || '🎁', perk.name, perk.text, me.perkUsed ? 'used' : useSplit(perk.text).kind || 'once');
   if (up) h += row(null, '⬆️', up.name, up.text, 'upgrade');
   h += `<div class="ph-h">🧺 TEAM ITEMS (${(v.itemInfo || []).length}/3)</div>`;
   h += (v.itemInfo || []).length ? v.itemInfo.map(l => row('item:' + l.id, l.icon, l.name, l.text, '')).join('')

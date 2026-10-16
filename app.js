@@ -278,7 +278,7 @@ function usableNow(S) {
     if (u.type === 'anyMeter' && anytime) add(null, req, l.icon, l.name, `+${u.n} to any meter`, METERS.some(m => S.meters[m.k] <= 2));
     if ((u.type === 'loyAll' || u.type === 'loyOne') && anytime && (S.npcs || []).some(n => n.loy < 5)) add(null, req, l.icon, l.name, hint, (S.npcs || []).some(n => n.loy <= 1));
     if (u.type === 'branch' && branchUseful(S)) add(null, req, l.icon, l.name, branchUseful(S));
-    if (u.type === 'recharge' && anytime && S.party.some(p => (p.used && CLASS[p.cls] && CLASS[p.cls].ability && !CLASS[p.cls].ability.auto) || (p.perk && p.perk !== 'hold' && (S.flags || {})['perkUsed_' + p.perk]))) add(null, req, l.icon, l.name, 'Recharge a used ability or perk');
+    if (u.type === 'recharge' && anytime && S.party.some(p => (p.used && CLASS[p.cls] && CLASS[p.cls].ability && !CLASS[p.cls].ability.auto) || (p.perk && !['hold', 'readiness'].includes(p.perk) && (S.flags || {})['perkUsed_' + p.perk]))) add(null, req, l.icon, l.name, 'Recharge a used ability or perk');
   });
   const inGame = ['map', 'node', 'inject', 'boss'].includes(ph);
   if (!inGame) return out;
@@ -319,7 +319,6 @@ function perkWhen(S, p, i) {
     case 'prepo': return ph === 'node' && c && c.type === 'depot' && c.step === 'choose' && !pend.prepo ? { hint: 'The next BX purchase costs no 📦', hot: S.meters.res <= 2 } : null;
     case 'lead': return leadTarget(S) ? { hint: 'Turn that failed roll into a pass (⭐ −1)', hot: true } : null;
     case 'mti': return leadTarget(S) ? { hint: 'Take command: that failed roll counts as a pass', hot: true } : null;
-    case 'readiness': return ['map', 'node', 'inject'].includes(ph) && !(S.flags || {}).MOCK_INSPECTION ? { hint: `Mock inspection: the IG starts with ${DIFFICULTY.mockInsp} less HP` } : null;
   }
   return null;
 }
@@ -1494,7 +1493,10 @@ function spinFumble() {
 function startBoss() {
   S.phase = 'boss'; S.cur = null; S.banner = null; S.actor = null;
   const broken = S.npcs.filter(n => n.broken || n.loy === 0);
-  const hp = Math.max(1, DIFFICULTY.bossHp + (S.flags.WITNESS_IG ? 3 : 0) + broken.length * DIFFICULTY.witnessHp + (S.flags.MISSION_FAIL ? DIFFICULTY.crisisIgHp : 0) - (S.flags.MOCK_INSPECTION ? DIFFICULTY.mockInsp : 0));
+  const raw = DIFFICULTY.bossHp + (S.flags.WITNESS_IG ? 3 : 0) + broken.length * DIFFICULTY.witnessHp + (S.flags.MISSION_FAIL ? DIFFICULTY.crisisIgHp : 0);
+  // Readiness Inspection (UTM perk, passive): the IG starts with DIFFICULTY.mockInspPct % less HP
+  const mock = S.party.some(p => p.perk === 'readiness' && !p.fired) ? Math.round(raw * DIFFICULTY.mockInspPct / 100) : 0;
+  const hp = Math.max(1, raw - mock);
   S.boss = { hp, max: hp, round: 0, stage: 'intro', log: [], atk: null, acts: {}, allyUsed: {}, adverse: false,
     weak: S.npcs.some(n => n.trait === 'witness' && n.loy >= 4), wargame: null, lastFails: [], res: [],
     p2: { who: null, q: [], stars: [0, 0], rolls: null, done: false } };
@@ -1502,7 +1504,7 @@ function startBoss() {
   bossLog(`👹 ${BOSS.name} arrives: ${hp} HP.`);
   if (S.flags.WITNESS_IG) bossLog('🕵️ The Witness reported you to the IG: +3 HP.');
   if (S.flags.MISSION_FAIL) bossLog(`💥 The IG read the Mission Failure report: +${DIFFICULTY.crisisIgHp} HP.`);
-  if (S.flags.MOCK_INSPECTION) bossLog(`📋 Your Readiness Inspection already found and fixed the easy write-ups: −${DIFFICULTY.mockInsp} HP.`);
+  if (mock) bossLog(`🔍 Your Readiness Inspections already found and fixed the easy write-ups: −${DIFFICULTY.mockInspPct}% HP (−${mock}).`);
   broken.forEach(n => bossLog(`🗣️ ${n.rank} ${n.name} hit their breaking point and is now a hostile witness: IG +${DIFFICULTY.witnessHp} HP.`));
   if (Bs.weak) bossLog(`🕵️ The Witness tipped you off: Press target ${examDC(Bs)}.`);
   const allies = S.npcs.filter(isAlly);
@@ -1728,7 +1730,6 @@ function usePerk(i) {
       break;
     }
     case 'prepo': S.pending.prepo = true; what = 'The gear was staged ahead of time: the next BX purchase costs no 📦.'; break;
-    case 'readiness': S.flags.MOCK_INSPECTION = true; what = `The flight runs its own readiness inspection and fixes what it finds. The IG will start with ${DIFFICULTY.mockInsp} less HP.`; break;
   }
   S.flags['perkUsed_' + id] = true;
   notice(pk.icon || '🎁', `${name.toUpperCase()}: ${pk.name.toUpperCase()}`, what); sfx('loot'); log('Perk', `${name}: ${pk.name}`);
@@ -2297,7 +2298,7 @@ function gmSide() {
       ${ab ? B('ability', `${esc(ab.name)} ${ab.auto ? '(passive)' : p.used >= abilityLimit(p) ? '(used)' : ''}`, { arg: i, cls: 'sm', dis: ab.auto || p.used >= abilityLimit(p), title: ab.text }) : ''}
       <span class="note">${esc(perkOf(p).name)}${p.up ? ' · ' + esc(upOf(p).name) : ''}</span></div>`; }).join('')}</div>
   <div class="gcard"><h3>🎁 Perks (once per game)</h3>${S.party.map((p, i) => { const pk = perkOf(p), used = S.flags['perkUsed_' + p.perk], w = perkWhen(S, p, i);
-      return `<div class="row"><b>${clsIcon(p.cls, 18)} ${esc(p.name)}</b> ${pk.icon} ${esc(pk.name)} ${used ? '<span class="pill">used</span>' : w ? B('perkUse', 'use now', { arg: i, cls: 'sm go', title: w.hint }) : '<span class="note">not now</span>'}
+      return `<div class="row"><b>${clsIcon(p.cls, 18)} ${esc(p.name)}</b> ${pk.icon} ${esc(pk.name)} ${used ? '<span class="pill">used</span>' : useSplit(pk.text).kind === 'passive' ? '<span class="pill">passive</span>' : w ? B('perkUse', 'use now', { arg: i, cls: 'sm go', title: w.hint }) : '<span class="note">not now</span>'}
         ${used && p.perk !== 'hold' ? B('perkReset', '↺', { arg: i, cls: 'sm', title: 'Manual fix: mark unused' }) : ''}</div>`; }).join('')}</div>
   ${S.unit ? (() => { const u = unitObj(); return `<div class="gcard"><h3>${npcIns(S.cc, 18)} ${esc(S.cc)}</h3><div class="note">Intent: ${METER[u.cc.intent].icon} ${METER[u.cc.intent].label} (now ${S.meters[u.cc.intent]})</div>
     <div>👍 <b>${esc(u.cc.pos.name)}</b> <span class="note">${esc(u.cc.pos.text)}</span></div><div style="${S.flags.ccNegOff ? 'opacity:.4;text-decoration:line-through' : ''}">👎 <b>${esc(u.cc.neg.name)}</b> <span class="note">${esc(u.cc.neg.text)}</span></div></div>`; })() : ''}
