@@ -219,7 +219,7 @@ function publicView(slot) {
     v.inject = { stage: inj.stage, wheel: inj.filter ? INJECT_WHEELS[inj.filter] : null, name: mm ? mm.name : null, text: mm ? fill(S, mm.text || '') : '', note: inj.note ? fill(S, inj.note) : null, type: mm ? mm.type : null,
       effHtml: mm && !mm.options ? effHtml(effText(S, mm.eff)) : null,
       options: mm && mm.options ? mm.options.map(o => ({ t: fill(S, o.t), html: effHtml(effText(S, o.eff)) })).concat(mm.tackle && !inj.blocked
-        ? [(() => { const r = bestRoller(mm.tackle.stat, mm.tackle.m), b = rollBonus(r, mm.tackle.stat, mm.tackle.m), need = Math.min(20, Math.max(2, mm.tackle.dc + DIFFICULTY.dcPlus - b));
+        ? [(() => { const r = bestRoller(mm.tackle.stat, mm.tackle.m), b = rollBonus(r, mm.tackle.stat, mm.tackle.m) + leanBonus(S), need = Math.min(20, Math.max(2, mm.tackle.dc + DIFFICULTY.dcPlus - b));
             return { t: `Tackle it (${mm.tackle.stat} roll)`, html: tackleRows(mm), tackle: true }; })()] : []) : null,
       tackle: inj.stage === 'tackle' ? { stat: mm.tackle.stat, dc: mm.tackle.dc + DIFFICULTY.dcPlus, roller: inj.rollerLocked ? inj.roller : null, vote: !inj.rollerLocked, m: mm.tackle.m,
         odds4: S.party.map((_, i) => isOut(S, i) ? null : tackleOdds(S, mm, i)),
@@ -229,7 +229,7 @@ function publicView(slot) {
     const Bs = S.boss, others = Object.entries(Bs.acts).filter(([s2]) => +s2 !== slot).map(([, a]) => a);
     v.boss = { hp: Bs.hp, max: Bs.max, round: Bs.round, stage: Bs.stage, atk: Bs.atk, adverse: Bs.adverse, weak: Bs.weak, dc: examDC(Bs),
       roundName: Bs.round ? BOSS_ROUNDS[Bs.round - 1].name : null,
-      who: Bs.p2.who, q: Bs.p2.who ? Bs.p2.q : null, best: slot != null && S.party[slot] ? (() => { const st = bestStat(slot); return { stat: st, v: statOf(slot, st) }; })() : null,
+      who: Bs.p2.who, q: Bs.p2.who ? Bs.p2.q : null, best: slot != null && S.party[slot] ? (() => { const st = bestStat(slot); return { stat: st, v: statOf(slot, st) + leanBonus(S) }; })() : null,
       my: slot != null ? Bs.acts[slot] || null : null, myText: slot != null && Bs.acts[slot] ? bossActText(slot, Bs.acts[slot]) : null,
       locked: S.party.map((_, i) => !!Bs.acts[i]),
       takenStats: others.filter(a => a.type === 'press').map(a => a.stat), allyTaken: others.some(a => a.type === 'ally'),

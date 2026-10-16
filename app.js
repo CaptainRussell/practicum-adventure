@@ -278,7 +278,7 @@ function usableNow(S) {
     if (u.type === 'anyMeter' && anytime) add(null, req, l.icon, l.name, `+${u.n} to any meter`, METERS.some(m => S.meters[m.k] <= 2));
     if ((u.type === 'loyAll' || u.type === 'loyOne') && anytime && (S.npcs || []).some(n => n.loy < 5)) add(null, req, l.icon, l.name, hint, (S.npcs || []).some(n => n.loy <= 1));
     if (u.type === 'branch' && branchUseful(S)) add(null, req, l.icon, l.name, branchUseful(S));
-    if (u.type === 'recharge' && anytime && S.party.some(p => (p.used && CLASS[p.cls] && CLASS[p.cls].ability && !CLASS[p.cls].ability.auto) || (p.perk && !['hold', 'readiness'].includes(p.perk) && (S.flags || {})['perkUsed_' + p.perk]))) add(null, req, l.icon, l.name, 'Recharge a used ability or perk');
+    if (u.type === 'recharge' && anytime && S.party.some(p => (p.used && CLASS[p.cls] && CLASS[p.cls].ability && !CLASS[p.cls].ability.auto) || (p.perk && !['readiness', 'lean'].includes(p.perk) && (S.flags || {})['perkUsed_' + p.perk]))) add(null, req, l.icon, l.name, 'Recharge a used ability or perk');
   });
   const inGame = ['map', 'node', 'inject', 'boss'].includes(ph);
   if (!inGame) return out;
@@ -297,11 +297,11 @@ function usableNow(S) {
   // the projector asks the team to decide; everything else lives on phones as "You can use now"
   out.forEach(u => {
     const it = u.req.startsWith('item:') && LOOT.find(l => l.id === u.req.slice(5));
-    u.moment = (it && ['cancel', 'wheel', 'undo'].includes(it.use.type)) || ['perk:beenthere', 'perk:lead', 'perk:mti', 'perk:ear'].includes(u.req);
+    u.moment = (it && ['cancel', 'wheel', 'undo'].includes(it.use.type)) || ['perk:beenthere', 'perk:hold', 'perk:mti', 'perk:ear'].includes(u.req);
   });
   return out;
 }
-// When each perk can be used (null = not now). Perks are once per game; Hold the Line fires on its own.
+// When each perk can be used (null = not now). Perks are once per game; passive perks never show here.
 function perkWhen(S, p, i) {
   if (!p.perk || p.fired || (S.flags || {})['perkUsed_' + p.perk]) return null;
   const c = S.cur, ph = S.phase, inj = S.inject, Bs = S.boss, pend = S.pending || {};
@@ -314,10 +314,10 @@ function perkWhen(S, p, i) {
     case 'deocs': return anytime && !deocsOn(S) ? { hint: `See the exact meters for ${DIFFICULTY.deocsStops} stops, everyone +1 loyalty`, hot: METERS.some(m => S.meters[m.k] <= DIFFICULTY.dangerAt) } : null;
     case 'resiliency': return anytime && S.meters.mor <= 7 ? { hint: '❤️ +3, everyone +1 loyalty, 🎯 −1' } : null;
     case 'readroom': return mission && c.step === 'brief' && !c.intel && c.type !== 'crisisEvent' ? { hint: 'See the exact effects of every choice' } : null;
+    case 'hold': return anytime && METERS.some(m => S.meters[m.k] === 0) ? { hint: `${METERS.filter(m => S.meters[m.k] === 0).map(m => m.icon).join(' ')} is at 0: raise it to 3 before the Crisis Event`, hot: true } : null;
     case 'ear': return S.lastTruLoss > 0 ? { hint: `Cancel the last ⭐ loss (−${S.lastTruLoss})`, hot: true } : null;
     case 'emergency': return anytime && S.meters.res <= 7 ? { hint: '+3 📦 right now', hot: S.meters.res <= 2 } : null;
     case 'prepo': return ph === 'node' && c && c.type === 'depot' && c.step === 'choose' && !pend.prepo ? { hint: 'The next BX purchase costs no 📦', hot: S.meters.res <= 2 } : null;
-    case 'lead': return leadTarget(S) ? { hint: 'Turn that failed roll into a pass (⭐ −1)', hot: true } : null;
     case 'mti': return leadTarget(S) ? { hint: 'Take command: that failed roll counts as a pass', hot: true } : null;
   }
   return null;
@@ -332,7 +332,7 @@ function branchUseful(S) {
 const pcsCandidates = S => (S.npcs || []).filter(n => n.enlisted && !n.gone && !n.handpicked);
 const RANK_UP = { AB: 'Amn', Amn: 'A1C', A1C: 'SrA', SrA: 'SSgt', SSgt: 'SSgt' }; // the org chart tops out at SSgt
 const PCS_TRAITS = ['mentor', 'genius', 'overach', 'cynic', 'climber']; // a hand-picked Airman comes with an upside
-// what Lead From the Front would turn into a pass right now (a failed scenario check or Tackle it)
+// what Prior MTI would turn into a pass right now (a failed scenario check or Tackle it)
 function leadTarget(S) { const t = memoTarget(S); return t === 'boss' ? null : t; }
 function memoTarget(S) {
   const c = S.cur, inj = S.inject, Bs = S.boss;
@@ -356,7 +356,7 @@ function effChips(e) {
 }
 // Tackle it, spelled out: who would roll, what they need, and what pass / fail do
 function tackleInfo(m, roller) {
-  const t = m.tackle, r = roller != null ? roller : bestRoller(t.stat, t.m), b = rollBonus(r, t.stat, t.m), dc = t.dc + DIFFICULTY.dcPlus, need = Math.min(20, Math.max(2, dc - b));
+  const t = m.tackle, r = roller != null ? roller : bestRoller(t.stat, t.m), b = rollBonus(r, t.stat, t.m) + leanBonus(S), dc = t.dc + DIFFICULTY.dcPlus, need = Math.min(20, Math.max(2, dc - b));
   return { stat: t.stat, who: cadetName(r), bonus: b, dc, need, pct: (21 - need) * 5, fail: effChips(t.fail || {}) };
 }
 function tackleRows(m, roller) {
@@ -602,13 +602,6 @@ function applyEff(e, opt = {}) {
     }
     const old = S.meters[k];
     let nv = Math.max(0, Math.min(10, old + v));
-    // Hold the Line (FC perk) fires on its own the first time a meter would hit 0
-    if (nv === 0 && old > 0 && hasPerk('hold') && !S.flags.perkUsed_hold && !S.party.some(p => p.perk === 'hold' && p.fired)) {
-      nv = 1; S.flags.perkUsed_hold = true;
-      const f = S.party.find(p => p.perk === 'hold');
-      notice('🛡️', `${rankName(f).toUpperCase()}: HOLD THE LINE!`, `${METER[k].label} would have hit 0. It stops at 1 instead.`);
-      log('Perk', `${rankName(f)}: Hold the Line (${METER[k].label})`);
-    }
     S.meters[k] = nv;
     if (nv !== old) d.push([k, nv - old]);
     if (k === 'tru' && nv < old) S.lastTruLoss = old - nv;
@@ -795,6 +788,8 @@ function bestRoller(stat, m) {
   S.party.forEach((_, i) => { if (isOut(S, i)) return; const v = rollBonus(i, stat, m); if (v > best) { best = v; bi = i; } });
   return bi;
 }
+// Lean on Experience (FC perk, passive): +1 on every d20 roll while the FC is in the party
+function leanBonus(S) { return (S.party || []).some(p => p.perk === 'lean' && !p.fired) ? 1 : 0; }
 function rollCalc(check, roller, d20, o = {}) {
   const parts = []; let total = d20;
   if (check.stat === 'LOYB') { const n = npc('B'); parts.push([`${n.rank} ${n.name} loyalty`, n.loy]); total += n.loy; }
@@ -807,6 +802,7 @@ function rollCalc(check, roller, d20, o = {}) {
   const mv = S.meters[check.m];
   if (mv >= 8) { parts.push([`${METER[check.m].icon} high`, 2]); total += 2; }
   else if (mv <= 2) { parts.push([`${METER[check.m].icon} low`, -2]); total -= 2; }
+  if (leanBonus(S)) { parts.push(['📖 Lean on Experience', 1]); total += 1; }
   const bonusItem = o.bonusItem && LOOT.find(l => l.id === o.bonusItem);
   if (bonusItem) { parts.push([`${bonusItem.icon} ${bonusItem.name}`, bonusItem.use.n]); total += bonusItem.use.n; }
   const dc = checkDC(check);
@@ -1276,7 +1272,7 @@ function resolveRoll(roller, o) {
   const c = S.cur, spec = c.spec;
   c.preRoll = JSON.stringify(S);
   const safe = false; // "play it safe" was removed: every check rolls the die
-  const lead = !!(o && o.lead); // Lead From the Front keeps the die as rolled and forces a pass (no new roll on screen)
+  const lead = !!(o && o.lead); // Prior MTI keeps the die as rolled and forces a pass (no new roll on screen)
   let d20 = lead ? o.d20 : 1 + rnd(20);
   if (!lead) { S.spinUntil = Date.now() + 4800; setTimeout(afterSpin, 4860); }
   const bonusItem = S.pending.check; if (bonusItem) { removeItem(bonusItem); S.pending.check = null; }
@@ -1410,7 +1406,7 @@ const effSum = e => METERS.reduce((a, m) => a + (e[m.k] || 0), 0);
 // Tackle it: the roller (picked by the 👑 holder) rolls d20 + stat. Pass = no loss; fail = the worse response.
 function resolveTackle(o = {}) {
   const inj = S.inject; if (!inj || inj.stage !== 'tackle') return;
-  inj.preTackle = JSON.stringify(S); // Lead From the Front / Prior MTI restore this and force a pass
+  inj.preTackle = JSON.stringify(S); // Prior MTI restores this and force a pass
   doneActor('tackle');
   const m = MURPHY[inj.idx], t = m.tackle, i = inj.roller;
   let d20 = o.lead ? o.d20 : 1 + rnd(20);
@@ -1418,15 +1414,15 @@ function resolveTackle(o = {}) {
   // Emergency Leave: the member goes no matter what; tackling it means covering the gap
   let leaver = null;
   if (m.special === 'leave') {
-    if (o.lead && o.leaver) leaver = npc(o.leaver); // Lead From the Front: same person, no new spin
+    if (o.lead && o.leaver) leaver = npc(o.leaver); // Prior MTI: same person, no new spin
     else { const k = rnd(S.npcs.length); leaver = S.npcs[k];
       spinWheel('WHO GOES ON LEAVE?', S.npcs.map((x, j) => ({ label: `${x.rank} ${x.name}`.toUpperCase(), color: WHEEL_COLORS[j % WHEEL_COLORS.length] })), k); }
     if (leaver) { leaver.out = 2; inj.leaver = leaver.slot; }
   }
   const cl = CLASS[S.party[i].cls], spec = (cl.spec || []).includes(t.m) ? 1 : 0;
-  const sv = statOf(i, t.stat), total = d20 + sv + spec, dc = t.dc + DIFFICULTY.dcPlus;
+  const sv = statOf(i, t.stat), lean = leanBonus(S), total = d20 + sv + spec + lean, dc = t.dc + DIFFICULTY.dcPlus;
   const pass = !!o.lead || d20 === 20 || (d20 !== 1 && total >= dc);
-  if (!o.lead) showDie(20, d20, `TACKLE IT · ${cadetName(i)} · ${t.stat}`, `${d20} + ${sv} ${t.stat}${spec ? ' + 1 specialist' : ''} = ${total} vs ${dc} → ${pass ? 'TACKLED!' : 'FAILED'}`);
+  if (!o.lead) showDie(20, d20, `TACKLE IT · ${cadetName(i)} · ${t.stat}`, `${d20} + ${sv} ${t.stat}${spec ? ' + 1 specialist' : ''}${lean ? ' + 1 experience' : ''} = ${total} vs ${dc} → ${pass ? 'TACKLED!' : 'FAILED'}`);
   inj.preApply = inj.preTackle;
   const gone = leaver ? ` ${leaver.rank} ${leaver.name} is on leave for 2 stops.` : '';
   if (pass) { inj.note = `${cadetName(i)} tackled it (${t.stat}): no loss.${gone}`; if (leaver) changeLoy(leaver.slot, 1); }
@@ -1592,12 +1588,12 @@ function bossResolve() {
   const rows = []; Bs.lastFails = []; Bs.res = [];
   presses.forEach(([i, a]) => {
     const d = 1 + rnd(20);
-    const sv = statOf(i, a.stat), bonus = (sup[i] || 0) - pen, total = d + sv + bonus;
+    const sv = statOf(i, a.stat), bonus = (sup[i] || 0) - pen + leanBonus(S), total = d + sv + bonus;
     const pass = d === 20 || (d !== 1 && total >= dc);
     Bs.res.push({ i, d, bonus: sv + bonus, stat: a.stat, pass });
     rows.push({ name: cadetName(i), av: S.party[i].av, uni: S.party[i].uni, hair: S.party[i].hair, v: d, hi: pass, tag: d === 20 ? 'CRIT! 4 DMG' : d === 1 ? 'FUMBLE' : `${a.stat} = ${total} ${pass ? 'HIT' : 'MISS'}` });
     if (d === 20) { bossDmg(4, `${cadetName(i)} CRITICAL (${a.stat})`); award('crit'); }
-    else if (pass) bossDmg(2, `${cadetName(i)}: ${d}+${sv} ${a.stat}${sup[i] ? ` +${sup[i]} support` : ''}${pen ? ' −1' : ''} = ${total} vs ${dc}`);
+    else if (pass) bossDmg(2, `${cadetName(i)}: ${d}+${sv} ${a.stat}${sup[i] ? ` +${sup[i]} support` : ''}${leanBonus(S) ? ' +1 experience' : ''}${pen ? ' −1' : ''} = ${total} vs ${dc}`);
     else {
       bossLog(`❌ ${cadetName(i)}: ${total} vs ${dc} (miss)`); Bs.lastFails.push(i);
       if (d === 1) { const f = pickOne(FUMBLES); applyFumble(f, null); bossLog(`🤦 Natural 1: ${f.name} (${f.text})`); }
@@ -1713,21 +1709,25 @@ function usePerk(i) {
     case 'readroom': c.intel = true; what = 'The exact effects of every choice on this mission are now on screen.'; break;
     case 'ear': what = `A quiet word with the commander: the last ⭐ loss is cancelled (⭐ +${S.lastTruLoss}).`; applyEff({ tru: S.lastTruLoss, why: "Commander's Ear" }); S.lastTruLoss = 0; break;
     case 'emergency': applyEff({ res: 3, why: 'Emergency Fund' }); what = '+3 📦 right now.'; break;
-    case 'mti': // Prior MTI (UTM): like Lead From the Front, with no ⭐ cost
-    case 'lead': { // the FC takes the failed roll on personally: it counts as a pass, ⭐ −1. No reroll on screen:
+    case 'mti': { // Prior MTI (UTM): the failed roll counts as a pass. No reroll on screen:
       // only the net change to the meters (failed result → passed result, plus the ⭐ −1) is shown.
       const t = leadTarget(S), flags = { ...S.flags }, before = { ...S.meters }, fx0 = FX.length;
       if (t === 'mission') { const d = c.rollRes.d20, roller = c.rollRes.roller; S = JSON.parse(c.preRoll); S.flags = flags; resolveRoll(roller, { lead: true, d20: d }); }
       else if (t === 'tackle') { const d = inj.tackleD20, lv = inj.leaver; S = JSON.parse(inj.preTackle); S.flags = flags; resolveTackle({ lead: true, d20: d, leaver: lv }); }
       else return false;
-      if (id === 'lead') applyEff({ tru: -1, why: 'Lead From the Front: the commander noticed you overrode your people' });
       FX = FX.slice(0, fx0).concat(FX.slice(fx0).filter(f => !['deltas', 'roll', 'dice', 'injectResult', 'wheel'].includes(f.k)));
       const d = METERS.map(m => [m.k, S.meters[m.k] - before[m.k]]).filter(x => x[1]);
       if (d.length) emit('deltas', { d });
-      if (S.base) S.base.m = { ...before }; // the result card now shows just what Lead From the Front changed
-      what = id === 'mti' ? `${name} switches to Military Training Instructor mode and takes command. The failed roll now counts as a PASS.`
-        : `${name} takes it on personally. The failed roll now counts as a PASS, but ⭐ −1: the commander noticed you overrode your people.`;
+      if (S.base) S.base.m = { ...before }; // the result card now shows just what Prior MTI changed
+      what = `${name} switches to Military Training Instructor mode and takes command. The failed roll now counts as a PASS.`;
       break;
+    }
+    case 'hold': {
+      const zero = METERS.filter(m => S.meters[m.k] === 0);
+      const k = zero.length === 1 ? zero[0].k : (zero.find(m => m.label.toLowerCase() === (prompt(`Hold the Line: which meter goes back to 3? ${zero.map(m => m.label).join(', ')}`, zero[0].label) || '').trim().toLowerCase()) || {}).k;
+      if (!k) return false;
+      applyEff({ set: { [k]: 3 }, why: 'Hold the Line' }); S.crisisQueue = (S.crisisQueue || []).filter(x => x !== k);
+      what = `${name} holds the line: ${METER[k].label} goes back up to 3. No Crisis Event.`; break;
     }
     case 'prepo': S.pending.prepo = true; what = 'The gear was staged ahead of time: the next BX purchase costs no 📦.'; break;
   }
@@ -1781,7 +1781,7 @@ function useItem(k) {
       S.party.forEach((p, i) => {
         const ab = CLASS[p.cls] && CLASS[p.cls].ability;
         if (ab && !ab.auto && p.used) opts.push([`${i + 1}A`, `${p.name}'s ${ab.name}`, () => { p.used = 0; }]);
-        if (p.perk && p.perk !== 'hold' && S.flags['perkUsed_' + p.perk]) opts.push([`${i + 1}P`, `${p.name}'s perk ${perkOf(p).name}`, () => { delete S.flags['perkUsed_' + p.perk]; }]);
+        if (p.perk && S.flags['perkUsed_' + p.perk]) opts.push([`${i + 1}P`, `${p.name}'s perk ${perkOf(p).name}`, () => { delete S.flags['perkUsed_' + p.perk]; }]);
       });
       if (!opts.length) return alert('Nothing to recharge yet.');
       const pick = (prompt(`${it.name}: recharge which? ${opts.map(o => `${o[0]} = ${o[1]}`).join(', ')}`, opts[0][0]) || '').trim().toUpperCase();
@@ -2144,7 +2144,7 @@ function gmDonePanel() {
   const pending = c.fumblePending || c.lootRoll || c.lootEarned;
   return `<div class="gchoice" style="border-color:var(--good)"><div class="bigres">${res || 'Effects applied.'}</div>
     <div class="row">
-      ${gmPerkButton('mti')} ${gmPerkButton('lead')}
+      ${gmPerkButton('mti')}
       ${c.fumblePending ? B('fumble', '🤦 Spin the Fumble wheel', { cls: 'red' }) : ''}
       ${c.lootRoll && !c.fumblePending ? B('lootd4', '🎲 Roll the d4 for loot', { cls: 'pri' }) : ''}
       ${c.lootEarned && !c.fumblePending && !c.lootRoll ? B('loot', '🎁 Spin for loot!', { cls: 'pri' }) : ''}
@@ -2171,7 +2171,7 @@ function gmInject() {
       <div class="row">${inj.rollerLocked ? 'Roller locked:' : '🗳️ The team votes; click the winner to lock it in:'} ${S.party.map((p, i) => B('tackleRoller', `${esc(p.name)} (${t.stat} ${sign(rollBonus(i, t.stat, t.m))}${isSpec(i, t.m) ? ' ★' : ''})${inj.rollerLocked ? '' : voteTag('r' + i)}`, { arg: i, cls: inj.rollerLocked && r === i ? 'on' : 'go', dis: isOut(S, i) })).join('')}</div>
       `; }
   else if (inj.stage === 'done') body = `<p class="bigres">${esc(m ? m.name : '')}</p><p>${esc(fill(S, inj.note || ''))}</p>
-      <div class="row">${m && m.type === 'bad' && !inj.cancelled ? S.items.map((id, k) => { const l = LOOT.find(x => x.id === id); return l.use.type === 'cancel' ? B('item', `${l.icon} Use ${esc(l.name)} (cancel it)`, { arg: k }) : ''; }).join('') : ''} ${gmPerkButton('beenthere')} ${gmPerkButton('mti')} ${gmPerkButton('lead')}
+      <div class="row">${m && m.type === 'bad' && !inj.cancelled ? S.items.map((id, k) => { const l = LOOT.find(x => x.id === id); return l.use.type === 'cancel' ? B('item', `${l.icon} Use ${esc(l.name)} (cancel it)`, { arg: k }) : ''; }).join('') : ''} ${gmPerkButton('beenthere')} ${gmPerkButton('mti')}
       ${B('closeInject', 'Continue ➡️', { cls: 'pri' })}</div>`;
   return `<div class="gcard"><h2>${inj.forced ? '🃏 Curveball: ' : ''}Injects</h2>${body}</div>`;
 }
@@ -2299,7 +2299,7 @@ function gmSide() {
       <span class="note">${esc(perkOf(p).name)}${p.up ? ' · ' + esc(upOf(p).name) : ''}</span></div>`; }).join('')}</div>
   <div class="gcard"><h3>🎁 Perks (once per game)</h3>${S.party.map((p, i) => { const pk = perkOf(p), used = S.flags['perkUsed_' + p.perk], w = perkWhen(S, p, i);
       return `<div class="row"><b>${clsIcon(p.cls, 18)} ${esc(p.name)}</b> ${pk.icon} ${esc(pk.name)} ${used ? '<span class="pill">used</span>' : useSplit(pk.text).kind === 'passive' ? '<span class="pill">passive</span>' : w ? B('perkUse', 'use now', { arg: i, cls: 'sm go', title: w.hint }) : '<span class="note">not now</span>'}
-        ${used && p.perk !== 'hold' ? B('perkReset', '↺', { arg: i, cls: 'sm', title: 'Manual fix: mark unused' }) : ''}</div>`; }).join('')}</div>
+        ${used ? B('perkReset', '↺', { arg: i, cls: 'sm', title: 'Manual fix: mark unused' }) : ''}</div>`; }).join('')}</div>
   ${S.unit ? (() => { const u = unitObj(); return `<div class="gcard"><h3>${npcIns(S.cc, 18)} ${esc(S.cc)}</h3><div class="note">Intent: ${METER[u.cc.intent].icon} ${METER[u.cc.intent].label} (now ${S.meters[u.cc.intent]})</div>
     <div>👍 <b>${esc(u.cc.pos.name)}</b> <span class="note">${esc(u.cc.pos.text)}</span></div><div style="${S.flags.ccNegOff ? 'opacity:.4;text-decoration:line-through' : ''}">👎 <b>${esc(u.cc.neg.name)}</b> <span class="note">${esc(u.cc.neg.text)}</span></div></div>`; })() : ''}
   <div class="gcard"><h3>NPCs</h3>${S.npcs.map(n => { const t = TRAIT[n.trait]; return `<div class="row"><b>${n.slot}</b> ${insignia(n.rank, 18)}${esc(n.rank + ' ' + n.name)}${n.gone ? ' <span class="pill">GONE</span>' : ''}

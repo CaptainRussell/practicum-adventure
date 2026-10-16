@@ -125,7 +125,9 @@ function phRender() {
   if (PH.status !== 'live' || !PH.v) app.innerHTML = phJoinScreen();
   else {
     const v = PH.v, me = v.you != null ? v.party[v.you] : null;
-    const kitGlow = me && me.cls && PH.tab !== 'kit' && me.perk && (v.phase === 'kit' ? !me.kitOk : !PH.kitSeen);
+    // the 🎒 KIT tab starts glowing on the Check Your Kit screen, not before
+    const preKit = ['title', 'join', 'intro', 'avatars', 'party', 'perks'].includes(v.phase);
+    const kitGlow = me && me.cls && PH.tab !== 'kit' && me.perk && !preKit && (v.phase === 'kit' ? !me.kitOk : !PH.kitSeen);
     const note = v.notice ? `<div class="ph-card ph-result"><div class="ph-h" style="margin-top:0">${v.notice.icon} ${esc(v.notice.title)}</div>${mt(esc(v.notice.text))}<div class="ph-note">Waiting for the GM to continue...</div></div>` : '';
     const body = PH.tab === 'kit' ? phKit(v, me) : PH.tab === 'org' ? phOrg(v) : note + phActor(v) + phGame(v, me) + phNow(v, me);
     app.innerHTML = `<div class="ph-wrap">${phHeader(v, me)}${body}</div>
