@@ -123,22 +123,25 @@ const INSIGNIA = { // rank: [file, width / height]
   'Col': ['Col', 2.0], 'Brig Gen': ['BrigGen', 1.067], 'Maj Gen': ['MajGen', 2.148],
   Amn: ['Amn', 2.182], A1C: ['A1C', 1.727], SrA: ['SrA', 1.429], SSgt: ['SSgt', 1.218], TSgt: ['TSgt', 1.063],
   MSgt: ['MSgt', 0.735], SMSgt: ['SMSgt', 0.661], CMSgt: ['CMSgt', 0.597],
+  '1stSgt': ['MSgt1stSgt', 0.735, 'MSgt (First Sergeant)'], // E7b_USAF_1STSGT1.svg: MSgt chevrons with the diamond
 };
 // load them all up front, so names don't show up without their insignia mid-game
 Object.values(INSIGNIA).forEach(([f]) => { new Image().src = `insignia/${f}.svg`; });
 function rankSvg(rank, h = 24) {
   const r = INSIGNIA[rank]; if (!r) return '';
+  const label = r[2] || rank;
   // a background image, not an <img>, so the avatar rules (".pcard img" etc.) never stretch it
-  return `<span class="rkins" role="img" aria-label="${esc(rank)}" title="${esc(rank)}" style="--h:${h}px;aspect-ratio:${r[1]};background-image:url(insignia/${r[0]}.svg)"></span>`;
+  return `<span class="rkins" role="img" aria-label="${esc(label)}" title="${esc(label)}" style="--h:${h}px;aspect-ratio:${r[1]};background-image:url(insignia/${r[0]}.svg)"></span>`;
 }
 // a cadet's / Unit member's rank insignia (nothing for civilians)
-const rankOf = p => (p && p.cls && CLASS[p.cls] ? CLASS[p.cls].rank : p && p.rank) || '';
+// a class can wear a special insignia for its rank (ins: the First Sergeant's diamond)
+const rankOf = p => (p && p.cls && CLASS[p.cls] ? CLASS[p.cls].ins || CLASS[p.cls].rank : p && p.rank) || '';
 function insignia(rankOrPerson, h) { return rankSvg(typeof rankOrPerson === 'string' ? rankOrPerson : rankOf(rankOrPerson), h); }
 // A class's badge: its rank insignia (replaces the old class emoji). h = height in px.
-function clsIcon(clsId, h) { const c = CLASS[clsId]; return c ? `<span class="clsins">${rankSvg(c.rank, h)}</span>` : ''; }
+function clsIcon(clsId, h) { const c = CLASS[clsId]; return c ? `<span class="clsins">${rankSvg(c.ins || c.rank, h)}</span>` : ''; }
 // An NPC / commander's insignia from a "Lt Col Name" label (nothing for civilians)
 function npcIns(label, h) { const r = RANK_ORDER.slice().sort((a, b) => b.length - a.length).find(x => String(label || '').startsWith(x + ' ')); return r ? rankSvg(r, h) : ''; }
-// Who holds the 👑 tie-break: the Flight Commander, or (once they're fired) the next cadet in line
+// Who holds the 👑 tie-break: the Flight Commander, or (no FC in the party / once they're fired) the cadet with the best CMD
 function crownIdx(S) { if (!S || !S.party) return -1; if (S.crown != null) return S.crown; return S.party.findIndex(c => c.cls === 'fc'); }
 // A cadet who can't act: in a meeting this stop, or relieved of command for good
 function isOut(S, i) { return i === S.offline || !!(S.party[i] && S.party[i].fired); }
@@ -719,7 +722,8 @@ function crisisLoss(k) {
   if (k === 'mis') { S.items = []; S.flags.MISSION_FAIL = true; return CRISES.mis.loss; }
   if (k === 'mor') { S.flags.LOST_AIRMAN = true; S.npcs.forEach(n => changeLoy(n.slot, -1)); return CRISES.mor.loss; }
   if (k === 'tru') {
-    const f = S.party.findIndex(c => c.cls === 'fc' && !c.fired);
+    // the Flight Commander, or the 👑 holder when the party has no FC; only one cadet is ever fired
+    const f = S.party.some(c => c.fired) ? -1 : fcIdx() >= 0 ? fcIdx() : crownIdx(S);
     if (f < 0) return CRISES.tru.loss;
     S.party[f].fired = true;
     const next = S.party.map((_, i) => i).filter(i => !S.party[i].fired).sort((a, b) => statOf(b, 'CMD') - statOf(a, 'CMD'))[0];
@@ -810,16 +814,16 @@ function rollPreview() {
 /* ---- map ---- */
 // 7, 6 or 5 stops (the GM picks before the map opens), then the IG. Slay the Spire style, but every
 // stop has a ROLE (a beat), so every run follows the same arc and only the details change:
-//   opener → warm-up → the test (💀 or 🔦) → supply → final push → prep (🏕️ or 🛒) → IG.
+//   opener (❓ or ⚔️) → warm-up → the test (💀 or 🔦) → supply → final push (💀, ⚔️ or ❓) → prep (🏕️ or 🛒) → IG.
 // Each beat lists the nodes it always offers (fixed) and what fills the rest (fill: weights).
 // Scenarios can repeat at a stop; other types can't. Paths branch and merge at random (never crossing).
 const ROUTE_BEATS = {
-  open:   { name: 'Opener',     fixed: ['crisis'],          fill: [['unknown', 60], ['crisis', 40]],               width: [2, 3] },
+  open:   { name: 'Opener',     fixed: ['unknown', 'crisis'], fill: [['crisis', 100]],                             width: [2, 3] },
   warm:   { name: 'Warm-up',    fixed: ['crisis'],          fill: [['crisis', 45], ['unknown', 25], ['spot', 30]], width: [2, 3] },
   test:   { name: 'The test',   fixed: ['elite', 'spot'],   fill: [],                                              width: [2, 2] },
   supply: { name: 'Supply run', fixed: ['depot'],           fill: [['crisis', 60], ['unknown', 40]],               width: [2, 3] },
   push:   { name: 'Mid push',   fixed: ['crisis'],          fill: [['unknown', 40], ['spot', 30], ['crisis', 30]], width: [2, 3] },
-  final:  { name: 'Final push', fixed: ['elite', 'crisis'], fill: [['spot', 50], ['crisis', 50]],                  width: [2, 3] },
+  final:  { name: 'Final push', fixed: ['elite', 'crisis', 'unknown'], fill: [],                                   width: [3, 3] },
   prep:   { name: 'Prep',       fixed: ['rest', 'depot'],   fill: [],                                              width: [2, 2] },
 };
 // Route length: the GM picks 7, 6 or 5 stops (remembered in this browser). Shorter routes drop middle
@@ -829,7 +833,7 @@ const STOP_PLANS = {
   6: ['open', 'warm', 'test', 'supply', 'final', 'prep'],
   5: ['open', 'warm', 'test', 'final', 'prep'],
 };
-const MAP_RULES = { unknowns: [1, 2] }; // [min, max] ❓ per map
+const MAP_RULES = { unknowns: [2, 3] }; // [min, max] ❓ per map (the opener and the final push always have one)
 const routeStops = () => { const n = +((S && S.stops) || localStorage.getItem('sq_stops') || 6); return STOP_PLANS[n] ? n : 6; };
 const levelAfter = () => (S.map && S.map.levelAfter) || 3;
 function rollMap() {
@@ -1080,12 +1084,13 @@ function lockParty() {
   if (p.some(c => !c.cls)) return 'Every cadet needs a class.';
   const cls = p.map(c => c.cls);
   if (new Set(cls).size !== cls.length) return 'No duplicate classes.';
-  if (!cls.includes('fc')) return 'Someone must be the Flight Commander.';
   // empty rows are dropped, so move each phone to its cadet's new row (or to spectator)
   const keep = S.party.map((c, i) => i).filter(i => S.party[i].name.trim());
   for (const k in S.clients || {}) { const c = S.clients[k]; if (c.slot != null) { const n = keep.indexOf(c.slot); c.slot = n >= 0 ? n : null; } }
   S.party = p.map(c => ({ ...c, perk: '' }));
-  S.tokenHolder = fcIdx();
+  // no Flight Commander (it's optional): the 👑 tie-break goes to the cadet with the best CMD
+  S.crown = fcIdx() >= 0 ? null : S.party.map((_, i) => i).sort((a, b) => statOf(b, 'CMD') - statOf(a, 'CMD'))[0];
+  S.tokenHolder = crownIdx(S);
   S.phase = 'perks';
   log('Classes locked', p.map(c => `${c.name} (${CLASS[c.cls].name})`).join('; '));
   return '';

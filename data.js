@@ -69,7 +69,7 @@ const CLASSES = [
              { id: 'ncopull', name: 'Senior NCO Pull', text: 'Once: a Unit member at loyalty 0-2 jumps to 3' } ],
     ups:   [ { id: 'standards', name: 'Standards Bearer', text: '+1 🎯 after every check you roll' },
              { id: 'council', name: 'Enlisted Council', text: 'Right now: +1 loyalty to every Unit member and +1 🎯', now: { mis: 1 } } ] },
-  { id: 'shirt', color: '#7dff6b', name: 'FIRST SERGEANT', icon: '💚', rank: 'MSgt', rankLong: 'Master Sergeant', guards: '❤️ + Unit loyalty', spec: ['mor'],
+  { id: 'shirt', color: '#7dff6b', name: 'FIRST SERGEANT', icon: '💚', rank: 'MSgt', ins: '1stSgt', rankLong: 'Master Sergeant', guards: '❤️ + Unit loyalty', spec: ['mor'],
     stats: { CMD: 1, CHA: 3, INS: 2, GRIT: 1 },
     ability: { id: 'rally', name: 'Rally', text: 'Once: +2 ❤️ and +1 loyalty to every Unit member' },
     perks: [ { id: 'deocs', name: 'DEOCS Survey', text: `Once: run the climate survey. The exact meter values show for the next ${DIFFICULTY.deocsStops} stops, and every Unit member +1 loyalty` },
@@ -761,7 +761,7 @@ const CRISES = {
     choices: [
       { t: 'Stand down for a day: chaplain, mental health and leadership walk the shop', kind: 'fx', eff: { set: { mor: 3 }, mis: -2, res: -2 } },
       { t: 'Hold a town hall: say it plainly, listen, and point everyone to help', mic: true, kind: 'stars', pre: { set: { mor: 2 } }, stars: [ { tru: -2, mis: -1 }, { mis: -1 }, { mor: 1 } ] } ] },
-  tru: { title: 'RELIEVED OF COMMAND', icon: '🪓', loss: "The Flight Commander is FIRED: no votes, rolls, perk or 👑 for the rest of the game. The tie-break passes to the next cadet.",
+  tru: { title: 'RELIEVED OF COMMAND', icon: '🪓', loss: "The Flight Commander (or, with no FC, whoever holds the 👑) is FIRED: no votes, rolls, perk or 👑 for the rest of the game. The tie-break passes to the next cadet.",
     death: '{CC} calls you in: "I no longer have confidence in your flight commander." The Flight Commander is relieved, effective now.',
     choices: [
       { t: 'The acting lead briefs {CC} on a turnaround plan', mic: true, kind: 'stars', pre: { set: { tru: 2 } }, stars: [ { tru: -1, mor: -2 }, { mor: -2 }, { tru: 1, mor: -1 } ] },

@@ -635,8 +635,6 @@ body.gm{font-family:var(--ui);font-size:14px;line-height:1.45;background:#0e1020
 .u3 .unitcard .tendency{font-size:17px;line-height:1.05;margin-top:3px}
 
 /* class select: the Flight Commander pulses until someone takes it (the team can't start without one) */
-.ccard.required{border-color:var(--gold);animation:reqglow 1.2s ease-in-out infinite}
-@keyframes reqglow{0%,100%{box-shadow:0 0 0 0 #ffd23f00}50%{box-shadow:0 0 28px 6px #ffd23fcc}}
 .ccard .who.req{background:#000;color:var(--gold);border:3px solid var(--gold);animation:blink 1s steps(1) infinite}
 .ccard .who{display:flex;align-items:center;gap:6px}
 .ccard .who img{width:26px;height:26px;image-rendering:pixelated;border:2px solid #000}

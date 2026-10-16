@@ -272,8 +272,7 @@ function phLook(me) {
 // Class select: a short list of the classes (who has which). Tapping one picks it and expands
 // just that card with its details; the projector shows every class in full.
 function phParty(v, me) {
-  const needFC = !v.party.some(p => p.name && p.cls === 'fc');
-  let h = needFC ? '<div class="ph-warn">⚠️ Your team needs a Flight Commander</div>' : '';
+  let h = '';
   h += `<div class="ph-h">${me.cls ? 'YOUR CLASS' : 'PICK YOUR CLASS'}</div><div class="ph-note">Tap a class to pick it. Full details are on the projector.</div>`;
   h += CLASSES.map(c => {
     const who = v.party.find(p => p.name && p.cls === c.id), mine = me.cls === c.id;
