@@ -486,7 +486,7 @@ function renderPerks(S) {
     <div class="sub" style="text-align:center;font-size:22px">Each cadet chooses one perk for their position (on your phone or tell the GM)</div>
     <div class="perkgrid" style="grid-template-columns:repeat(${S.party.length},1fr)">${S.party.map(p => { const c = CLASS[p.cls]; return `<div class="ccard ${p.perk ? 'taken' : ''}">
       <div class="chead"><img src="${avatarOf(p)}" style="width:40px;height:40px;image-rendering:pixelated"><div><h3>${insignia(p)}${esc(rankName(p))}</h3><div class="sub" style="font-size:19px">${c.name}</div></div></div>
-      ${c.perks.map((k, j) => `<div class="perk big ${p.perk === k.id ? 'sel' : p.perk ? 'off' : ''}"><span class="pki">${k.icon}</span><div><b>${p.perk === k.id ? '▶ ' : ''}${esc(k.name)}</b><div>${mt(esc(k.text))}</div></div></div>`).join('')}
+      ${c.perks.map((k, j) => `<div class="perk big ${p.perk === k.id ? 'sel' : p.perk ? 'off' : ''}"><b>${p.perk === k.id ? '▶ ' : ''}<span class="pki">${k.icon}</span>${esc(k.name)}</b><div>${mt(esc(k.text))}</div></div>`).join('')}
       <div class="sub" style="text-align:center;font-size:20px">${p.perk ? '✅ LOCKED IN' : '⏳ choosing...'}</div></div>`; }).join('')}</div></div>`;
 }
 

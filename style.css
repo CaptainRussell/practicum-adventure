@@ -279,9 +279,9 @@ body.player.reality .mtag{color:#1c2430}
 .perk.off{opacity:.35}
 .perkgrid{display:grid;gap:14px;flex:1;align-content:center}
 .perkgrid .ccard{gap:10px;padding:14px}
-.perk.big{font-size:22px;line-height:1.15;padding:10px 12px;display:flex;align-items:center;gap:14px}
-/* the perk's icon leads, sized to the screen */
-.perk.big .pki{flex:none;width:1.2em;text-align:center;font-size:clamp(56px,9vh,120px);line-height:1;font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif}
+.perk.big{font-size:22px;line-height:1.15;padding:10px 12px}
+/* the perk's icon leads its name line */
+.perk.big .pki{display:inline-block;vertical-align:middle;margin-right:8px;font-size:clamp(26px,4.2vh,48px);line-height:1;font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif}
 .perk.big b{display:block;font-family:var(--pixel);font-size:11px;line-height:1.6;margin-bottom:4px}
 
 /* avatar picker */
