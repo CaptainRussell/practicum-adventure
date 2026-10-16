@@ -62,7 +62,7 @@ function phData(d) {
   if (d.t === 'view') {
     const prev = PH.v; PH.v = d.v;
     // not seated yet but the party is still forming: ask again (after a new run)
-    if (d.v.you == null && ['title', 'intro', 'avatars', 'party'].includes(d.v.phase) && Date.now() - PH.lastHello > 3000) { PH.lastHello = Date.now(); phSend({ t: 'hello', name: PH.name }); }
+    if (d.v.you == null && ['title', 'join', 'intro', 'avatars', 'party'].includes(d.v.phase) && Date.now() - PH.lastHello > 3000) { PH.lastHello = Date.now(); phSend({ t: 'hello', name: PH.name }); }
     const myTurn = v => v && v.you != null && ((v.cur && v.cur.step === 'roll' && v.cur.roller === v.you) || (v.actor && v.actor.slot === v.you));
     if (myTurn(d.v) && !myTurn(prev)) { try { navigator.vibrate && navigator.vibrate([120, 60, 120]); } catch (e) { } }
     phRender();
@@ -178,7 +178,7 @@ function phActor(v) {
 
 // GAME tab: only what you can use RIGHT NOW (everything else lives in the KIT tab)
 function phNow(v, me) {
-  if (!me || !me.cls || ['title', 'intro', 'party', 'perks', 'avatars', 'results', 'debrief'].includes(v.phase)) return '';
+  if (!me || !me.cls || ['title', 'join', 'intro', 'party', 'perks', 'avatars', 'results', 'debrief'].includes(v.phase)) return '';
   const list = myUsable(v); if (!list.length) return '';
   return `<div class="ph-h" style="color:var(--gold)">⚡ YOU CAN USE NOW</div>` + list.map(u => pbtn('req', u.req, `${u.icon} <b>${esc(u.label)}</b>${u.who != null ? ' <small>(yours)</small>' : ' <small>(team)</small>'}<br><small>${mt(esc(u.hint))} · tap to ask the GM</small>`, { cls: 'avail' + (u.hot ? ' hot' : '') })).join('');
 }
@@ -199,7 +199,7 @@ function phGame(v, me) {
   if (v.you == null) return `<div class="ph-card">👀 You're watching as a spectator. Keep your eyes on the projector!</div>
     <div class="ph-card">📱 <b>Already playing on another device</b> (dead battery, new phone)? Tell the GM: they can move this device into your seat.</div>${guideLink}`;
   switch (v.phase) {
-    case 'title': case 'intro':
+    case 'title': case 'join': case 'intro':
       return `<div class="ph-card">✅ You're in, <b>${esc(me.name)}</b>!<br><br>Watch the projector while the GM explains the game. Next you pick your character icon, then your class.</div>${guideLink}`;
     case 'party': return phParty(v, me);
     case 'perks': { const cls = CLASS[me.cls];

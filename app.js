@@ -257,6 +257,7 @@ function usableNow(S) {
     if (u.type === 'meter' && anytime) add(null, req, l.icon, l.name, hint, METERS.some(m => (u.eff[m.k] || 0) > 0 && S.meters[m.k] <= 2));
     if (u.type === 'anyMeter' && anytime) add(null, req, l.icon, l.name, `+${u.n} to any meter`, METERS.some(m => S.meters[m.k] <= 2));
     if ((u.type === 'loyAll' || u.type === 'loyOne') && anytime && (S.npcs || []).some(n => n.loy < 5)) add(null, req, l.icon, l.name, hint, (S.npcs || []).some(n => n.loy <= 1));
+    if (u.type === 'branch' && branchUseful(S)) add(null, req, l.icon, l.name, branchUseful(S));
     if (u.type === 'recharge' && anytime && S.party.some(p => (p.used && CLASS[p.cls] && CLASS[p.cls].ability && !CLASS[p.cls].ability.auto) || (p.perk && p.perk !== 'hold' && (S.flags || {})['perkUsed_' + p.perk]))) add(null, req, l.icon, l.name, 'Recharge a used ability or perk');
   });
   const inGame = ['map', 'node', 'inject', 'boss'].includes(ph);
@@ -266,9 +267,9 @@ function usableNow(S) {
     const ab = cl.ability;
     if (ab && !ab.auto && p.used < abilityLimit(p)) {
       if (ab.id === 'rally') add(i, 'ability', clsIcon(p.cls, 18), ab.name, '❤️ +2 and every Unit member +1 loyalty', S.meters.mor <= 3 || (S.npcs || []).some(n => n.loy <= 1));
-      if (ab.id === 'bond' && (S.npcs || []).some(n => n.enlisted && n.loy < 5)) add(i, 'ability', clsIcon(p.cls, 18), ab.name, 'Enlisted Unit members +1 loyalty, +1 🎯', (S.npcs || []).some(n => n.enlisted && n.loy <= 1));
+      if (ab.id === 'pcs' && pcsCandidates(S).length) add(i, 'ability', clsIcon(p.cls, 18), ab.name, 'PCS an enlisted Unit member: a hand-picked replacement (one rank up, loyalty 4, an Ally)', pcsCandidates(S).some(n => n.loy <= 1));
       if (ab.id === 'ear' && S.lastTruLoss > 0) add(i, 'ability', clsIcon(p.cls, 18), ab.name, `Cancel the last ⭐ loss (−${S.lastTruLoss})`, true);
-      if (ab.id === 'requisition' && S.meters.res >= 1 && METERS.some(m => m.k !== 'res' && S.meters[m.k] <= 4)) add(i, 'ability', clsIcon(p.cls, 18), ab.name, 'Turn 📦 into a low meter (1:1)');
+      if (ab.id === 'sevenlvl' && S.meters.mis < 10) add(i, 'ability', clsIcon(p.cls, 18), ab.name, '+3 🎯', S.meters.mis <= 3);
       if (ab.id === 'foresight' && !S.forecast && ((ph === 'inject' && inj && inj.stage === 'trigger') || ph === 'map' || ph === 'node')) add(i, 'ability', clsIcon(p.cls, 18), ab.name, 'The next inject comes from the Wheel of Success', ph === 'inject');
     }
     const w = perkWhen(S, p, i);
@@ -278,7 +279,7 @@ function usableNow(S) {
   // the projector asks the team to decide; everything else lives on phones as "You can use now"
   out.forEach(u => {
     const it = u.req.startsWith('item:') && LOOT.find(l => l.id === u.req.slice(5));
-    u.moment = (it && ['cancel', 'wheel', 'undo'].includes(it.use.type)) || ['perk:beenthere', 'perk:memo', 'perk:lead'].includes(u.req)
+    u.moment = (it && ['cancel', 'wheel', 'undo'].includes(it.use.type)) || ['perk:beenthere', 'perk:memo', 'perk:lead', 'perk:mti'].includes(u.req)
       || (u.req === 'ability' && u.who != null && CLASS[S.party[u.who].cls].ability && CLASS[S.party[u.who].cls].ability.id === 'ear');
   });
   return out;
@@ -293,24 +294,30 @@ function perkWhen(S, p, i) {
   switch (p.perk) {
     case 'typ': return mission && c.step === 'roll' && c.spec && c.spec.check && c.spec.check.stat === 'CMD' && !c.typ ? { hint: "The roller uses the Flight Commander's CMD", hot: true } : null;
     case 'beenthere': return ph === 'inject' && inj && inj.stage === 'done' && inj.idx != null && MURPHY[inj.idx].type === 'bad' && !inj.cancelled && !inj.blocked ? { hint: 'Cancel this Wheel of Failure result', hot: true } : null;
-    case 'ncopull': return anytime && npcs.some(n => n.loy <= 2) ? { hint: 'A Unit member at loyalty 0-2 jumps to 3', hot: npcs.some(n => n.loy <= 1) } : null;
+    case 'ncopull': return anytime && npcs.some(n => !n.gone && n.loy < 5) ? { hint: 'One Unit member +3 loyalty', hot: npcs.some(n => !n.gone && n.loy <= 1) } : null;
     case 'opendoor': return anytime && npcs.some(n => n.loy < 5) ? { hint: '+1 loyalty to everyone, or +3 to one' } : null;
     case 'deocs': return anytime && !deocsOn(S) ? { hint: `See the exact meters for ${DIFFICULTY.deocsStops} stops, everyone +1 loyalty`, hot: METERS.some(m => S.meters[m.k] <= DIFFICULTY.dangerAt) } : null;
     case 'resiliency': return anytime && S.meters.mor <= 7 ? { hint: '❤️ +3, everyone +1 loyalty, 🎯 −1' } : null;
     case 'readroom': return mission && c.step === 'brief' && !c.intel && c.type !== 'crisisEvent' ? { hint: 'See the exact effects of every choice' } : null;
     case 'confidant': return null; // passive: switches on by itself when the org chart is shown (confidantStart)
     case 'emergency': return anytime && S.meters.res <= 7 ? { hint: '+3 📦 right now', hot: S.meters.res <= 2 } : null;
-    case 'yearend': return !pend.yearend && ((ph === 'node' && c && c.step === 'choose' && (c.type === 'rest' || c.type === 'depot')) || (ph === 'inject' && inj && inj.stage === 'result' && inj.idx != null && MURPHY[inj.idx].type === 'good')) ? { hint: 'Double the gains of this one', hot: true } : null;
     case 'memo': return memoTarget(S) ? { hint: 'Reroll that failed d20!', hot: true } : null;
     case 'lead': return leadTarget(S) ? { hint: 'Turn that failed roll into a pass (⭐ −1)', hot: true } : null;
-    case 'branch': { // only when your path actually blocks some of the next stops
-      if (ph !== 'map' || !S.map || S.branch || S.pos.tier < 0 || S.pos.tier >= S.map.tiers.length - 1) return null;
-      const reach = (S.map.links[S.pos.tier][S.pos.idx] || []).length, all = S.map.tiers[S.pos.tier + 1].length;
-      return reach < all ? { hint: `Your path reaches ${reach} of ${all} next stops: unlock all of them` } : null;
-    }
+    case 'mti': return leadTarget(S) ? { hint: 'Take command: that failed roll counts as a pass', hot: true } : null;
+    case 'readiness': return ['map', 'node', 'inject'].includes(ph) && !(S.flags || {}).MOCK_INSPECTION ? { hint: `Mock inspection: the IG starts with ${DIFFICULTY.mockInsp} less HP` } : null;
   }
   return null;
 }
+// Branch Plan (loot item): only worth it when your path actually blocks some of the next stops. Returns the hint or ''.
+function branchUseful(S) {
+  if (S.phase !== 'map' || !S.map || S.branch || S.pos.tier < 0 || S.pos.tier >= S.map.tiers.length - 1) return '';
+  const reach = (S.map.links[S.pos.tier][S.pos.idx] || []).length, all = S.map.tiers[S.pos.tier + 1].length;
+  return reach < all ? `Your path reaches ${reach} of ${all} next stops: unlock all of them` : '';
+}
+// Talent Management (SEL): the enlisted Unit members who can be PCSed out
+const pcsCandidates = S => (S.npcs || []).filter(n => n.enlisted && !n.gone && !n.handpicked);
+const RANK_UP = { AB: 'Amn', Amn: 'A1C', A1C: 'SrA', SrA: 'SSgt', SSgt: 'TSgt', TSgt: 'MSgt', MSgt: 'SMSgt', SMSgt: 'CMSgt' };
+const PCS_TRAITS = ['mentor', 'genius', 'overach', 'cynic', 'climber']; // a hand-picked Airman comes with an upside
 // what Write a Memorandum would reroll right now
 // what Lead From the Front would turn into a pass right now (a failed scenario check or Tackle it)
 function leadTarget(S) { const t = memoTarget(S); return t === 'boss' ? null : t; }
@@ -397,7 +404,7 @@ function gradeFor(S, total) {
   if (S.gameOver) return { g: 'F', title: 'GAME OVER', strat: GAME_OVER_TEXT, color: '#ff3b5c' };
   return GRADES.find(g => total >= g.min);
 }
-function isAlly(n) { return !n.gone && n.loy >= 5 || (n.trait === 'cynic' && n.revealed && n.loy >= 4); }
+function isAlly(n) { return !n.gone && (n.loy >= 5 || ((n.handpicked || (n.trait === 'cynic' && n.revealed)) && n.loy >= 4)); } // hand-picked (Talent Management) and Cynic: Ally at 4
 
 /* ---------------- leaderboard storage ---------------- */
 function loadBoard() { try { return JSON.parse(localStorage.getItem('sq_leaderboard') || '[]'); } catch (e) { return []; } }
@@ -519,7 +526,7 @@ function dangerInfo(S) {
   if (!S || !['map', 'node', 'inject', 'boss'].includes(S.phase) || !S.meters) return null;
   const low = METERS.filter(m => S.meters[m.k] <= DIFFICULTY.dangerAt); if (!low.length) return null;
   const what = S.phase === 'boss' ? 'Adverse Finding' : 'Crisis Event', open = deocsOn(S);
-  const tools = usableNow(S).filter(u => low.some(m => (u.hint || '').includes(m.icon)) || u.hint === '+3 to any meter' || (u.req === 'ability' && /Requisition/.test(u.label))).map(u => `${u.icon} ${u.label}`);
+  const tools = usableNow(S).filter(u => low.some(m => (u.hint || '').includes(m.icon)) || u.hint === '+3 to any meter').map(u => `${u.icon} ${u.label}`);
   const end = S.crises ? ' (a second one = GAME OVER)' : '';
   return { text: low.map(m => S.meters[m.k] === 0 ? `${m.label} ${open ? '0' : 'has bottomed out'}: ${what} incoming${end}` : `${m.label} ${open ? S.meters[m.k] : 'is in DANGER'}: a bad hit could mean a ${what}${end}`).join(' · '), tools: [...new Set(tools)] };
 }
@@ -1075,7 +1082,7 @@ function startRun() {
   const prev = S, keepBoard = S && S.muted;
   S = newState(); S.muted = !!keepBoard; hist = [];
   S.map = genMap(); // previewed (and rerollable) on the GM console until the route map opens
-  S.phase = 'intro'; S.introPage = 0;
+  S.phase = 'join'; S.introPage = 0; // a full-screen QR first, then the briefing
   // cadets who scanned the QR on the title screen keep their seats for this first run
   if (prev && prev.phase === 'title' && prev.clients) { S.clients = prev.clients; S.blocked = prev.blocked; S.party = prev.party; }
   else if (typeof netStop === 'function') netStop(); // last party's phones drop off; the new party joins fresh
@@ -1476,7 +1483,7 @@ function spinFumble() {
 function startBoss() {
   S.phase = 'boss'; S.cur = null; S.banner = null; S.actor = null;
   const broken = S.npcs.filter(n => n.broken || n.loy === 0);
-  const hp = DIFFICULTY.bossHp + (S.flags.WITNESS_IG ? 3 : 0) + broken.length * DIFFICULTY.witnessHp + (S.flags.MISSION_FAIL ? DIFFICULTY.crisisIgHp : 0);
+  const hp = Math.max(1, DIFFICULTY.bossHp + (S.flags.WITNESS_IG ? 3 : 0) + broken.length * DIFFICULTY.witnessHp + (S.flags.MISSION_FAIL ? DIFFICULTY.crisisIgHp : 0) - (S.flags.MOCK_INSPECTION ? DIFFICULTY.mockInsp : 0));
   S.boss = { hp, max: hp, round: 0, stage: 'intro', log: [], atk: null, acts: {}, allyUsed: {}, adverse: false,
     weak: S.npcs.some(n => n.trait === 'witness' && n.loy >= 4), wargame: null, lastFails: [], res: [],
     p2: { who: null, q: [], stars: [0, 0], rolls: null, done: false } };
@@ -1484,6 +1491,7 @@ function startBoss() {
   bossLog(`👹 ${BOSS.name} arrives: ${hp} HP.`);
   if (S.flags.WITNESS_IG) bossLog('🕵️ The Witness reported you to the IG: +3 HP.');
   if (S.flags.MISSION_FAIL) bossLog(`💥 The IG read the Mission Failure report: +${DIFFICULTY.crisisIgHp} HP.`);
+  if (S.flags.MOCK_INSPECTION) bossLog(`📋 Your Readiness Inspection already found and fixed the easy write-ups: −${DIFFICULTY.mockInsp} HP.`);
   broken.forEach(n => bossLog(`🗣️ ${n.rank} ${n.name} hit their breaking point and is now a hostile witness: IG +${DIFFICULTY.witnessHp} HP.`));
   if (Bs.weak) bossLog(`🕵️ The Witness tipped you off: Press target ${examDC(Bs)}.`);
   const allies = S.npcs.filter(isAlly);
@@ -1659,6 +1667,22 @@ function saveToBoard() {
 
 /* ---- abilities, items, GM cards ---- */
 function abilityLimit(c) { return 1; }
+// Talent Management: the Unit member in that slot PCSes out and a hand-picked replacement takes the slot:
+// one rank higher, a fresh name, a trait with an upside nobody in the unit has, loyalty 4 and an Ally right away.
+function pcsReplace(old) {
+  const R = getRoster(), pool = (SLOTS.find(x => x.s === old.slot) || {}).pool === 'upper' ? R.upper : R.lower;
+  const used = new Set([...S.npcs.map(n => n.name), ...S.party.map(p => p.name), String(S.cc || '').split(' ').pop(), ...Object.values(S.extras || {}).map(x => x.name), ...(S.pcsNames || [])].map(x => String(x).toLowerCase()));
+  const free = n => !used.has(n.toLowerCase());
+  const name = shuffle(pool.filter(free))[0] || shuffle((pool === R.upper ? R.lower : R.upper).filter(free))[0];
+  if (!name) return null;
+  const have = S.npcs.map(n => n.trait), trait = shuffle(PCS_TRAITS.filter(t => !have.includes(t)))[0] || shuffle(TRAITS.map(t => t.id).filter(t => !have.includes(t)))[0] || old.trait;
+  S.pcsNames = (S.pcsNames || []).concat(old.name); // the old member's name stays out of the roster
+  const nu = { slot: old.slot, rank: RANK_UP[old.rank] || old.rank, pub: 'Hand-picked by the Senior Enlisted Leader', enlisted: true, name,
+    trait, revealed: true, loy: 4, out: 0, broken: false, handpicked: true };
+  S.npcs[S.npcs.indexOf(old)] = nu;
+  log('Talent Management', `${old.rank} ${old.name} PCSed out; ${nu.rank} ${nu.name} arrives`);
+  return nu;
+}
 // Use cadet i's perk (from a phone request or the console). Every perk is once per game.
 function usePerk(i) {
   const p = S.party[i], id = p && p.perk, pk = p && perkOf(p);
@@ -1674,10 +1698,10 @@ function usePerk(i) {
       what = 'The Chief has seen this one before. The Wheel of Failure result is cancelled: no loss.'; break;
     }
     case 'ncopull': {
-      const low = S.npcs.filter(n => n.loy <= 2);
-      const s = low.length === 1 ? low[0].slot : (prompt(`Senior NCO Pull: which Unit member? ${low.map(n => `${n.slot} = ${n.rank} ${n.name} (${n.loy})`).join(', ')}`, low[0].slot) || '').trim().toUpperCase();
-      const n = low.find(x => x.slot === s); if (!n) return false;
-      changeLoy(n.slot, 3 - n.loy); what = `${n.rank} ${n.name}'s loyalty jumps to 3.`; break;
+      const ok = S.npcs.filter(n => !n.gone && n.loy < 5);
+      const s = ok.length === 1 ? ok[0].slot : (prompt(`Senior NCO Pull: which Unit member gets +3 loyalty? ${ok.map(n => `${n.slot} = ${n.rank} ${n.name} (${n.loy})`).join(', ')}`, ok[0].slot) || '').trim().toUpperCase();
+      const n = ok.find(x => x.slot === s); if (!n) return false;
+      changeLoy(n.slot, 3); traitCare(); what = `${n.rank} ${n.name} gets the Senior NCO's attention: +3 loyalty (now ${n.loy}).`; break;
     }
     case 'opendoor': {
       const a = (prompt('Open Door Policy: type ALL for +1 loyalty to everyone, or a letter (A, B, C, D) for +3 to that Unit member', 'ALL') || '').trim().toUpperCase();
@@ -1690,19 +1714,20 @@ function usePerk(i) {
     case 'readroom': c.intel = true; what = 'The exact effects of every choice on this mission are now on screen.'; break;
     case 'confidant': S.flags.ccNegOff = true; what = `${name} has the commander's ear: "${unitObj().cc.neg.name}" no longer applies for the rest of the game.`; break;
     case 'emergency': applyEff({ res: 3, why: 'Emergency Fund' }); what = '+3 📦 right now.'; break;
-    case 'yearend': S.pending.yearend = true; what = 'The gains from this Rest Stop, BX purchase or Wheel of Success result are doubled.'; break;
+    case 'mti': // Prior MTI (UTM): like Lead From the Front, with no ⭐ cost
     case 'lead': { // the FC takes the failed roll on personally: it counts as a pass, ⭐ −1. No reroll on screen:
       // only the net change to the meters (failed result → passed result, plus the ⭐ −1) is shown.
       const t = leadTarget(S), flags = { ...S.flags }, before = { ...S.meters }, fx0 = FX.length;
       if (t === 'mission') { const d = c.rollRes.d20, roller = c.rollRes.roller; S = JSON.parse(c.preRoll); S.flags = flags; resolveRoll(roller, { lead: true, d20: d }); }
       else if (t === 'tackle') { const d = inj.tackleD20, lv = inj.leaver; S = JSON.parse(inj.preTackle); S.flags = flags; resolveTackle({ lead: true, d20: d, leaver: lv }); }
       else return false;
-      applyEff({ tru: -1, why: 'Lead From the Front: the commander noticed you overrode your people' });
+      if (id === 'lead') applyEff({ tru: -1, why: 'Lead From the Front: the commander noticed you overrode your people' });
       FX = FX.slice(0, fx0).concat(FX.slice(fx0).filter(f => !['deltas', 'roll', 'dice', 'injectResult', 'wheel'].includes(f.k)));
       const d = METERS.map(m => [m.k, S.meters[m.k] - before[m.k]]).filter(x => x[1]);
       if (d.length) emit('deltas', { d });
       if (S.base) S.base.m = { ...before }; // the result card now shows just what Lead From the Front changed
-      what = `${name} takes it on personally. The failed roll now counts as a PASS, but ⭐ −1: the commander noticed you overrode your people.`;
+      what = id === 'mti' ? `${name} switches to Military Training Instructor mode and takes command. The failed roll now counts as a PASS.`
+        : `${name} takes it on personally. The failed roll now counts as a PASS, but ⭐ −1: the commander noticed you overrode your people.`;
       break;
     }
     case 'memo': {
@@ -1713,7 +1738,7 @@ function usePerk(i) {
       what = t === 'boss' ? 'The memo goes up the chain: one failed Press is rolled again.' : 'The memo goes up the chain: that failed d20 is wiped. Roll it again.';
       break;
     }
-    case 'branch': S.branch = true; what = 'Plan B is ready: vote for ANY stop in the next column, even off your path.'; break;
+    case 'readiness': S.flags.MOCK_INSPECTION = true; what = `The flight runs its own readiness inspection and fixes what it finds. The IG will start with ${DIFFICULTY.mockInsp} less HP.`; break;
   }
   S.flags['perkUsed_' + id] = true;
   notice('🎁', `${name.toUpperCase()}: ${pk.name.toUpperCase()}`, what); sfx('loot'); log('Perk', `${name}: ${pk.name}`);
@@ -1725,19 +1750,19 @@ function useAbility(i) {
   if (ab.id === 'rally') {
     applyEff({ mor: 2, why: 'Rally' }); S.npcs.forEach(n => changeLoy(n.slot, 1)); traitCare();
     what = 'The First Sergeant rallies the unit: ❤️ +2 and every Unit member +1 loyalty.';
-  } else if (ab.id === 'bond') {
-    S.npcs.filter(n => n.enlisted).forEach(n => changeLoy(n.slot, 1)); applyEff({ mis: 1, why: 'Enlisted Bond' });
-    what = 'The Chief gathers the enlisted force: every enlisted Unit member +1 loyalty, and 🎯 +1.';
+  } else if (ab.id === 'pcs') {
+    const opts = pcsCandidates(S); if (!opts.length) return alert('No enlisted Unit member can PCS right now.');
+    const s = opts.length === 1 ? opts[0].slot : (prompt(`Talent Management: who PCSes out? ${opts.map(n => `${n.slot} = ${n.rank} ${n.name} (loyalty ${n.loy})`).join(', ')}`, opts[0].slot) || '').trim().toUpperCase();
+    const old = opts.find(n => n.slot === s); if (!old) return;
+    const nu = pcsReplace(old); if (!nu) return alert('No unused name left in the roster for a replacement.');
+    what = `${old.rank} ${old.name} PCSes out. The SEL hand-picked the replacement: ${nu.rank} ${nu.name} (${TRAIT[nu.trait].icon} ${TRAIT[nu.trait].name}), loyalty ${nu.loy} and already an Ally.`;
   } else if (ab.id === 'ear') {
     if (!S.lastTruLoss) return alert('No ⭐ loss to cancel yet.');
     what = `A quiet word with the commander: the last ⭐ loss is cancelled (⭐ +${S.lastTruLoss}).`;
     applyEff({ tru: S.lastTruLoss, why: "Commander's Ear" }); S.lastTruLoss = 0;
-  } else if (ab.id === 'requisition') {
-    const k = (prompt('Requisition: which meter? mis / mor / tru', 'mis') || '').trim(); if (!['mis', 'mor', 'tru'].includes(k)) return;
-    const amt = parseInt(prompt(`How many points of ${METER[k].name}? (costs 1 📦 each, you have ${S.meters.res})`, '1'), 10);
-    if (!(amt > 0) || amt > S.meters.res) return alert('Not enough 📦.');
-    applyEff({ res: -amt, [k]: amt, why: 'Requisition' });
-    what = `${amt} 📦 turned into ${amt} ${METER[k].icon} ${METER[k].label}.`;
+  } else if (ab.id === 'sevenlvl') {
+    applyEff({ mis: 3, why: '7-Level Upgrade' });
+    what = 'The UTM pushes the flight through 7-level upgrade training: 🎯 +3.';
   } else if (ab.id === 'foresight') {
     S.forecast = { good: true };
     what = 'The Plans Officer sees it coming: the next inject skips the d6 and comes from the Wheel of Success.';
@@ -1759,6 +1784,7 @@ function useItem(k) {
     case 'loyOne': { const s = (prompt(`${it.name}: which Unit member? ${S.npcs.map(n => `${n.slot} = ${n.rank} ${n.name} (${n.loy})`).join(', ')}`, 'A') || '').trim().toUpperCase(); if (!npc(s)) return; changeLoy(s, u.d); break; }
     case 'intel': if (!c || c.step !== 'brief') return alert(`${it.name} works while a mission brief is up.`); c.intel = true; break;
     case 'deocs': runDeocs(); toast('📋', 'DEOCS SURVEY RESULTS', `Exact meter values for the next ${DIFFICULTY.deocsStops} stops`); break;
+    case 'branch': if (!branchUseful(S)) return alert(`${it.name} works on the route map when your path doesn't reach every next stop.`); S.branch = true; toast(it.icon, it.name.toUpperCase(), 'Vote for ANY stop in the next column'); break;
     case 'wheel': {
       if (!inj || inj.stage !== 'trigger') return alert(`${it.name} works before the inject d6 is rolled.`);
       const w = (prompt(`${it.name}: which wheel? M = Wheel of Meh, S = Wheel of Success`, 'S') || '').trim().toUpperCase();
@@ -1851,7 +1877,7 @@ function renderGM() {
       ${B('newRun', '🆕 New run', { cls: 'red' })}
     </div>
     <div id="gmMain">${S.notice ? `<div class="gcard" style="border-color:var(--gold)"><div class="row"><b style="flex:1">${S.notice.icon} Popup on the projector and phones: ${esc(S.notice.title)}</b>${B('noticeOk', '✅ Continue', { cls: 'pri sm' })}</div><div class="note">${esc(S.notice.text)}</div></div>` : ''}${gmActorCard()}${voteTie(S) ? `<div class="note" style="margin:0 0 6px">${esc(tieText(S))}</div>` : ''}${gmMain()}</div>
-    <div id="gmSide">${typeof gmPhonesCard === 'function' ? gmPhonesCard() : ''}${['title', 'intro', 'party', 'perks', 'avatars'].includes(S.phase) ? gmSideLite() : gmSide()}</div>
+    <div id="gmSide">${typeof gmPhonesCard === 'function' ? gmPhonesCard() : ''}${['title', 'join', 'intro', 'party', 'perks', 'avatars'].includes(S.phase) ? gmSideLite() : gmSide()}</div>
   </div>`;
   if (focusId && document.getElementById(focusId)) { const el = document.getElementById(focusId); el.focus(); if (el.setSelectionRange && el.type === 'text') { const l = el.value.length; el.setSelectionRange(l, l); } }
 }
@@ -1872,6 +1898,7 @@ function gmMain() {
     case 'perks': return gmPerks();
     case 'unit': return `<div class="gcard"><h2>Pick the squadron</h2><p class="note">The team votes on their phones (✋; the Flight Commander breaks ties). Click the winner: it draws the Unit members (excluding anyone in this party) and deals traits.</p>
       ${S.unitRolled ? B('showManifest', '📋 Show the org chart', { cls: 'pri' }) : `<div class="row">${UNITS.map(u => B('pickUnit', `${u.icon} ${u.name}${voteTag(u.id)}`, { arg: u.id, cls: 'go' })).join('')}</div>`}</div>`;
+    case 'join': return gmJoin();
     case 'intro': return gmIntro();
     case 'avatars': return gmAvatars();
     case 'manifest': return gmManifest();
@@ -1922,7 +1949,7 @@ function boardTable(b) {
 function gmParty() {
   const taken = S.party.map(c => c.cls);
   return `<div class="gcard"><h2>Character select</h2>
-  <p class="note">Cadets pick their classes (by phone or out loud). Flight Commander is required, and there are no duplicate classes. Leave row 4 blank for a 3-person party. Perks stay hidden until the classes are locked.</p>
+  <p class="note">Cadets pick their classes (by phone or out loud). Flight Commander is optional (without one, the best-CMD cadet holds the 👑 tie-break), and there are no duplicate classes. Leave row 4 blank for a 3-person party. Perks stay hidden until the classes are locked.</p>
   ${S.party.map((c, i) => `<div class="gchoice"><div class="row">
     <b>P${i + 1}</b>${c.av != null ? `<img src="${avatarOf(c)}" style="width:28px;height:28px;image-rendering:pixelated">` : ''}<input type="text" id="pname${i}" placeholder="Cadet name (or they join by phone)" value="${esc(c.name)}" data-inp="pname" data-arg="${i}">
     ${Object.values(S.clients || {}).some(k => k.slot === i) ? '<span class="pill y">📱 phone</span>' : ''}
@@ -1970,6 +1997,15 @@ function miniMap(m) {
   g += `<text x="${x0}" y="${H / 2 + 6}" font-size="16" text-anchor="middle">🛫</text><text x="${x1}" y="${H / 2 + 7}" font-size="20" text-anchor="middle">👹</text>`;
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:560px;background:#0b0b1e;border:1px solid #333;margin:6px 0">${g}</svg>`;
 }
+// Join screen: the projector is one big QR code so every cadet can scan it before the briefing starts
+function gmJoin() {
+  const n = Object.keys(S.clients || {}).length;
+  return `<div class="gcard"><h2>📱 Join screen</h2>
+    <p class="note">The projector shows the join QR code full screen. Wait until every cadet has scanned it and joined, then start the briefing. Cadets can still join later (until classes are picked); the QR stays in the corner.</p>
+    <p><b>${n}</b> phone${n === 1 ? '' : 's'} joined${n ? `: ${Object.values(S.clients).map(c => esc(c.name)).join(', ')}` : ''}</p>
+    <div class="row">${B('startBriefing', '▶️ Start the briefing', { cls: 'pri' })}</div></div>`;
+}
+act('startBriefing', () => { S.phase = 'intro'; S.introPage = 0; sfx('click'); });
 function gmIntro() {
   const pg = S.introPage;
   const txt = ['The projector shows WHY ARE WE DOING THIS?: the five practicum objectives. Tell them every stop tests at least one, and the debrief will show which.',

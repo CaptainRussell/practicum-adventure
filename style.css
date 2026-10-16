@@ -14,6 +14,7 @@ body.player{font-family:var(--vt);font-size:26px;line-height:1.15;overflow:hidde
   background:radial-gradient(ellipse at top,#1d1d5a 0%,#0b0b1e 60%) fixed}
 body.player::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;
   background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 2px,transparent 2px 4px)}
+body.player.joining::after{display:none} /* no scanlines over the join QR: phone cameras read it cleanly */
 .pl{display:grid;grid-template-rows:auto 1fr;height:100vh}
 .hud{display:grid;grid-template-columns:auto 1fr auto;gap:22px;align-items:center;padding:12px 22px;
   background:#07071a;border-bottom:4px solid var(--line)}
@@ -361,6 +362,14 @@ body.player.reality .mtag{color:#1c2430}
 /* phone join box + votes on the projector */
 .joinbox{position:fixed;right:18px;bottom:18px;z-index:30;display:flex;gap:14px;align-items:center;background:#000;border:4px solid var(--accent);padding:10px 14px;box-shadow:6px 6px 0 #0008}
 .joinbox img{width:150px;height:150px;image-rendering:pixelated;background:#fff}
+/* the join screen: the QR as big as the projector allows, room code beside it */
+.joinscr{height:100%;display:flex;align-items:center;justify-content:center;gap:48px;padding:20px;flex-wrap:wrap}
+.joinscr .jqr{height:min(86vh,60vw);width:auto;aspect-ratio:1;image-rendering:pixelated;background:#fff;border:8px solid #fff;box-shadow:0 0 0 6px var(--accent)}
+.joinscr .jside{display:flex;flex-direction:column;gap:18px;max-width:34vw}
+.joinscr .ptitle{font-size:34px}
+.joinscr .jurl{font-size:30px;color:var(--text);overflow-wrap:anywhere}
+.joinscr .jcode{font-family:var(--pixel);font-size:40px;color:var(--gold)}
+.joinscr .jsub{font-size:26px;color:var(--dim)}
 .joinbox .jurl{font-size:22px;color:var(--text);max-width:320px;overflow-wrap:anywhere}
 .joinbox .jcode{font-family:var(--pixel);font-size:22px;color:var(--gold);margin-top:6px}
 .votes{position:absolute;right:8px;bottom:6px;display:flex;gap:4px}
@@ -635,7 +644,6 @@ body.gm{font-family:var(--ui);font-size:14px;line-height:1.45;background:#0e1020
 .u3 .unitcard .tendency{font-size:17px;line-height:1.05;margin-top:3px}
 
 /* class select: the Flight Commander pulses until someone takes it (the team can't start without one) */
-.ccard .who.req{background:#000;color:var(--gold);border:3px solid var(--gold);animation:blink 1s steps(1) infinite}
 .ccard .who{display:flex;align-items:center;gap:6px}
 .ccard .who img{width:26px;height:26px;image-rendering:pixelated;border:2px solid #000}
 
@@ -811,7 +819,7 @@ body.gm{font-family:var(--ui);font-size:14px;line-height:1.45;background:#0e1020
 .cspec .mtag{font-size:20px;padding:4px 12px}
 .cspec-lbl{font-size:11px}
 .cfoot .statline{font-size:22px}
-/* the REQUIRED / name tag never wraps; the class name takes the remaining room */
+/* the name tag never wraps; the class name takes the remaining room */
 .classgrid .ccard .chead{display:flex;align-items:center;gap:8px}
 .classgrid .ccard .chead h3{flex:1;min-width:0}
 .classgrid .ccard .who{position:static;flex:none;white-space:nowrap;font-size:10px}

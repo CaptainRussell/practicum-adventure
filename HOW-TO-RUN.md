@@ -28,7 +28,7 @@
 - Field guide for cadets: `guide.html`.
 
 ## Each party (~30 min)
-1. **New run**. The projector shows two briefing screens, HOW TO PLAY and READING THE SCREEN. Read them out loud, then go to class select.
+1. **New run**. The projector first shows the join QR code full screen: wait until every cadet has scanned it (the console counts who joined), then click **▶️ Start the briefing**. The projector then shows the briefing screens, HOW TO PLAY and READING THE SCREEN. Read them out loud, then go to class select.
 2. **Class select**: cadets pick classes (phone, or you type names and set classes). The Flight Commander is optional (without one, the best-CMD cadet holds the 👑 tie-break), and no two cadets can share a class. Perks are hidden. Click **Lock in the classes → reveal perks**.
 3. **Perk selection**: the projector reveals each cadet's two perks. Each cadet picks one, then click **Lock perks → pick pilots**.
 4. **Pick your pilot**: each cadet picks one of the 16 numbered 8-bit characters.

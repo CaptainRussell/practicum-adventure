@@ -255,9 +255,9 @@ function drawBoss(cv) {
 /* ---------------- render ---------------- */
 function render() {
   const S = P.S; if (!S) return;
-  document.body.className = 'player' + (S.phase === 'debrief' ? ' reality' : '');
-  const full = ['title', 'intro', 'party', 'perks', 'avatars', 'boss', 'results', 'debrief', 'levelup', 'unit', 'manifest'].includes(S.phase);
-  const hud = !['title', 'intro', 'debrief', 'party', 'perks', 'avatars', 'unit'].includes(S.phase);
+  document.body.className = 'player' + (S.phase === 'debrief' ? ' reality' : '') + (S.phase === 'join' ? ' joining' : '');
+  const full = ['title', 'join', 'intro', 'party', 'perks', 'avatars', 'boss', 'results', 'debrief', 'levelup', 'unit', 'manifest'].includes(S.phase);
+  const hud = !['title', 'join', 'intro', 'debrief', 'party', 'perks', 'avatars', 'unit'].includes(S.phase);
   $('#app').innerHTML = `<div class="pl">${hud ? renderHud(S) : '<div></div>'}
     <div class="stage ${full ? 'full' : ''}"><div class="main">${renderMain(S)}</div>${full ? '' : `<div class="side">${renderSide(S)}</div>`}</div></div>
     ${S.showBoard ? renderBoardOverlay() : ''}${renderJoinBox(S)}${renderActorBanner(S)}${renderResultCard(S)}${renderNotice(S)}`;
@@ -292,6 +292,17 @@ function renderJoinBox(S) {
   const src = qrSrc(j.url);
   return `<div class="joinbox">${src ? `<img src="${src}">` : ''}<div><div class="sectlbl">📱 JOIN ON YOUR PHONE</div>
     <div class="jurl">${esc(j.url.replace(/^https?:\/\//, '').replace(/\?.*$/, ''))}</div><div class="jcode">ROOM ${esc(j.code)}</div></div></div>`;
+}
+// The first screen of a run: the join QR blown up to fill the projector, so the whole room can scan it
+function renderJoinScreen(S) {
+  const j = P.join, src = j && j.url ? qrSrc(j.url) : '';
+  const names = Object.values(S.clients || {}).map(c => c.name).filter(Boolean);
+  if (!src) return `<div class="joinscr"><div class="ptitle">📱 JOIN ON YOUR PHONE</div><div class="jsub">${j && j.code ? `Phones are connecting… ROOM <b>${esc(j.code)}</b>` : 'Phones are off: the GM runs this one from the console.'}</div></div>`;
+  return `<div class="joinscr"><img class="jqr" src="${src}" alt="Join QR code">
+    <div class="jside"><div class="ptitle">📱 SCAN TO JOIN</div>
+      <div class="jurl">${esc(j.url.replace(/^https?:\/\//, '').replace(/\?.*$/, ''))}</div>
+      <div class="jcode">ROOM <b>${esc(j.code)}</b></div>
+      <div class="jsub">${j.live ? '' : '🟡 connecting… '}${names.length ? `✅ ${names.length} joined: ${names.map(esc).join(', ')}` : 'Waiting for cadets…'}</div></div></div>`;
 }
 function voteDots(S, i) {
   const v = S.votes || {};
@@ -383,6 +394,7 @@ function renderMain(S) {
   if (S.inject && S.inject.forced) return renderInject(S);
   switch (S.phase) {
     case 'title': return renderTitle();
+    case 'join': return renderJoinScreen(S);
     case 'intro': return renderIntro(S);
     case 'party': return renderParty(S);
     case 'perks': return renderPerks(S);
@@ -450,7 +462,7 @@ function renderParty(S) {
     <div class="sub" style="text-align:center;font-size:21px">no duplicate classes · no Flight Commander? the best CMD gets the 👑${P.join && P.join.live ? ` · 📱 pick on your phone (ROOM <b style="color:var(--gold)">${esc(P.join.code)}</b>)` : ''}</div>
     <div class="classgrid">${CLASSES.map(c => {
       const who = S.party.find(p => p.cls === c.id && p.name);
-      return `<div class="ccard ${who ? 'taken' : ''}" style="${who ? `border-color:${c.color}` : ''}"><div class="chead"><span class="ic">${clsIcon(c.id, 40)}</span><h3 style="color:${c.color}">${c.name}</h3>${who ? `<div class="who" style="background:${c.color}">${who.av != null ? `<img src="${avatarOf(who)}">` : ''}${esc(rankName(who))}</div>` : c.id === 'fc' ? '<div class="who req">REQUIRED</div>' : ''}</div>
+      return `<div class="ccard ${who ? 'taken' : ''}" style="${who ? `border-color:${c.color}` : ''}"><div class="chead"><span class="ic">${clsIcon(c.id, 40)}</span><h3 style="color:${c.color}">${c.name}</h3>${who ? `<div class="who" style="background:${c.color}">${who.av != null ? `<img src="${avatarOf(who)}">` : ''}${esc(rankName(who))}</div>` : ''}</div>
         <div class="sub cline"><span style="color:var(--gold)">${c.rankLong}</span></div>
         <div class="ab"><b style="color:var(--accent)">${c.ability ? '⚡ ' + esc(c.ability.name) : '👑 COMMAND'}:</b> ${mt(esc(c.ability ? c.ability.text : c.abilityText))}</div>
         

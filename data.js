@@ -29,6 +29,7 @@ const DIFFICULTY = {
   dangerAt: 2,    // a meter at or below this flashes DANGER on the projector and phones
   deocsStops: 2,   // a DEOCS Survey shows the exact meter values for this many stops
   crisisIgHp: 4,   // a Mission Failure crisis adds this much IG HP at the inspection
+  mockInsp: 4,     // Readiness Inspection (UTM perk): the IG starts with this much less HP
 };
 const DC_NORMAL = 13 + DIFFICULTY.dcPlus, DC_HARD = 16 + DIFFICULTY.dcPlus;
 
@@ -62,11 +63,11 @@ const CLASSES = [
              { id: 'hold', name: 'Hold the Line', text: 'Once: when a meter would drop to 0, it stops at 1 (fires on its own)' } ],
     ups:   [ { id: 'battle', name: 'Battle-Tested', text: '+1 CMD and +1 GRIT', stats: { CMD: 1, GRIT: 1 } },
              { id: 'huddle', name: 'Huddle', text: 'Right now: +1 to every meter', now: { mis: 1, mor: 1, tru: 1, res: 1 } } ] },
-  { id: 'chief', color: '#ff9f43', name: 'FLIGHT CHIEF', icon: '🎖️', rank: 'SMSgt', rankLong: 'Senior Master Sergeant', guards: '🎯 standards + enlisted Airmen', spec: ['mis'],
+  { id: 'chief', color: '#ff9f43', name: 'SENIOR ENLISTED LEADER', icon: '🎖️', rank: 'SMSgt', rankLong: 'Senior Master Sergeant', guards: '⭐ + the enlisted force', spec: ['tru'],
     stats: { CMD: 2, CHA: 2, INS: 2, GRIT: 2 },
-    ability: { id: 'bond', name: 'Enlisted Bond', text: 'Once: +1 loyalty to every enlisted Unit member and +1 🎯' },
+    ability: { id: 'pcs', name: 'Talent Management', text: 'Once: PCS one enlisted Unit member out. A hand-picked replacement arrives one rank higher, with a new trait, at loyalty 4 and already an Ally' },
     perks: [ { id: 'beenthere', name: 'Been There', text: 'Once: cancel a Wheel of Failure result after it lands' },
-             { id: 'ncopull', name: 'Senior NCO Pull', text: 'Once: a Unit member at loyalty 0-2 jumps to 3' } ],
+             { id: 'ncopull', name: 'Senior NCO Pull', text: 'Once: one Unit member +3 loyalty' } ],
     ups:   [ { id: 'standards', name: 'Standards Bearer', text: '+1 🎯 after every check you roll' },
              { id: 'council', name: 'Enlisted Council', text: 'Right now: +1 loyalty to every Unit member and +1 🎯', now: { mis: 1 } } ] },
   { id: 'shirt', color: '#7dff6b', name: 'FIRST SERGEANT', icon: '💚', rank: 'MSgt', ins: '1stSgt', rankLong: 'Master Sergeant', guards: '❤️ + Unit loyalty', spec: ['mor'],
@@ -83,18 +84,18 @@ const CLASSES = [
              { id: 'confidant', name: "Commander's Confidant", text: "Passive: the commander's negative perk never applies (switches on by itself when the org chart is shown)" } ],
     ups:   [ { id: 'golden', name: 'Golden Child', text: 'All ⭐ losses reduced by 1 (min 1)' },
              { id: 'favor', name: "Commander's Favor", text: 'Right now: +3 ⭐', now: { tru: 3 } } ] },
-  { id: 'ra', color: '#3fd8ff', name: 'RESOURCE ADVISOR', icon: '📦', rank: 'TSgt', rankLong: 'Technical Sergeant', guards: '📦', spec: ['res'],
+  { id: 'utm', color: '#3fd8ff', name: 'UNIT TRAINING MANAGER', icon: '📚', rank: 'TSgt', rankLong: 'Technical Sergeant', guards: '🎯 + upgrade training', spec: ['mis'],
     stats: { CMD: 1, CHA: 1, INS: 2, GRIT: 3 },
-    ability: { id: 'requisition', name: 'Requisition', text: 'Convert 📦 into any other meter, 1 for 1' },
-    perks: [ { id: 'emergency', name: 'Emergency Fund', text: 'Once: +3 📦 right now' },
-             { id: 'yearend', name: 'Year-End Money', text: 'Once: double the gains of one Rest Stop, BX purchase or Wheel of Success result' } ],
+    ability: { id: 'sevenlvl', name: '7-Level Upgrade', text: 'Once: +3 🎯' },
+    perks: [ { id: 'mti', name: 'Prior MTI', text: 'Once: after a failed check (or Tackle it), the former Military Training Instructor takes command: it counts as a pass' },
+             { id: 'readiness', name: 'Readiness Inspection', text: `Once, before the IG arrives: run a mock inspection. The IG starts with ${DIFFICULTY.mockInsp} less HP` } ],
     ups:   [ { id: 'efficiency', name: 'Efficiency Expert', text: 'All 📦 losses reduced by 1 (min 1)' },
              { id: 'drill', name: 'Budget Drill', text: 'Right now: +3 📦', now: { res: 3 } } ] },
-  { id: 'plans', color: '#ff7ae0', name: 'PLANS OFFICER', icon: '🧠', rank: '2d Lt', rankLong: 'Second Lieutenant', guards: '🎯 + 📦', spec: ['mis', 'res'],
+  { id: 'plans', color: '#ff7ae0', name: 'PLANS OFFICER', icon: '🧠', rank: '2d Lt', rankLong: 'Second Lieutenant', guards: '📦', spec: ['res'],
     stats: { CMD: 1, CHA: 1, INS: 3, GRIT: 1 },
     ability: { id: 'foresight', name: 'Foresight', text: 'Once: the next inject skips the d6 and comes from the Wheel of Success' },
     perks: [ { id: 'memo', name: 'Write a Memorandum', text: 'Once: reroll a failed d20' },
-             { id: 'branch', name: 'Branch Plan', text: 'Once: on the route map, move to ANY stop in the next column, even off your path' } ],
+             { id: 'emergency', name: 'Emergency Fund', text: 'Once: +3 📦 right now' } ],
     ups:   [ { id: 'contingency', name: 'Contingency Plan', text: 'Halve the next Wheel of Failure result' },
              { id: 'cell', name: 'Planning Cell', text: 'Right now: +2 🎯 and +1 📦', now: { mis: 2, res: 1 } } ] },
 ];
@@ -175,7 +176,7 @@ const UNITS = [
 
 /* ---------------- NPCs ---------------- */
 // Default slots; each squadron's own ranks and descriptions (UNITS[].slots) override these.
-// A, B and C are enlisted (Enlisted Bond); D is the civilian.
+// A, B and C are enlisted (Talent Management can PCS them); D is the civilian.
 const SLOTS = [
   { s: 'A', rank: 'SSgt', pub: 'Your best technician', pool: 'lower', enlisted: true },
   { s: 'B', rank: 'A1C',  pub: "Three months on station, doesn't know much", pool: 'lower', enlisted: true },
@@ -406,7 +407,7 @@ const MISSIONS = [
       { t: 'Chew out the sponsor in front of everyone', show: [['mis', 1], ['mor', -2]], kind: 'fx',
         eff: { mis: 1, mor: -3 } },
       { t: 'Spend money to fast-track gear and access', show: [['mis', 1], ['res', -2]], kind: 'fx',
-        ifClass: { cls: ['ra'], then: { eff: { mis: 2, mor: 1, res: -2 } }, else: { eff: { mis: 2, mor: 1, res: -3 } } } },
+        ifClass: { cls: ['plans'], then: { eff: { mis: 2, mor: 1, res: -2 } }, else: { eff: { mis: 2, mor: 1, res: -3 } } } },
     ] },
   { id: 'M11', title: 'FLIGHTLINE FEUD', sob: 'Feedback · Counseling', icon: '💢',
     text: '{A} and {C} get into a shouting match in front of the Airmen. Everyone is watching to see what leadership does.',
@@ -860,6 +861,7 @@ const GM_CARDS = [
              wheel      = skip the inject d6 and pick the wheel (Meh or Success)
              intel      = see the exact effects of every choice on this mission
              recharge   = recharge a used class ability or perk
+             branch     = on the route map, the next stop can be ANY stop in the next column
              undo       = undo the decision you just made */
 const LOOT = [
   // generic: any squadron
@@ -868,6 +870,7 @@ const LOOT = [
   { id: 'doover',   icon: '🔄', name: 'Do-Over', text: 'Undo the decision you just made', use: { type: 'undo' } },
   { id: 'wind',     icon: '🔋', name: 'Second Wind', text: 'Recharge a used class ability or perk', use: { type: 'recharge' } },
   { id: 'deocs',    icon: '📋', name: 'DEOCS Survey', text: `See the exact meter values for the next ${DIFFICULTY.deocsStops} stops`, use: { type: 'deocs' } },
+  { id: 'branch',   icon: '🌿', name: 'Branch Plan', text: 'On the route map, move to ANY stop in the next column, even off your path', use: { type: 'branch' } },
   // 4th AMXS
   { id: 'rhythm',   icon: '📋', name: 'Battle Rhythm', home: ['wk'], text: 'Skip the inject d6: pick the Wheel of Meh or Success', use: { type: 'wheel' } },
   { id: 'torque',   icon: '🔧', name: 'Calibrated Torque Wrench', home: ['wk'], text: '+3 on one check', use: { type: 'check', n: 3 } },
@@ -903,7 +906,7 @@ const lootColor = l => (l.home ? UNITS.find(u => u.id === l.home[0]).color : '#f
 
 /* ---------------- fumble wheel (natural 1) ---------------- */
 // special: wrongname = a random Unit member −1 loyalty · cac = the roller is offline next stop
-//          chief = +1 ❤️ if the party has a Flight Chief (they told the story at roll call)
+//          chief = +1 ❤️ if the party has a Senior Enlisted Leader (they told the story at roll call)
 const FUMBLES = [
   { name: 'REPLY ALL',              text: 'You emailed the whole wing by accident.', eff: { tru: -1 } },
   { name: 'MUTED ON TEAMS',         text: 'The entire meeting. Nobody heard a word.', eff: { mis: -1 } },
@@ -967,14 +970,16 @@ const SPOTLIGHTS = [
       { t: "Find what's genuinely improving and sell it", show: [['tru', '?']], kind: 'check',
         check: { stat: 'CHA', dc: 13, m: 'tru', pass: { tru: 2 }, fail: { tru: -1 } } },
       { t: 'Ask {C} to brief it instead', show: [['tru', -1]], kind: 'fx', eff: { tru: -1, loy: { C: -1 } } } ] },
-  { id: 'SP_ra', cls: 'ra', title: 'USE IT OR LOSE IT', icon: '💰', sob: 'Spotlight · Stewardship',
-    text: "September 28th. Group just dropped $40K on you: obligate it by the 30th or it's gone. The flight has an unfunded list, a broken break room and a lot of opinions.",
+  { id: 'SP_utm', cls: 'utm', title: 'PENCIL WHIP', icon: '📚', sob: 'Spotlight · Integrity',
+    text: "The wing's training inspection is Friday. {A} is three tasks short on their upgrade, and their supervisor {C} asks you to just sign the tasks off in the training system: \"They can do it. We'll train it next month.\"",
     choices: [
-      { t: 'Work the unfunded list: parts and tools first', show: [['mis', 2], ['res', 1]], kind: 'check',
-        check: { stat: 'INS', dc: 13, m: 'res', pass: { mis: 2, res: 2 }, fail: { res: 1 } } },
-      { t: 'New break room and morale gear', show: [['mor', '?']], kind: 'check', check: { stat: 'INS', dc: 13, m: 'mor', pass: { mor: 2, res: 1 }, fail: { mor: -1 } } },
-      { t: 'Split the buy into small orders to stay under the approval limit', trap: true, show: [['res', 2], ['mis', 1]], kind: 'fx', eff: { res: 3, mis: 1, flag: 'SPLIT_PURCHASE' } },
-      { t: 'Give it back to Group; build trust for next year', show: [['tru', 2]], kind: 'fx', eff: { tru: 2 } } ] },
+      { t: 'Sign them off. {A} really can do the work.', trap: true, show: [['mis', 2]], kind: 'fx', eff: { mis: 2, flag: 'PENCIL_WHIP' } },
+      { t: 'Run a hands-on training blitz this week', show: [['mis', '?'], ['mor', -1]], kind: 'check',
+        check: { stat: 'GRIT', dc: 13, m: 'mis', pass: { mis: 2, mor: -1, loy: { A: 1 } }, fail: { mor: -1, mis: -1 } } },
+      { t: 'Brief {CC} on the gap and a get-well date', mic: true, show: [['tru', '?']], kind: 'stars',
+        stars: [ { tru: -1 }, { tru: 1 }, { tru: 2, mis: 1 } ] },
+      { t: 'Make {C} the trainer and put the plan in writing', show: [['mis', 1], ['res', -1]], kind: 'check', pre: { res: -1 },
+        check: { stat: 'INS', dc: 13, m: 'mis', pass: { mis: 1, loy: { A: 1, C: 1 } }, fail: { loy: { C: -1 } } } } ] },
   { id: 'SP_plans', cls: 'plans', title: 'WRITE THE EXERCISE', icon: '🗂️', sob: 'Spotlight · Planning',
     text: "Wing asked YOU to write next week's readiness exercise. You know exactly where your own flight is weakest. Nobody would know if you went easy.",
     choices: [
@@ -1015,7 +1020,7 @@ const BOSS_QUESTIONS = [
   'Tell me about a time you had to choose between the mission and doing the right thing.',
 ];
 const TRAP_FLAGS = ['FALSIFIED_RECORDS', 'COVERED_UP', 'FALSE_RECEIPT', 'HID_DUI', 'IGNORED_FIGHT', 'FALSE_MISHAP', 'FALSE_ARMORY', 'COVERED_DV', 'INFLATED_METRIC', 'OFF_BOOKS', 'SPLIT_PURCHASE',
-  'COVERED_SPILL', 'FOOD_SAFETY', 'FALSE_PT', 'FALSE_INSPECTION', 'FALSE_DEPLOY'];
+  'COVERED_SPILL', 'FOOD_SAFETY', 'FALSE_PT', 'FALSE_INSPECTION', 'FALSE_DEPLOY', 'PENCIL_WHIP'];
 const FLAG_TEXT = {
   FALSIFIED_RECORDS: 'Falsified training records (M2)',
   COVERED_UP: 'Covered up an OPSEC incident (M6)',
@@ -1028,6 +1033,7 @@ const FLAG_TEXT = {
   INFLATED_METRIC: 'Inflated the readiness chart for the wing brief (XO spotlight)',
   OFF_BOOKS: 'Put a BX shopping run on the unit GPC card with no paperwork',
   SPLIT_PURCHASE: 'Split a purchase to dodge the approval limit (RA spotlight)',
+  PENCIL_WHIP: 'Signed off upgrade training tasks that were never trained (UTM spotlight)',
   COVERED_SPILL: 'Hid a classified spillage (M29)',
   FOOD_SAFETY: 'Served food from a failed cooler (M32)',
   FALSE_PT: 'Altered a fitness test score (M33)',

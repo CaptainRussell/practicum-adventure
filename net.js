@@ -52,7 +52,7 @@ function seatsFull() {
 function phonesOnline() { return Object.keys(NET.conns).length; }
 
 /* ---- incoming ---- */
-const JOINABLE = ['title', 'intro', 'avatars', 'party'];
+const JOINABLE = ['title', 'join', 'intro', 'avatars', 'party'];
 function slotOf(cid) { const c = (S.clients || {})[cid]; return c ? c.slot : null; }
 function onClient(conn, d) {
   if (!d || !d.cid) return;
@@ -142,7 +142,7 @@ function onClient(conn, d) {
       return apply(() => { S.boss.acts[slot] = a; });
     }
     case 'team': { // any cadet can name the team while the party forms
-      if (!['title', 'intro', 'party', 'perks', 'avatars'].includes(S.phase)) return netSendTo(cid);
+      if (!['title', 'join', 'intro', 'party', 'perks', 'avatars'].includes(S.phase)) return netSendTo(cid);
       S.callsign = String(d.v || '').trim().slice(0, 14); save(); push(true); renderGM();
       return;
     }
