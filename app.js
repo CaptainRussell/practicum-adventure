@@ -2243,6 +2243,33 @@ function suggestions() {
   if (u) q.push(`Your squadron's tendency was ${u.drain.name} (${METER[u.drain.k].label}). How did you plan around it, and what is the real-world version in a ${u.sq}?`);
   return q.concat(DEBRIEF_ALWAYS);
 }
+/* ---- practicum rubric ----
+   Every cadet starts at the full 20 (Reflection 8 · Engagement 6 · Concepts 6) and the GM marks down from there.
+   Concepts is pre-filled from what the team did, with light deductions (−1 each, −2 at most), and the notes
+   start with the team's review, so the GM has feedback to read out and edit. */
+const RUBRIC = [['ref', 'Reflection', 8], ['eng', 'Engagement', 6], ['con', 'Concepts', 6]];
+const RUBRIC_MAX = RUBRIC.reduce((a, r) => a + r[2], 0);
+function teamReview(S) {
+  const g = S.final && S.final.grade, traps = TRAP_FLAGS.filter(f => (S.flags || {})[f]);
+  const crises = (S.log || []).filter(l => l.t === 'CRISIS EVENT').map(l => l.d.split(':')[0]);
+  const allies = (S.npcs || []).filter(isAlly).length, low = Math.min(...METERS.map(m => S.meters[m.k]));
+  const lines = [], ded = [];
+  lines.push(g ? `Team result: ${g.g} · ${g.title}${S.gameOver ? '' : ` (${S.final.total} pts)`}` : 'Team result: not finished');
+  if (traps.length) { lines.push(`⚠️ Integrity: ${traps.map(f => FLAG_TEXT[f]).join('; ')}.`); ded.push('an integrity violation'); }
+  else lines.push('✅ Integrity: no violations. The team held the line every time it was tested.');
+  if (crises.length || (S.gameOver && S.gameOverKind === 'crisis')) {
+    lines.push(`🚨 Crisis Event${crises.length > 1 ? 's' : ''}: ${crises.length ? crises.join(', ') : 'a second meter hit zero'}. A meter was allowed to hit zero${S.gameOver && S.gameOverKind === 'crisis' ? ', and a second one ended the game' : ''}.`);
+    ded.push('a Crisis Event (a meter hit zero)');
+  }
+  if (g && g.g === 'D') ded.push('a D on the game');
+  const good = [allies && `${allies} Unit All${allies === 1 ? 'y' : 'ies'}`, S.starsTotal && `${S.starsTotal} 🎤 stars`,
+    !S.gameOver && low >= 5 && 'every meter finished 5 or higher', !S.gameOver && S.intent && S.meters[S.intent] >= 7 && "met the commander's intent"].filter(Boolean);
+  if (good.length) lines.push(`Strengths: ${good.join(' · ')}.`);
+  const off = Math.min(2, ded.length), con = 6 - off;
+  lines.push(`Concepts ${con}/6${off ? ` (−${off}: ${ded.slice(0, 2).join('; ')})` : ': full marks'}.`);
+  return { con, lines };
+}
+function defaultGrade() { const r = teamReview(S); return { ref: 8, eng: 6, con: r.con, notes: r.lines.join('\n') }; }
 function gmDebrief() {
   const dv = S.debrief;
   return `<div class="gcard"><h2>🔌 Reality debrief</h2>
@@ -2250,9 +2277,11 @@ function gmDebrief() {
     ${dv.view === 'timeline' ? `<p class="note">Click an event to spotlight it on the projector.</p><div class="log" style="max-height:260px">${S.log.map((l, i) => `<div><button class="b sm ${dv.spot === i ? 'on' : ''}" data-act="spot" data-arg="${i}">🔦</button> N${l.n} · <b>${esc(l.t)}</b> ${esc(l.d)}</div>`).join('')}</div>` : ''}
     ${dv.view === 'objectives' ? `<p class="note">The projector shows the five objectives and every event in this run that tested each one. Use it as the wrap-up.</p>${OBJECTIVES.map(o => { const ev = objEvents(S, o.id); return `<div class="gchoice"><b>${o.icon} ${esc(o.name)}</b> <span class="note">${ev.length} event${ev.length === 1 ? '' : 's'}</span>${ev.map(e => `<div class="note">Stop ${e.n} · ${esc(e.title)}${e.choice ? `: "${esc(e.choice)}"` : ''}</div>`).join('')}</div>`; }).join('')}` : ''}
     <h3 style="margin-top:12px">Suggested questions</h3><ol>${suggestions().map(s => `<li>${esc(s)}</li>`).join('')}</ol></div>
-    <div class="gcard"><h3>Practicum rubric (GM only) · Reflection 8 · Engagement 6 · Concepts 6 = /20</h3>
-    ${S.party.map((p, i) => { const g = S.grades[i] || { ref: 0, eng: 0, con: 0, notes: '' }; return `<div class="gchoice"><b>${esc(p.name)}</b> <span class="note">${CLASS[p.cls].name}</span> · <b>${(+g.ref) + (+g.eng) + (+g.con)}/20</b>
-      ${[['ref', 'Reflection', 8], ['eng', 'Engagement', 6], ['con', 'Concepts', 6]].map(([k, lbl, mx]) => `<div class="slider">${lbl}<input type="range" min="0" max="${mx}" value="${g[k]}" data-inp="grade" data-arg="${i},${k}"><b>${g[k]}</b></div>`).join('')}
+    <div class="gcard"><h3>Practicum rubric (GM only) · ${RUBRIC.map(r => `${r[1]} ${r[2]}`).join(' · ')} = /${RUBRIC_MAX}</h3>
+    <p class="note">Everyone starts at ${RUBRIC_MAX}/${RUBRIC_MAX}; mark down from there. Concepts is pre-filled from the run (light deductions, −2 at most) and each cadet's notes start with the team review below. Edit anything.</p>
+    <div class="gchoice">${teamReview(S).lines.map(l => `<div>${esc(l)}</div>`).join('')}</div>
+    ${S.party.map((p, i) => { const g = S.grades[i] || defaultGrade(); return `<div class="gchoice"><b>${esc(p.name)}</b> <span class="note">${CLASS[p.cls].name}</span> · <b>${(+g.ref) + (+g.eng) + (+g.con)}/${RUBRIC_MAX}</b>
+      ${RUBRIC.map(([k, lbl, mx]) => `<div class="slider">${lbl}<input type="range" min="0" max="${mx}" value="${g[k]}" data-inp="grade" data-arg="${i},${k}"><b>${g[k]}</b></div>`).join('')}
       <textarea placeholder="Notes (the cadet sees these when you show them)" data-inp="gnote" data-arg="${i}">${esc(g.notes)}</textarea>
       <div class="row">${B('showGrade', g.shown ? '🙈 Hide from cadet' : '📱 Show cadet', { arg: i, cls: g.shown ? 'on sm' : 'sm go', title: 'Sends this score and your notes to this cadet\'s phone only' })}${g.shown ? '<span class="note">On their phone now. Edits update it live.</span>' : ''}</div></div>`; }).join('')}
     <div class="row">${B('saveGrades', S.gradesSaved ? '✅ Grades saved' : '💾 Save grades')} ${B('exportCSV', '📊 Export all grades CSV')} ${B('newRun', '▶️ Next party: new run', { cls: 'pri' })}</div></div>`;
@@ -2461,13 +2490,13 @@ act('bossAct', a => {
 });
 act('finish', () => finishGame());
 act('saveBoard', () => { saveToBoard(); S.showBoard = true; sfx('ach'); });
-act('toDebrief', () => { S.phase = 'debrief'; S.showBoard = false; S.timer = null; S.banner = null; emit('powerdown'); });
-act('showGrade', i => { const g = S.grades[+i] = S.grades[+i] || { ref: 0, eng: 0, con: 0, notes: '' }; g.shown = !g.shown; });
+act('toDebrief', () => { S.party.forEach((p, i) => { if (!S.grades[i]) S.grades[i] = defaultGrade(); }); S.phase = 'debrief'; S.showBoard = false; S.timer = null; S.banner = null; emit('powerdown'); });
+act('showGrade', i => { const g = S.grades[+i] = S.grades[+i] || defaultGrade(); g.shown = !g.shown; });
 act('dview', v => { S.debrief.view = v; S.debrief.spot = null; });
 act('spot', i => { S.debrief.spot = S.debrief.spot === +i ? null : +i; S.debrief.view = 'timeline'; });
 act('saveGrades', () => {
   const all = loadGrades(), u = UNITS.find(x => x.id === S.unit);
-  S.party.forEach((p, i) => { const g = S.grades[i] || { ref: 0, eng: 0, con: 0, notes: '' };
+  S.party.forEach((p, i) => { const g = S.grades[i] || defaultGrade();
     all.push({ date: new Date().toISOString(), callsign: S.callsign, unit: u ? u.name : '', cadet: p.name, cls: CLASS[p.cls].name, reflection: +g.ref, engagement: +g.eng, concepts: +g.con, total: (+g.ref) + (+g.eng) + (+g.con), notes: g.notes, gameGrade: S.final ? S.final.grade.g : '', gameScore: S.final ? S.final.total : '' }); });
   localStorage.setItem('sq_grades', JSON.stringify(all)); S.gradesSaved = true;
 });
@@ -2506,7 +2535,7 @@ function onInput(e) {
     case 'pname': S.party[+a].name = el.value; if (!live) push(true); else save(); return;
     case 'callsign': S.callsign = el.value; if (!live) push(true); else save(); return;
     case 'site': localStorage.setItem('sq_site', el.value.trim()); if (!live) push(true); return;
-    case 'gnote': S.grades[+a] = S.grades[+a] || { ref: 0, eng: 0, con: 0, notes: '' }; S.grades[+a].notes = el.value; S.gradesSaved = false; if (!live) push(true); else save(); return;
+    case 'gnote': S.grades[+a] = S.grades[+a] || defaultGrade(); S.grades[+a].notes = el.value; S.gradesSaved = false; if (!live) push(true); else save(); return;
   }
   if (live && k !== 'grade') return;
   snap();
@@ -2516,7 +2545,7 @@ function onInput(e) {
     case 'pup': S.party[+a].up = el.value; break;
     case 'puni': S.party[+a].uni = el.value; break;
     case 'phair': S.party[+a].hair = el.value; break;
-    case 'grade': { const [i, f] = a.split(','); S.grades[+i] = S.grades[+i] || { ref: 0, eng: 0, con: 0, notes: '' }; S.grades[+i][f] = +el.value; S.gradesSaved = false; if (live) { save(); el.nextElementSibling.textContent = el.value; return; } break; }
+    case 'grade': { const [i, f] = a.split(','); S.grades[+i] = S.grades[+i] || defaultGrade(); S.grades[+i][f] = +el.value; S.gradesSaved = false; if (live) { save(); el.nextElementSibling.textContent = el.value; return; } break; }
   }
   push();
 }

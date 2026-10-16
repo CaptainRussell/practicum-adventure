@@ -250,7 +250,7 @@ function phGame(v, me) {
     case 'results': return phFinal(v);
     case 'debrief': { const g = v.myGrade;
       return `<div class="ph-card ph-center">🔌 Game over. Eyes up front for the debrief.</div>${g ? `<div class="ph-h">📝 YOUR PRACTICUM SCORE</div><div class="ph-card"><div class="ph-center" style="font-size:48px;color:var(--gold)">${(+g.ref) + (+g.eng) + (+g.con)}<small style="font-size:22px">/20</small></div>
-        <div>Reflection <b>${+g.ref}/8</b> · Engagement <b>${+g.eng}/6</b> · Concepts <b>${+g.con}/6</b></div>${g.notes ? `<div class="ph-situ" style="margin-top:8px">${esc(g.notes)}</div>` : ''}</div>` : ''}`; }
+        <div>Reflection <b>${+g.ref}/8</b> · Engagement <b>${+g.eng}/6</b> · Concepts <b>${+g.con}/6</b></div>${g.notes ? `<div class="ph-situ" style="margin-top:8px;white-space:pre-line">${esc(g.notes)}</div>` : ''}</div>` : ''}`; }
   }
   return '';
 }
