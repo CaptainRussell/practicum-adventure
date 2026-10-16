@@ -89,7 +89,7 @@ const CLASSES = [
     stats: { CMD: 1, CHA: 1, INS: 2, GRIT: 3 },
     ability: { id: 'sevenlvl', icon: '🎓', name: '7-Level Upgrade', text: 'Once: +3 🎯' },
     perks: [ { id: 'mti', icon: '📢', name: 'Prior MTI', text: 'Once: after a failed check (or Tackle it), the former Military Training Instructor takes command: it counts as a pass' },
-             { id: 'readiness', icon: '🔍', name: 'Readiness Inspection', text: `Passive: the flight runs its own mock inspections. The IG starts with ${DIFFICULTY.mockInspPct}% less HP` } ],
+             { id: 'readiness', icon: '🔍', name: 'Readiness Inspection', text: `Passive: the flight runs its own mock inspections. The IG (the final boss) starts with ${DIFFICULTY.mockInspPct}% less HP` } ],
     ups:   [ { id: 'proficiency', name: 'Proficiency Training', text: 'All 🎯 losses reduced by 1 (min 1)' },
              { id: 'surge', name: 'Upgrade Surge', text: 'Right now: +3 🎯', now: { mis: 3 } } ] },
   { id: 'plans', color: '#ff7ae0', name: 'PLANS OFFICER', icon: '🧠', rank: '2d Lt', rankLong: 'Second Lieutenant', guards: '📦', spec: ['res'],
