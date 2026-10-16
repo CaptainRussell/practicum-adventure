@@ -358,7 +358,7 @@ function renderPowerups(S) {
 function meterHtml(S, m) {
   const v = S.meters[m.k], b = meterBand(v);
   if (deocsOn(S)) return `<div class="meter ${b.cls === 'danger' ? 'low' : ''}" style="--c:${m.color}"><div class="lbl"><span>${meterIcon(m)} ${m.name}</span><span>${v}</span></div><div class="bar">${Array.from({ length: 10 }, (_, i) => `<i class="${i < v ? 'on' : ''}"></i>`).join('')}</div></div>`;
-  return `<div class="meter fog ${b.cls} ${b.cls === 'danger' ? 'low' : ''}" style="--c:${m.color}"><div class="lbl"><span>${meterIcon(m)} ${m.name}</span></div><div class="band">${b.cls === 'danger' ? '⚠️ ' : ''}${b.word}</div></div>`;
+  return `<div class="meter fog ${b.cls} ${b.cls === 'danger' ? 'low' : ''}" style="--c:${m.color}"><div class="lbl"><span>${meterIcon(m)} ${m.name}</span></div><div class="band">${b.word}</div></div>`;
 }
 function renderHud(S) {
   const u = S.unit ? UNITS.find(x => x.id === S.unit) : null;
@@ -444,7 +444,7 @@ function renderIntro(S) {
   return `<div class="intro readscr"><div class="ptitle" style="text-align:center">READING THE SCREEN</div>
     <div class="rs-h">JOB 1 · KEEP ALL 4 METERS HIGH</div>
     <div class="rs-meters">${METERS.map(m => `<div class="rs-m" style="--c:${m.color}"><div class="rs-i">${m.icon}</div><b>${m.name}</b><div>${esc(INTRO_METERS[m.k])}</div></div>`).join('')}</div>
-    <div class="rs-bands"><span class="meter fog strong"><span class="band">STRONG</span></span><span class="meter fog steady"><span class="band">STEADY</span></span><span class="meter fog danger low"><span class="band">⚠️ DANGER</span></span></div>
+    <div class="rs-bands"><span class="meter fog strong"><span class="band">STRONG</span></span><span class="meter fog steady"><span class="band">STEADY</span></span><span class="meter fog danger low"><span class="band">!!DANGER!!</span></span></div>
     <div class="rs-t">${mt(esc(INTRO_FOG))}</div></div>`;
 }
 // Briefing page 4: Job 2 on its own screen, so nobody misses it
@@ -511,7 +511,7 @@ function renderManifest(S) {
       <div class="orgline"></div>
       <div class="orgrow">${S.party.map(p => `<div class="orgcard mini" style="border-color:${clsColor(p)}"><img src="${avatarOf(p)}"><div><div class="nm">${insignia(p)}${esc(rankName(p))}</div><div class="rk">${CLASS[p.cls].name}</div></div></div>`).join('')}</div>
       <div class="orgline"></div>
-      <div class="orgrow">${S.npcs.slice().sort((a, b) => rankIdx(a.rank) - rankIdx(b.rank)).map(n => { const t = TRAIT[n.trait]; return `<div class="orgcard"><img src="${avatar(n.name + n.rank)}"><div class="nm">${insignia(n.rank)}${esc(n.rank)} ${esc(n.name)}</div><div class="rk">${esc(n.pub)}</div><div class="rk" style="color:var(--good)">${t.icon} ${esc(t.name)}</div><div class="rk">${loyBandHtml(n.loy, isAlly(n), n.broken)}</div>${traitInfo(n, isAlly(n), (S.traitDone || {})[n.slot]).map(([k, x]) => `<div class="rk ${k}">${mt(esc(x))}</div>`).join('')}</div>`; }).join('')}</div>
+      <div class="orgrow">${S.npcs.slice().sort((a, b) => rankIdx(a.rank) - rankIdx(b.rank)).map(n => { const t = TRAIT[n.trait]; return `<div class="orgcard"><img src="${avatar(n.name + n.rank)}"><div class="nm">${insignia(n.rank)}${esc(n.rank)} ${esc(n.name)}</div><div class="rk">${esc(n.pub)}</div><div class="rk" style="color:var(--good)">${t.icon} ${esc(t.name)}</div><div class="rk">${loyBandHtml(n.loy, isAlly(n), n.broken)}</div><div class="loy orgloy">${Array.from({ length: 5 }, (_, i) => `<i class="${i < n.loy ? 'on' : ''}"></i>`).join('')}</div>${traitInfo(n, isAlly(n), (S.traitDone || {})[n.slot]).map(([k, x]) => `<div class="rk ${k}">${mt(esc(x))}</div>`).join('')}</div>`; }).join('')}</div>
     </div>
     ${patchOf(S) ? `<div class="patchrow"><span class="sectlbl">🎖️ YOUR TEAM PATCH</span><span class="pch on" style="--c:${u.color}"><b>${patchOf(S).icon}</b>${esc(patchOf(S).name)}</span></div>` : ''}</div>`;
 }

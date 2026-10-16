@@ -954,3 +954,8 @@ body.gm{font-family:var(--ui);font-size:14px;line-height:1.45;background:#0e1020
 .loyrow{display:flex;align-items:center;gap:6px;margin-top:3px} .loyrow .loy{margin-top:0}
 .orgcard .lband{font-size:10px;margin-top:4px}
 .loytag{--c:#c9b8ff}
+/* "!!DANGER!!" stays on one line, so every band keeps the same height */
+.ph-band,.meter.fog .band,.sb4 .sbw{white-space:nowrap}
+.ph-band.danger{letter-spacing:-.5px}
+.orgcard .orgloy{justify-content:center;margin-top:5px} /* the 0-5 loyalty pips under the band */
+.orgcard .orgloy i{width:18px;height:10px}

@@ -568,7 +568,7 @@ function dangerInfo(S) {
 // (or the game is over). S.deocsUntil = the last stop (S.nodeCount) the survey covers.
 function deocsOn(S) { return !!S && (['results', 'debrief'].includes(S.phase) || (S.deocsUntil != null && (S.nodeCount || 0) <= S.deocsUntil)); }
 function deocsLeft(S) { return S && S.deocsUntil != null ? Math.max(0, S.deocsUntil - (S.nodeCount || 0)) : 0; }
-function meterBand(v) { return v <= DIFFICULTY.dangerAt ? { word: 'DANGER', cls: 'danger' } : v >= 7 ? { word: 'STRONG', cls: 'strong' } : { word: 'STEADY', cls: 'steady' }; }
+function meterBand(v) { return v <= DIFFICULTY.dangerAt ? { word: '!!DANGER!!', cls: 'danger' } : v >= 7 ? { word: 'STRONG', cls: 'strong' } : { word: 'STEADY', cls: 'steady' }; }
 function runDeocs() {
   S.deocsUntil = Math.max(S.deocsUntil != null ? S.deocsUntil : -1, (S.nodeCount || 0) + DIFFICULTY.deocsStops);
   log('DEOCS Survey', `Exact meters visible through stop ${S.deocsUntil}`);
