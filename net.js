@@ -209,7 +209,7 @@ function publicView(slot) {
         stats: st && st !== 'LOYB' ? S.party.map((_, i) => rollBonus(i, st, c.spec.check.m)) : null,
         spec: st && st !== 'LOYB' ? S.party.map((_, i) => isSpec(i, c.spec.check.m)) : null });
     }
-    if (m) v.mission = { title: m.title, icon: m.icon, sob: m.sob, text: fill(S, m.text), cc: !!m.cc, loss: m.loss ? fill(S, m.loss) : null, help: !!m.help,
+    if (m) v.mission = { title: m.title, icon: m.icon, badge: m.badge || null, sob: m.sob, text: fill(S, m.text), cc: !!m.cc, loss: m.loss ? fill(S, m.loss) : null, help: !!m.help,
       realres: c.step === 'done' ? effChips(Object.fromEntries(resultSummary(S).meters)) : null,
       compartmented: arrowsHidden(S), choices: m.choices.map(ch => ({ t: fill(S, ch.t), show: arrowsHidden(S) ? null : choiceShow(ch), mic: !!ch.mic, intel: c.intel ? specText(S, ch) : null,
         req: ch.req || null, locked: !!(ch.req && !gateOpen(ch.req)), smell: !!(ch.trap && benderTell(S)) })) };

@@ -928,7 +928,8 @@ const MYSTERY = [
   { id: 'good',   name: 'GOOD INJECT',   icon: '🍀', color: '#7dff6b' },
   { id: 'wing',   name: 'WING CC VISIT', icon: '🦅', color: '#3fd8ff' },
 ];
-const WING_VISIT = { title: 'WING CC VISIT', icon: '🦅', sob: 'Articulating Ideas Clearly',
+// badge: 'cc' = shown with the commander's badge instead of the emoji
+const WING_VISIT = { title: 'WING CC VISIT', icon: '🦅', badge: 'cc', sob: 'Articulating Ideas Clearly',
   text: '{X:wing}, the Wing Commander, drops in unannounced: "Tell me about your flight. What are you proud of, and what keeps you up at night?"',
   choices: [ { t: 'Give {X:wing} the 60-second tour', mic: true, kind: 'stars', stars: [ { tru: -1 }, { tru: 1, mor: 1 }, { tru: 3, mor: 1 } ] } ] };
 

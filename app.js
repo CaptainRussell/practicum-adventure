@@ -569,7 +569,13 @@ function actorTable(S) {
   return k === 'trigger' ? injectTable() : k === 'mystery' ? MYSTERY_TABLE() : k === 'lootd4' ? LOOT_TABLE() : null;
 }
 // A popup that explains a perk or ability the moment it is used; stays up until the GM continues
-function notice(icon, title, text) { S.notice = { icon, title, text, at: Date.now() }; }
+// A popup that stays up until the GM presses Continue. A second one waits its turn instead of replacing the first.
+// The commander's badge (insignia/CommanderInsignia.svg) on a small silver disc so the black wreath shows on dark screens
+function ccBadge(px) { return `<span class="ccbadge" style="width:${px}px;height:${px}px" title="Squadron Commander"></span>`; }
+function notice(icon, title, text, label, cls) { // label: the small line above the title (default: perk / ability)
+  const n = { icon, title, text, at: Date.now(), label: label || null, cls: cls || null };
+  if (S.notice) (S.noticeQ = S.noticeQ || []).push(n); else S.notice = n;
+}
 // Danger: a meter at 2 or less is one bad hit from a Crisis Event (or an Adverse Finding in the IG fight).
 // Shown as one line on the projector and phones, with the tools that could help right now.
 function dangerInfo(S) {
@@ -660,7 +666,7 @@ function traitReward(n, text, eff, loy) {
   if (!n || n.broken || (S.traitDone || {})[n.slot]) return;
   S.traitDone = { ...(S.traitDone || {}), [n.slot]: true };
   const t = TRAIT[n.trait];
-  emit('big', { cls: 'good', icon: t.icon, title: `${n.rank} ${n.name}`.toUpperCase() + ` · ${t.name.toUpperCase()}`, text });
+  notice(t.icon, `${n.rank} ${n.name}`.toUpperCase() + ` · ${t.name.toUpperCase()}`, text, 'UNIT MEMBER · TRAIT REWARD'); sfx('loot');
   log('Trait', `${n.rank} ${n.name} (${t.name}): ${text}`);
   if (loy) changeLoy(n.slot, loy);
   if (eff) applyEff({ ...eff, why: t.name });
@@ -704,7 +710,8 @@ function changeLoy(s, v) {
   if (n.loy !== old) emit('loyDelta', { who: `${n.rank} ${n.name}`, v: n.loy - old });
   if (n.loy === 0 && old > 0 && !n.broken) breaking(n);
   if (!wasAlly && isAlly(n)) {
-    toast('🤝', 'NEW ALLY', `${n.rank} ${n.name} is now an Ally`); sfx('loot');
+    const t = TRAIT[n.trait];
+    notice('🤝', `NEW ALLY: ${n.rank} ${n.name}`.toUpperCase(), `${t ? `${t.icon} ${t.name}: ${t.reward}. ` : ''}In the IG fight, every Ally deals 2 damage in the Audit.`, 'UNIT MEMBER · LOYALTY MAXED'); sfx('loot');
     if (S.npcs.filter(isAlly).length >= 2) award('opendoor');
     if (n.trait === 'mentor') { traitReward(n, 'Empowered to train others, they take the newest Airman under their wing.', { mis: 1, mor: 1 }); if (n.slot !== 'B') changeLoy('B', 2); }
   }
@@ -714,7 +721,7 @@ function breaking(n) {
   const t = TRAIT[n.trait];
   n.broken = true; S.flags.npcZero = true;
   if (!n.revealed) { n.revealed = true; S.reveals++; }
-  emit('big', { cls: 'bad', title: 'BREAKING POINT', icon: t.icon, text: `${n.rank} ${n.name} (${t.name}): ${t.bpText}` });
+  notice('💔', `BREAKING POINT: ${n.rank} ${n.name}`.toUpperCase(), `${t.icon} ${t.name}: ${t.bpText}. A broken Unit member also adds ${DIFFICULTY.witnessHp} HP to the IG.`, 'UNIT MEMBER · LOYALTY 0', 'bad');
   sfx('bad');
   log('Breaking point', `${n.rank} ${n.name}: ${t.bpText}`);
   const { out, flag, ...m } = t.bp;
@@ -1681,7 +1688,7 @@ function finishGame() {
 }
 function gameOver(reasons, kind = 'integrity') {
   S.gameOver = true; S.gameOverReasons = reasons; S.gameOverKind = kind;
-  S.cur = null; S.inject = null; S.actor = null; S.notice = null;
+  S.cur = null; S.inject = null; S.actor = null; S.notice = null; S.noticeQ = [];
   if (S.boss) bossLog(`🚨 ${kind === 'crisis' ? 'SECOND CRISIS' : 'INTEGRITY FINDING'}: ` + reasons.join('; '));
   log('GAME OVER', reasons.join('; '));
   emit('gameOver', { reasons, kind }); sfx('over');
@@ -1900,7 +1907,7 @@ function renderGM() {
       ${B('undo', '↩️ Undo', { dis: !hist.length })}
       ${B('newRun', '🆕 New run', { cls: 'red' })}
     </div>
-    <div id="gmMain">${S.notice ? `<div class="gcard" style="border-color:var(--gold)"><div class="row"><b style="flex:1">${S.notice.icon} Popup on the projector and phones: ${esc(S.notice.title)}</b>${B('noticeOk', '✅ Continue', { cls: 'pri sm' })}</div><div class="note">${esc(S.notice.text)}</div></div>` : ''}${gmActorCard()}${voteTie(S) ? `<div class="note" style="margin:0 0 6px">${esc(tieText(S))}</div>` : ''}${gmMain()}</div>
+    <div id="gmMain">${S.notice ? `<div class="gcard" style="border-color:var(--gold)"><div class="row"><b style="flex:1">${S.notice.icon} Popup on the projector and phones: ${esc(S.notice.title)}${(S.noticeQ || []).length ? ` <span class="pill">+${S.noticeQ.length} more</span>` : ''}</b>${B('noticeOk', '✅ Continue', { cls: 'pri sm' })}</div><div class="note">${esc(S.notice.text)}</div></div>` : ''}${gmActorCard()}${voteTie(S) ? `<div class="note" style="margin:0 0 6px">${esc(tieText(S))}</div>` : ''}${gmMain()}</div>
     <div id="gmSide">${typeof gmPhonesCard === 'function' ? gmPhonesCard() : ''}${['title', 'join', 'intro', 'party', 'perks', 'kit', 'avatars'].includes(S.phase) ? gmSideLite() : gmSide()}</div>
   </div>`;
   if (focusId && document.getElementById(focusId)) { const el = document.getElementById(focusId); el.focus(); if (el.setSelectionRange && el.type === 'text') { const l = el.value.length; el.setSelectionRange(l, l); } }
@@ -2143,10 +2150,10 @@ function gmNode() {
   else if (c.step === 'roll') body = gmRollPanel();
   else if (c.step === 'stars') body = gmStarsPanel();
   else if (c.step === 'done') body = gmDonePanel();
-  return `<div class="gcard"><h2>${m.icon} ${c.type === 'elite' ? '💀 ELITE: ' : isCE ? '🚨 ' : c.type === 'spot' ? '🔦 ' : ''}${esc(m.title)}</h2>
+  return `<div class="gcard"><h2>${m.badge ? ccBadge(24) : m.icon} ${c.type === 'elite' ? '💀 ELITE: ' : isCE ? '🚨 ' : c.type === 'spot' ? '🔦 ' : ''}${esc(m.title)}</h2>
     <div class="note">${esc(m.sob)} ${c.type === 'elite' ? '· ELITE: every check is one step harder (+3), positive effects double, loot guaranteed' : ''}</div>
     ${c.type === 'spot' ? `<p class="warnline">🔦 Spotlight on ${esc(cadetName(c.slot))}: only their phone can vote or roll. Everyone else stays silent.</p>` : ''}
-    ${m.cc ? `<p class="warnline">🎖️ Commander encounter: you play ${esc(S.cc)}.</p>` : ''}
+    ${m.cc ? `<p class="warnline">${ccBadge(18)} Commander encounter: you play ${esc(S.cc)}.</p>` : ''}
     <p style="font-size:15px">${esc(fill(S, m.text))}</p>${isCE ? `<p class="warnline">💀 Lost for good: ${esc(m.loss || '')} · A second crisis = GAME OVER.</p>` : ''}
     ${S.banner && c.type !== 'spot' ? `<p class="warnline">${esc(S.banner.text)} ${B('clearBanner', 'clear', { cls: 'sm' })}</p>` : ''}
     ${S.offline != null ? `<p class="warnline">📵 ${esc(cadetName(S.offline))} is offline this node.</p>` : ''}
@@ -2365,7 +2372,7 @@ act('newRun', () => { if (S.phase !== 'title' && S.phase !== 'debrief' && !confi
 act('resume', () => { try { S = JSON.parse(localStorage.getItem('sq_run')); } catch (e) { } });
 act('introNext', () => { S.introPage = Math.min(3, S.introPage + 1); sfx(S.introPage === 3 ? 'alarm' : 'click'); });
 act('introPrev', () => { S.introPage = Math.max(0, S.introPage - 1); });
-act('noticeOk', () => { S.notice = null; });
+act('noticeOk', () => { S.notice = (S.noticeQ || []).shift() || null; if (S.notice) S.notice.at = Date.now(); });
 act('setStops', n => {
   if (S.mapLocked) { alert('The route map is already open: the length can only change before that.'); return false; }
   S.stops = +n; try { localStorage.setItem('sq_stops', String(+n)); } catch (e) { }

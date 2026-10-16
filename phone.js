@@ -302,7 +302,7 @@ function phOrg(v) {
   if (!v.unit) return `<div class="ph-card">Your org chart appears once the squadron is rolled.</div>`;
   const u = UNITS.find(x => x.id === v.unit), cc = v.ccInfo;
   return `<div class="ph-h">🤝 YOUR UNIT${v.patch ? ` <small class="ph-legend">${v.patch.icon} ${esc(v.patch.name)}</small>` : ''}</div>
-    <div class="ph-npc cc"><b>${npcIns(v.cc, 18)} ${esc(v.cc)}</b> <small>Squadron CC</small>
+    <div class="ph-npc cc"><b>${npcIns(v.cc, 18)} ${esc(v.cc)}</b> <small>${ccBadge(14)} Squadron CC</small>
       <div><small>Intent ${meterTag(cc.intent)} · 👍 ${esc(cc.pos.name)} · <span style="${cc.negOff ? 'text-decoration:line-through;opacity:.5' : ''}">👎 ${esc(cc.neg.name)}</span> · ⚠️ ${esc(u.drain.name)}</small></div></div>
     ${v.npcs.slice().sort((a, b) => rankIdx(a.rank) - rankIdx(b.rank)).map(n => { const t = TRAIT[n.trait]; return `<div class="ph-npc ${n.ally ? 'ally' : ''}"><b>${insignia(n.rank, 18)}${esc(n.rank)} ${esc(n.name)}</b>${n.ally ? ' 🤝' : ''}${n.broken ? ' 💔' : ''}${n.gone ? ' (GONE)' : n.out ? ' (OUT)' : ''}
       ${t ? `<div><small>${t.icon} ${esc(t.name)}${n.done ? ' ✅' : ''}</small></div>${traitInfo(n, n.ally, n.done).map(([k, x]) => `<div class="ph-trait ${k}"><small>${mt(esc(x))}</small></div>`).join('')}` : ''}
@@ -325,10 +325,10 @@ function phNode(v, me) {
   const m = v.mission; if (!m) return '';
   const offline = outMe(v);
   const spot = c.type === 'spot', mine = spot && c.slot === v.you, watching = spot && !mine;
-  let top = `<div class="ph-h">${c.type === 'crisisEvent' ? '🚨 ' : c.type === 'elite' ? '💀 ' : spot ? '🔦 ' : ''}${esc(m.icon)} ${esc(m.title)}</div>`;
+  let top = `<div class="ph-h">${c.type === 'crisisEvent' ? '🚨 ' : c.type === 'elite' ? '💀 ' : spot ? '🔦 ' : ''}${m.badge ? ccBadge(22) : esc(m.icon)} ${esc(m.title)}</div>`;
   if (spot) top += mine ? `<div class="ph-warn" style="background:var(--accent);color:#000">🔦 SPOTLIGHT ON YOU: you decide alone. Your team can't help.</div>`
     : `<div class="ph-card ph-center">🔦 SPOTLIGHT: <b>${esc(rankName(v.party[c.slot]))}</b> decides alone.<br><b>Stay silent.</b> Watch how they handle it.</div>`;
-  if (m.cc) top += `<div class="ph-card ph-center">🎖️ Commander encounter: <b>${esc(v.cc)}</b></div>`;
+  if (m.cc) top += `<div class="ph-card ph-center">${ccBadge(18)} Commander encounter: <b>${esc(v.cc)}</b></div>`;
   if (m.compartmented && c.step === 'brief') top += `<div class="ph-card ph-center">🔍 Compartmented: no arrows. Decide on the facts.</div>`;
   top += c.step === 'brief' || c.choice == null || !m.choices[c.choice] ? `<details class="ph-more ph-card"><summary>📺 Situation on the screen · tap to read it here</summary><div style="margin-top:6px">${esc(m.text)}</div></details>`
     : `<div class="ph-card"><small>Your team chose</small><br><b>${'ABCD'[c.choice]}. ${esc(m.choices[c.choice].t)}</b>${m.realres ? `<div class="ph-arw"><b>Result:</b> ${m.realres}</div>` : ''}</div>`;

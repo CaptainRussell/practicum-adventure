@@ -106,7 +106,7 @@
     S.tokenHolder = 0; S.crown = fcIdx() >= 0 ? null : nextInChain(S); pickUnit(pick(UNITS).id); S.patch = PATCHES[S.unit][0].id; S.callsign = 'SIM';
     S.map = genMap(); S.mapLocked = true; S.phase = 'map'; S.pos = { tier: -1, idx: null };
     for (let g = 0; g < 400 && S.phase !== 'results'; g++) {
-      S.spinUntil = 0; S.notice = null; FX = [];
+      S.spinUntil = 0; S.notice = null; S.noticeQ = []; FX = [];
       if (S.phase === 'map') { useTools(active); const w = wpOptions(); if (w.length) { takeWaypoint(pick(w).key); continue; } const av = available(); chooseNode(...pick(av)); }
       else if (S.phase === 'node') playNode(active);
       else if (S.phase === 'inject') playInject(active);

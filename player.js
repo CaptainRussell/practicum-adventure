@@ -321,7 +321,7 @@ function renderActorBanner(S) {
 // A perk or ability just fired: explain what it did until the GM continues
 function renderNotice(S) {
   const n = S.notice; if (!n) return '';
-  return `<div class="rescard notice"><div class="bigcard good"><div class="bigic" style="font-size:80px">${n.icon}</div><div class="sectlbl" style="color:var(--gold)">PERK / ABILITY USED</div><h2>${esc(n.title)}</h2><div class="bt">${mt(esc(n.text))}</div><div class="rwait">⏳ Waiting for the GM to continue</div></div></div>`;
+  return `<div class="rescard notice"><div class="bigcard ${n.cls || 'good'}"><div class="bigic" style="font-size:80px">${n.icon}</div><div class="sectlbl" style="color:var(--gold)">${esc(n.label || 'PERK / ABILITY USED')}</div><h2>${esc(n.title)}</h2><div class="bt">${mt(esc(n.text))}</div><div class="rwait">⏳ Waiting for the GM to continue</div></div></div>`;
 }
 // ties: no banner; the Flight Commander's vote icon glows while the vote is tied (the GM directs the call)
 function renderTie(S) { return ''; }
@@ -383,7 +383,7 @@ function renderSide(S) {
     <div class="pgrid">${S.party.map((p, i) => { const off = S.offline === i || (S.phase === 'map' && S.offlineNext === i); return `<div class="pcard ${off || p.fired ? 'offline' : ''}" style="border-color:${clsColor(p)}"><img src="${avatarOf(p)}" style="border-color:${clsColor(p)}"><div><div class="nm">${insignia(p)}${esc(rankName(p))}</div><div class="cl">${CLASS[p.cls] ? CLASS[p.cls].name : ''}${p.fired ? ' · 🪓 FIRED' : off ? ' · 📵 MEETING' : ''}</div></div>${i === cr ? '<div class="crown">👑</div>' : ''}</div>`; }).join('')}</div>
     ${(S.items || []).length ? `<div class="sectlbl" style="margin-top:6px">🎒 TEAM ITEMS (${S.items.length}/3)</div><div class="sitems1">${S.items.map(id => { const l = LOOT.find(x => x.id === id); return `<span>${l.icon} ${esc(l.name)}</span>`; }).join('')}</div>` : ''}
     <div class="sectlbl" style="margin-top:6px">YOUR UNIT</div>
-    ${S.cc ? `<div class="npc cc"><img src="${avatar(S.cc)}"><div><div class="nm">${insignia(S.cc.split(' ').slice(0, -1).join(' '))}${esc(S.cc)}</div><div class="tr rev">🎖️ Squadron Commander${S.intent ? ` · intent ${METER[S.intent].icon}` : ''}</div></div></div>` : ''}
+    ${S.cc ? `<div class="npc cc"><img src="${avatar(S.cc)}"><div><div class="nm">${insignia(S.cc.split(' ').slice(0, -1).join(' '))}${esc(S.cc)}</div><div class="tr rev">${ccBadge(20)} Squadron Commander${S.intent ? ` · intent ${METER[S.intent].icon}` : ''}</div></div></div>` : ''}
     <div class="ugrid">${S.npcs.slice().sort((a, b) => rankIdx(a.rank) - rankIdx(b.rank)).map(n => { const t = TRAIT[n.trait]; return `<div class="npc mini ${isAlly(n) ? 'ally' : ''} ${n.broken || n.gone ? 'broken' : ''} ${n.out ? 'out' : ''}"><img src="${avatar(n.name + n.rank)}"><div>
       <div class="nm">${insignia(n.rank)}${esc(n.rank)} ${esc(n.name)}${isAlly(n) ? ' 🤝' : ''}${n.gone ? ' (GONE)' : n.out ? ' (OUT)' : ''}</div>
       <div class="tr rev">${t.icon} ${t.name}</div>
@@ -499,9 +499,9 @@ function renderManifest(S) {
   return `<div style="display:flex;flex-direction:column;gap:8px;overflow:hidden">
     <div class="org">
       <div class="ccpanel" style="--c:${u.color}">
-        <div class="cchead"><img src="${avatar(S.cc)}"><div style="flex:1"><div class="cclbl">SQUADRON COMMANDER</div><div class="ccname">${insignia(S.cc.split(' ').slice(0, -1).join(' '))} ${esc(S.cc)}</div></div><div style="text-align:right"><div class="ccname">${u.icon} ${u.name}</div><div class="cclbl">${u.sq.toUpperCase()} · ORG CHART</div></div></div>
+        <div class="cchead"><img src="${avatar(S.cc)}"><div style="flex:1"><div class="cclbl">${ccBadge(24)} SQUADRON COMMANDER</div><div class="ccname">${insignia(S.cc.split(' ').slice(0, -1).join(' '))} ${esc(S.cc)}</div></div><div style="text-align:right"><div class="ccname">${u.icon} ${u.name}</div><div class="cclbl">${u.sq.toUpperCase()} · ORG CHART</div></div></div>
         <div class="cctiles">
-          <div class="cct" style="--t:var(--gold)"><div class="ctl">🎖️ INTENT</div><div class="ctb">${meterTag(cc.intent)}</div><div class="cts">Their top priority</div></div>
+          <div class="cct" style="--t:var(--gold)"><div class="ctl">${ccBadge(20)} INTENT</div><div class="ctb">${meterTag(cc.intent)}</div><div class="cts">Their top priority</div></div>
           <div class="cct" style="--t:var(--good)"><div class="ctl">👍 REWARDS</div><div class="ctb">${esc(cc.pos.name)}</div><div class="cts">${mt(esc(cc.pos.text))}</div></div>
           <div class="cct" style="--t:var(--bad);${S.flags.ccNegOff ? 'opacity:.4;text-decoration:line-through' : ''}"><div class="ctl">👎 PUNISHES</div><div class="ctb">${esc(cc.neg.name)}</div><div class="cts">${mt(esc(cc.neg.text))}</div></div>
           <div class="cct" style="--t:var(--warn)"><div class="ctl">⚠️ TENDENCY</div><div class="ctb">${esc(u.drain.name)}</div><div class="cts">${meterTag(u.drain.k, '−1')} every ${DIFFICULTY.drainEvery} stops</div></div>
@@ -646,9 +646,9 @@ function renderNode(S) {
     else result = `<div class="banner blue">DECISION LOCKED IN</div>`;
   }
   return `<div class="mcard ${c.step === 'brief' ? '' : 'compact'}">
-    <div class="mhead"><div class="ic">${m.icon}</div><div><h2 style="${ce ? 'color:var(--bad)' : ''}">${ce ? '🚨 CRISIS EVENT: ' : c.type === 'elite' ? '💀 ELITE: ' : ''}${esc(m.title)}</h2><div class="sob">${objChips(m) ? `<span class="objlbl">TESTS</span>${objChips(m)}` : esc(m.sob)}</div></div></div>
+    <div class="mhead"><div class="ic">${m.badge ? ccBadge(64) : m.icon}</div><div><h2 style="${ce ? 'color:var(--bad)' : ''}">${ce ? '🚨 CRISIS EVENT: ' : c.type === 'elite' ? '💀 ELITE: ' : ''}${esc(m.title)}</h2><div class="sob">${objChips(m) ? `<span class="objlbl">TESTS</span>${objChips(m)}` : esc(m.sob)}</div></div></div>
     ${c.type === 'elite' ? '<div class="banner">💀 ELITE SCENARIO: every check +3 harder · positive effects doubled · guaranteed loot</div>' : ''}
-    ${m.cc ? `<div class="banner gold">🎖️ COMMANDER ENCOUNTER: ${esc(S.cc.toUpperCase())}</div>` : ''}
+    ${m.cc ? `<div class="banner gold">${ccBadge(26)} COMMANDER ENCOUNTER: ${esc(S.cc.toUpperCase())}</div>` : ''}
     ${c.step === 'brief' && arrowsHidden(S) ? '<div class="banner blue">🔍 COMPARTMENTED: no arrows. Decide on the facts.</div>' : ''}
     ${S.banner ? `<div class="banner ${S.banner.cls || ''}">${esc(S.banner.text)}</div>` : ''}
     <div class="situ">${esc(fill(S, m.text))}</div>

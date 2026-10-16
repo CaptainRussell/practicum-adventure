@@ -984,3 +984,5 @@ body.gm{font-family:var(--ui);font-size:14px;line-height:1.45;background:#0e1020
 .sb4 .sbn{align-self:center}
 .sb4 .sbw{grid-column:1/-1;text-align:center}
 .sb4{row-gap:1px;padding:3px 6px} .sb4 .sbw,.sb4 .sbn{line-height:1} .sb4 .sbi{font-size:15px;line-height:1}
+/* the commander's badge on a silver disc */
+.ccbadge{display:inline-block;vertical-align:middle;border-radius:50%;background:#e4e1d6 url("insignia/CommanderInsignia.svg") center 55%/84% no-repeat;box-shadow:0 0 0 1px #0006;margin-right:.2em;flex:none}
