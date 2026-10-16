@@ -1091,9 +1091,9 @@ function startRun() {
 function lockParty() {
   const p = party();
   if (p.length < 2) return 'Enter at least 2 cadets.';
-  if (p.some(c => !c.cls)) return 'Every cadet needs a class.';
+  if (p.some(c => !c.cls)) return 'Every cadet needs a position.';
   const cls = p.map(c => c.cls);
-  if (new Set(cls).size !== cls.length) return 'No duplicate classes.';
+  if (new Set(cls).size !== cls.length) return 'No duplicate positions.';
   // empty rows are dropped, so move each phone to its cadet's new row (or to spectator)
   const keep = S.party.map((c, i) => i).filter(i => S.party[i].name.trim());
   for (const k in S.clients || {}) { const c = S.clients[k]; if (c.slot != null) { const n = keep.indexOf(c.slot); c.slot = n >= 0 ? n : null; } }
@@ -1102,7 +1102,7 @@ function lockParty() {
   S.crown = fcIdx() >= 0 ? null : S.party.map((_, i) => i).sort((a, b) => statOf(b, 'CMD') - statOf(a, 'CMD'))[0];
   S.tokenHolder = crownIdx(S);
   S.phase = 'perks';
-  log('Classes locked', p.map(c => `${c.name} (${CLASS[c.cls].name})`).join('; '));
+  log('Positions locked', p.map(c => `${c.name} (${CLASS[c.cls].name})`).join('; '));
   return '';
 }
 function lockPerks() {
@@ -1938,15 +1938,15 @@ function boardTable(b) {
 function gmParty() {
   const taken = S.party.map(c => c.cls);
   return `<div class="gcard"><h2>Character select</h2>
-  <p class="note">Cadets pick their classes (by phone or out loud). Flight Commander is optional (without one, the best-CMD cadet holds the 👑 tie-break), and there are no duplicate classes. Leave row 4 blank for a 3-person party. Perks stay hidden until the classes are locked.</p>
+  <p class="note">Cadets pick their positions (by phone or out loud). Flight Commander is optional (without one, the best-CMD cadet holds the 👑 tie-break), and there are no duplicate positions. Leave row 4 blank for a 3-person party. Perks stay hidden until the positions are locked.</p>
   ${S.party.map((c, i) => `<div class="gchoice"><div class="row">
     <b>P${i + 1}</b>${c.av != null ? `<img src="${avatarOf(c)}" style="width:28px;height:28px;image-rendering:pixelated">` : ''}<input type="text" id="pname${i}" placeholder="Cadet name (or they join by phone)" value="${esc(c.name)}" data-inp="pname" data-arg="${i}">
     ${Object.values(S.clients || {}).some(k => k.slot === i) ? '<span class="pill y">📱 phone</span>' : ''}
     ${c.name ? B('kick', '✖', { arg: i, cls: 'sm', title: 'Remove this cadet (and their phone)' }) : ''}
-    <select data-inp="pcls" data-arg="${i}"><option value="">- class -</option>${CLASSES.map(k => `<option value="${k.id}" ${c.cls === k.id ? 'selected' : ''} ${c.cls !== k.id && taken.includes(k.id) ? 'disabled' : ''}>${k.rank} · ${k.name}</option>`).join('')}</select>
+    <select data-inp="pcls" data-arg="${i}"><option value="">- position -</option>${CLASSES.map(k => `<option value="${k.id}" ${c.cls === k.id ? 'selected' : ''} ${c.cls !== k.id && taken.includes(k.id) ? 'disabled' : ''}>${k.rank} · ${k.name}</option>`).join('')}</select>
     </div></div>`).join('')}
   <div class="warnline" id="partyWarn">${esc(S.partyWarn || '')}</div>
-  <div class="row">${B('lockParty', '🔒 Lock in the classes → reveal perks', { cls: 'pri' })}</div></div>`;
+  <div class="row">${B('lockParty', '🔒 Lock in the positions → reveal perks', { cls: 'pri' })}</div></div>`;
 }
 function gmPerks() {
   return `<div class="gcard"><h2>🎁 Perk selection</h2>
@@ -1954,14 +1954,14 @@ function gmPerks() {
   ${S.party.map((c, i) => `<div class="gchoice"><b>${clsIcon(c.cls, 18)} ${esc(rankName(c))}</b> <span class="note">${CLASS[c.cls].name}</span>
     <div class="row">${CLASS[c.cls].perks.map(p => `<label class="b ${c.perk === p.id ? 'on' : ''}"><input type="radio" class="hide" name="perk${i}" data-inp="pperk" data-arg="${i}" value="${p.id}" ${c.perk === p.id ? 'checked' : ''}>${esc(p.name)}: <span class="note">${esc(p.text)}</span></label>`).join('')}</div></div>`).join('')}
   <div class="warnline">${esc(S.partyWarn || '')}</div>
-  <div class="row">${B('backToClasses', '⬅️ Back to classes')} ${B('lockPerks', '✅ Lock perks → check your kit', { cls: 'pri', dis: S.party.some(c => !c.perk) })}</div></div>`;
+  <div class="row">${B('backToClasses', '⬅️ Back to positions')} ${B('lockPerks', '✅ Lock perks → check your kit', { cls: 'pri', dis: S.party.some(c => !c.perk) })}</div></div>`;
 }
 
 // Kit check: every cadet opens the 🎒 KIT tab on their phone (class, stats, ability, perk), then comes back to 🎮 GAME
 function gmKit() {
   const done = S.party.filter(c => c.kitOk).length;
   return `<div class="gcard"><h2>🎒 Check your kit</h2>
-  <p class="note">Every cadet opens the 🎒 KIT tab on their phone to see their class, stats, ability and perk, then taps 🎮 GAME to come back (it marks them ✅ here). Cadets without a phone: read their kit to them from the projector.</p>
+  <p class="note">Every cadet opens the 🎒 KIT tab on their phone to see their position, stats, ability and perk, then taps 🎮 GAME to come back (it marks them ✅ here). Cadets without a phone: read their kit to them from the projector.</p>
   ${S.party.map(c => `<div class="row">${c.kitOk ? '✅' : '⏳'} ${clsIcon(c.cls, 18)} <b>${esc(rankName(c))}</b> <span class="note">${esc(CLASS[c.cls].name)} · ${esc(perkOf(c).name)}</span></div>`).join('')}
   <div class="row">${B('kitDone', `${done === S.party.length ? '✅' : '➡️'} Continue → choose the squadron (${done}/${S.party.length} checked)`, { cls: 'pri' })}</div></div>`;
 }
@@ -1999,7 +1999,7 @@ function miniMap(m) {
 function gmJoin() {
   const n = Object.keys(S.clients || {}).length;
   return `<div class="gcard"><h2>📱 Join screen</h2>
-    <p class="note">The projector shows the join QR code full screen. Wait until every cadet has scanned it and joined, then start the briefing. Cadets can still join later (until classes are picked); the QR stays in the corner.</p>
+    <p class="note">The projector shows the join QR code full screen. Wait until every cadet has scanned it and joined, then start the briefing. Cadets can still join later (until positions are picked); the QR stays in the corner.</p>
     <p><b>${n}</b> phone${n === 1 ? '' : 's'} joined${n ? `: ${Object.values(S.clients).map(c => esc(c.name)).join(', ')}` : ''}</p>
     <div class="row">${B('startBriefing', '▶️ Start the briefing', { cls: 'pri' })}</div></div>`;
 }
@@ -2017,14 +2017,14 @@ function gmIntro() {
 function gmAvatars() {
   const taken = S.party.map(p => p.av);
   const named = S.party.filter(p => p.name.trim());
-  return `<div class="gcard"><h2>Pick your character icon</h2><p class="note">Phones join and pick here (this is the first pick, before classes). The icon also sets the cadet's gender (10 male, 10 female). For anyone without a phone, type their name and click an icon. Leave a row blank for a 3-person party.</p>
+  return `<div class="gcard"><h2>Pick your character icon</h2><p class="note">Phones join and pick here (this is the first pick, before positions). The icon also sets the cadet's gender (10 male, 10 female). For anyone without a phone, type their name and click an icon. Leave a row blank for a 3-person party.</p>
     ${S.party.map((p, i) => `<div class="gchoice"><div class="row"><b>P${i + 1}</b><input type="text" id="pname${i}" placeholder="Cadet name (or they join by phone)" value="${esc(p.name)}" data-inp="pname" data-arg="${i}">
       ${Object.values(S.clients || {}).some(k => k.slot === i) ? '<span class="pill y">📱 phone</span>' : ''} ${p.name ? B('kick', '✖', { arg: i, cls: 'sm', title: 'Remove this cadet (and their phone)' }) : ''}
       ${p.av != null ? `<img src="${avatarOf(p)}" style="width:28px;height:28px;image-rendering:pixelated">
         <select data-inp="puni" data-arg="${i}">${UNIFORMS.map(u => `<option value="${u.id}" ${(p.uni || '') === u.id ? 'selected' : ''}>👕 ${u.name}</option>`).join('')}</select>
         <select data-inp="phair" data-arg="${i}">${HAIR_COLORS.map(h => `<option value="${h.id}" ${(p.hair || '') === h.id ? 'selected' : ''}>💇 ${h.name}</option>`).join('')}</select>` : ''}</div>
       ${AV_GROUPS.map(G => `<div class="row"><span class="note" style="width:80px">${G.label}</span>${G.idx.map(k => `<button class="b sm ${p.av === k ? 'on' : ''}" data-act="setAv" data-arg="${i},${k}" ${p.av !== k && taken.includes(k) ? 'disabled' : ''} title="#${avNum(k)}"><img src="${presetAvatar(k)}" style="width:28px;height:28px;image-rendering:pixelated;display:block"></button>`).join('')}</div>`).join('')}</div>`).join('')}
-    ${B('avDone', '✅ Done: go to class select', { cls: 'pri', dis: named.length < 2 || named.some(p => p.av == null) })}</div>`;
+    ${B('avDone', '✅ Done: go to position select', { cls: 'pri', dis: named.length < 2 || named.some(p => p.av == null) })}</div>`;
 }
 
 function gmManifest() {

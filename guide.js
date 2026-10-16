@@ -6,7 +6,7 @@
 function initGuide() {
   document.body.className = 'guide';
   const sec = (id, title, body) => `<section id="${id}"><h2>${title}</h2>${body}</section>`;
-  const nav = [['play', 'How to play'], ['meters', 'Meters & icons'], ['classes', 'Classes'], ['units', 'Squadrons'], ['dice', 'Dice'], ['route', 'The route'], ['boss', 'The IG'], ['score', 'Scoring'], ['ach', 'Achievements']];
+  const nav = [['play', 'How to play'], ['meters', 'Meters & icons'], ['classes', 'Positions'], ['units', 'Squadrons'], ['dice', 'Dice'], ['route', 'The route'], ['boss', 'The IG'], ['score', 'Scoring'], ['ach', 'Achievements']];
   $('#app').innerHTML = `
   <header class="g-top"><div class="logo" style="font-size:26px">PRACTICUM ADVENTURE</div><div class="g-sub">FIELD GUIDE · AS300 PRACTICUM</div>
     <nav>${nav.map(([id, t]) => `<a href="#${id}">${t}</a>`).join('')}</nav>
@@ -14,10 +14,10 @@ function initGuide() {
   <main class="g-main">
   ${sec('play', '🎮 How to play', `<div class="g-steps">${INTRO_STEPS.map(([ic, h, t], i) => `<div class="g-card"><div class="g-ic">${ic}</div><div><b>${i + 1}. ${esc(h)}</b><p>${esc(t)}</p></div></div>`).join('')}</div>
     <p class="g-win">${esc(INTRO_WIN)}</p><p class="g-lose">${esc(INTRO_LOSE)}</p>
-    <p>A run takes about 20 minutes: pick character icons and classes → choose your squadron → 5 to 7 stops → the Inspector General → results → debrief. Your practicum grade comes from the debrief (reflection, engagement, concepts), not from the game score.</p>`)}
+    <p>A run takes about 20 minutes: pick character icons and positions → choose your squadron → 5 to 7 stops → the Inspector General → results → debrief. Your practicum grade comes from the debrief (reflection, engagement, concepts), not from the game score.</p>`)}
   ${sec('meters', '📊 Meters & icons', `<p>Your team shares four meters, each from 0 to 10. Almost every choice raises some and lowers others. If a meter hits <b>0</b>, a Crisis Event strikes as soon as the current event is resolved, and it takes something for good: an Airman, your Flight Commander, your gear. <b>A second Crisis Event = GAME OVER.</b></p>
     <div class="g-legend">${LEGEND.map(([ic, h, t]) => `<div class="g-card"><div class="g-ic">${ic}</div><div><b>${esc(h)}</b><p>${esc(t)}</p></div></div>`).join('')}</div>`)}
-  ${sec('classes', '🧙 Classes', `<p>Each cadet picks a different class. The Flight Commander is optional: without one, the cadet with the best CMD holds the 👑 tie-break. Each class has a specialty meter, 4 stats that add to its dice rolls, an ability, and two perks (you pick one of the two after classes are locked; each is usable once per game). After stop 3 everyone levels up and picks an upgrade.</p>
+  ${sec('classes', '🎖️ Positions', `<p>Each cadet picks a different position. The Flight Commander is optional: without one, the cadet with the best CMD holds the 👑 tie-break. Each position has a specialty meter, 4 stats that add to its dice rolls, an ability, and two perks (you pick one of the two after positions are locked; each is usable once per game). After stop 3 everyone levels up and picks an upgrade.</p>
     <p class="g-small">Stats: <b>CMD</b> command, decisions, accountability · <b>CHA</b> persuade, counsel, motivate · <b>INS</b> read people, spot problems, plan · <b>GRIT</b> endure, execute, stretch resources.</p>
     ${CLASSES.map(c => `<div class="g-class"><h3>${c.icon} ${c.name}</h3><div class="g-small">Rank: <b>${c.rankLong} (${c.rank})</b> · Specialty: ${mt(c.guards)}</div>
       <div class="stats">${STATS.map(s => `<div>${s}<b>+${c.stats[s]}</b></div>`).join('')}</div>
@@ -31,7 +31,7 @@ function initGuide() {
       <p><b>⚠️ Tendency, ${esc(u.drain.name)}:</b> ${esc(u.drain.text)}. ${meterTag(u.drain.k)} −1 every ${DIFFICULTY.drainEvery} stops.</p></div>`).join('')}`)}
   ${sec('dice', '🎲 Dice & checks', `<ul>
       <li>Risky choices call for a <b>d20 check</b>: d20 + the roller's stat vs a target. <b>Normal ${DC_NORMAL}</b>, <b>Hard ${DC_HARD}</b>. Elite stops add +3.</li>
-      <li><b>Specialist +1:</b> when the check's meter is your class specialty (for example the First Sergeant on ❤️).</li>
+      <li><b>Specialist +1:</b> when the check's meter is your position's specialty (for example the First Sergeant on ❤️).</li>
       <li><b>Who rolls:</b> the team votes on their phones (each cadet's bonus is shown), then the GM locks in the roller. ★ means the number includes the +1 specialist bonus.</li>
       <li>If the meter tied to the check is <b>8 or higher: +2</b>. If it's <b>2 or lower: −2</b>.</li>
       <li><b>Natural 20 = critical:</b> good effects double, plus loot. <b>Natural 1 = fumble.</b></li>

@@ -35,8 +35,8 @@ integrity trap to see the Game Over path.
 
 | Phase | Do this as the cadets | Do this as the GM | Watch for |
 |---|---|---|---|
-| Intro | Read the two briefing screens on the projector | Next ➡ class select | Can a cadet tell what to do from the projector alone? |
-| Class select | Each phone picks a different class; try picking a taken one | Lock classes | Duplicate blocked? FC-required warning? |
+| Intro | Read the two briefing screens on the projector | Next ➡ position select | Can a cadet tell what to do from the projector alone? |
+| Position select | Each phone picks a different position; try picking a taken one | Lock positions | Duplicate blocked? |
 | Perks | Each phone picks a perk | Lock perks | Perks only revealed now? |
 | Pilots | Each phone picks an avatar | Done → roll unit | Taken avatars disabled? |
 | Unit | FC's phone rolls the d6 | Show manifest | Only FC gets the button; other phones say "look up" |
@@ -80,7 +80,7 @@ questions connect to what actually happened in the run?
    still disconnects everyone, as before.
 3. **Phones controlled the wrong cadet after a removed row.** `lockParty()` now moves each phone
    to its cadet's new row when empty rows are dropped. Re-check: 4 phones join, ✖ P2, give the
-   other three classes, lock. Each remaining phone should show its own name.
+   other three positions, lock. Each remaining phone should show its own name.
 
 **Still open:**
 

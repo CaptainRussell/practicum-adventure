@@ -869,7 +869,7 @@ const LOOT = [
   { id: 'coffee',   icon: '☕', name: 'Bottomless Coffee', text: '+2 on one check', use: { type: 'check', n: 2 } },
   { id: 'coin',     icon: '🪙', name: "Commander's Coin", text: '+3 to any one meter', use: { type: 'anyMeter', n: 3 } },
   { id: 'doover',   icon: '🔄', name: 'Do-Over', text: 'Undo the decision you just made', use: { type: 'undo' } },
-  { id: 'wind',     icon: '🔋', name: 'Second Wind', text: 'Recharge a used class ability or perk', use: { type: 'recharge' } },
+  { id: 'wind',     icon: '🔋', name: 'Second Wind', text: 'Recharge a used ability or perk', use: { type: 'recharge' } },
   { id: 'deocs',    icon: '📋', name: 'DEOCS Survey', text: `See the exact meter values for the next ${DIFFICULTY.deocsStops} stops`, use: { type: 'deocs' } },
   { id: 'branch',   icon: '🌿', name: 'Branch Plan', text: 'On the route map, move to ANY stop in the next column, even off your path', use: { type: 'branch' } },
   // 4th AMXS
@@ -1077,7 +1077,7 @@ const INTRO_STEPS = [
   ['🧑‍✈️', 'You are a leadership team', 'Your party runs a flight in a squadron you choose. You win or lose TOGETHER against the scenario (and the GM).'],
   ['🗺️', 'Follow the route', 'Travel the stops on the route map (5 to 7, set by the GM), then face the final boss: the Inspector General.'],
   ['🔀', 'Make choices', 'Every choice helps some meters and hurts others. You can never max them all, so balance them.'],
-  ['🎲', 'Roll the dice', 'Risky choices need a d20 roll plus your class stat. The team votes on who rolls.'],
+  ['🎲', 'Roll the dice', 'Risky choices need a d20 roll plus your stat. The team votes on who rolls.'],
   ['🎤', 'Act it out', 'Some choices make you play the scene. A wheel picks who talks; the GM plays the other side and rates you 1-3 stars.'],
   ['🎡', 'Injects every other stop', 'After every other stop a d6 picks the Wheel of Failure, Meh or Success. Your squadron also has a weak spot that keeps draining. You vote on how to respond.'],
 ];
@@ -1108,7 +1108,7 @@ const LEGEND = [
   ['⚔️ 💀 🏕️ 🛒 ❓', 'MAP STOPS', 'Scenario · Elite (harder, bigger rewards) · Rest Stop · Base Exchange (BX) · Unknown'],
   ['🎡', 'INJECT CHECKPOINT', 'The 🎡 waypoints between stops. The team picks which waypoint to take (it also locks in the path to the next stop); then a d6 picks the Wheel of Failure, Meh or Success and someone spins it.'],
   ['🚨', 'CRISIS EVENT', 'A meter hits 0: the crisis strikes right away and takes something for good (an Airman, your Flight Commander, your gear). A second Crisis Event = GAME OVER.'],
-  ['CMD CHA<br>INS GRIT', 'CLASS STATS', 'Added to your d20 rolls. CMD Command (orders, decisions) · CHA Charisma (persuade, counsel) · INS Insight (read people, plan) · GRIT Grit (endure, execute)'],
+  ['CMD CHA<br>INS GRIT', 'YOUR STATS', 'Added to your d20 rolls. CMD Command (orders, decisions) · CHA Charisma (persuade, counsel) · INS Insight (read people, plan) · GRIT Grit (endure, execute)'],
   ['📱🎲', 'YOUR TURN', 'Random events rotate through the team: when it\'s your turn, a ROLL / SPIN button appears on your phone'],
 ];
 
@@ -1222,6 +1222,6 @@ const DECODER = [
 ];
 const DEBRIEF_ALWAYS = [
   'When a vote tied, how did the Flight Commander break it? Did they explain the call, or just make it?',
-  'Which class did you wish you had? What does that tell you about building a team?',
+  'Which position did you wish you had? What does that tell you about building a team?',
   "Name one thing from today you'll actually do as a 2d Lt.",
 ];

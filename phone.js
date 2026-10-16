@@ -158,7 +158,7 @@ function phHeader(v, me) {
   return `<div class="ph-head">
       ${me && me.av != null ? `<img src="${avatarOf(me)}">` : '<div class="ph-noav">?</div>'}
       <div style="flex:1"><div class="ph-nm">${me ? insignia(me) : ''}${esc(me ? rankName(me) : PH.name)}</div>
-      <div class="ph-cl">${me ? (cls ? `${cls.name}${me.fired ? ' · 🪓 FIRED' : ''}${v.you === v.crown ? ' · 👑' : ''}` : 'No class yet') : 'Spectator'}${v.team ? ` · ${v.patch ? v.patch.icon + ' ' : ''}${esc(v.team.toUpperCase())}` : ''}</div>
+      <div class="ph-cl">${me ? (cls ? `${cls.name}${me.fired ? ' · 🪓 FIRED' : ''}${v.you === v.crown ? ' · 👑' : ''}` : 'No position yet') : 'Spectator'}${v.team ? ` · ${v.patch ? v.patch.icon + ' ' : ''}${esc(v.team.toUpperCase())}` : ''}</div>
 </div>
       <span class="ph-dot" title="connected">●</span></div>
     ${v.unit ? `<div class="ph-meters">${METERS.map(m => { const x = v.meters[m.k], b = meterBand(x); const intent = v.ccInfo && v.ccInfo.intent === m.k;
@@ -201,14 +201,14 @@ function phGame(v, me) {
     <div class="ph-card">📱 <b>Already playing on another device</b> (dead battery, new phone)? Tell the GM: they can move this device into your seat.</div>${guideLink}`;
   switch (v.phase) {
     case 'title': case 'join': case 'intro':
-      return `<div class="ph-card">✅ You're in, <b>${esc(me.name)}</b>!<br><br>Watch the projector while the GM explains the game. Next you pick your character icon, then your class.</div>${guideLink}`;
+      return `<div class="ph-card">✅ You're in, <b>${esc(me.name)}</b>!<br><br>Watch the projector while the GM explains the game. Next you pick your character icon, then your position.</div>${guideLink}`;
     case 'party': return phParty(v, me);
     case 'perks': { const cls = CLASS[me.cls];
       return `<div class="ph-h">🎁 PICK YOUR PERK</div><div class="ph-card">${clsIcon(me.cls, 20)} <b>${esc(rankName(me))}</b>, pick ONE perk for your ${cls.name}. Each perk works once per game.</div>`
         + cls.perks.map(p => pbtn('perk', p.id, `<b>${esc(p.name)}</b><br><small>${mt(esc(p.text))}</small>`, { cls: cls3(me.perk === p.id, !me.perk) })).join('')
         + (me.perk ? '<div class="ph-card ph-center">✅ Locked in. Waiting for the rest of the team...</div>' : ''); }
     case 'kit': return me.kitOk ? '<div class="ph-card ph-center">✅ Kit checked. Your kit is always one tap away in the 🎒 KIT tab.<br><br>Waiting for the rest of the team...</div>'
-      : '<div class="ph-h">🎒 CHECK YOUR KIT</div><div class="ph-card">Before you pick a squadron, look at what you\'re bringing: your class, stats, ability and perk.</div><div class="ph-point"><b>Tap the glowing 🎒 KIT tab at the bottom of the screen.</b><div class="ph-arrow">👇</div></div>';
+      : '<div class="ph-h">🎒 CHECK YOUR KIT</div><div class="ph-card">Before you pick a squadron, look at what you\'re bringing: your position, stats, ability and perk.</div><div class="ph-point"><b>Tap the glowing 🎒 KIT tab at the bottom of the screen.</b><div class="ph-arrow">👇</div></div>';
     case 'avatars': return `<div class="ph-h">PICK YOUR CHARACTER ICON</div><div class="ph-note">Your icon also sets your gender in the game.</div>` + AV_GROUPS.map(G => `<div class="ph-h">${G.label}</div><div class="ph-avgrid">${G.idx.map(k => {
       const who = v.party.find(p => p.av === k); const mine = me.av === k;
       return `<button class="ph-av ${mine ? 'sel' : me.av == null && !who ? 'need' : ''}" data-p="av" data-a="${k}" ${who && !mine ? 'disabled' : ''}><img src="${who ? avatarOf(who) : presetAvatar(k)}"><span>${avNum(k)}${who && !mine ? ' · ' + esc(rankName(who)) : ''}</span></button>`; }).join('')}</div>`).join('') + phLook(me);
@@ -277,7 +277,7 @@ function phLook(me) {
 // just that card with its details; the projector shows every class in full.
 function phParty(v, me) {
   let h = '';
-  h += `<div class="ph-h">${me.cls ? 'YOUR CLASS' : 'PICK YOUR CLASS'}</div><div class="ph-note">Tap a class to pick it. Full details are on the projector.</div>`;
+  h += `<div class="ph-h">${me.cls ? 'YOUR POSITION' : 'PICK YOUR POSITION'}</div><div class="ph-note">Tap a position to pick it. Full details are on the projector.</div>`;
   h += CLASSES.map(c => {
     const who = v.party.find(p => p.name && p.cls === c.id), mine = me.cls === c.id;
     const tag = who && !mine ? ` <small>${who.av != null ? `<img src="${avatarOf(who)}" style="width:20px;height:20px;image-rendering:pixelated;vertical-align:middle"> ` : ''}${esc(rankName(who))}</small>` : '';
@@ -432,7 +432,7 @@ function phBoss(v, me) {
 
 // KIT tab: your class, and everything you or the team could use (gold = usable now)
 function phKit(v, me) {
-  if (!me || !me.cls) return `<div class="ph-card">Pick a class first.</div>`;
+  if (!me || !me.cls) return `<div class="ph-card">Pick a position first.</div>`;
   const c = CLASS[me.cls], perk = c.perks.find(p => p.id === me.perk), up = c.ups.find(u => u.id === me.up);
   const now = {}; myUsable(v).forEach(u => { now[u.req] = u; });
   const row = (req, icon, name, text, state) => {

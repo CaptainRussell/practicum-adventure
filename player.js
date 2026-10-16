@@ -458,9 +458,9 @@ function renderIntegrity() {
 }
 
 function renderParty(S) {
-  return `<div style="display:flex;flex-direction:column;gap:10px;height:100%"><div class="ptitle" style="text-align:center;font-size:24px">SELECT YOUR CLASS</div>
+  return `<div style="display:flex;flex-direction:column;gap:10px;height:100%"><div class="ptitle" style="text-align:center;font-size:24px">SELECT YOUR POSITION</div>
     ${S.callsign ? `<div class="ptitle" style="text-align:center;font-size:18px;color:var(--accent)">TEAM ${esc(S.callsign.toUpperCase())}</div>` : ''}
-    <div class="sub" style="text-align:center;font-size:21px">no duplicate classes · no Flight Commander? the best CMD gets the 👑${P.join && P.join.live ? ` · 📱 pick on your phone (ROOM <b style="color:var(--gold)">${esc(P.join.code)}</b>)` : ''}</div>
+    <div class="sub" style="text-align:center;font-size:21px">no duplicate positions · no Flight Commander? the best CMD gets the 👑${P.join && P.join.live ? ` · 📱 pick on your phone (ROOM <b style="color:var(--gold)">${esc(P.join.code)}</b>)` : ''}</div>
     <div class="classgrid">${CLASSES.map(c => {
       const who = S.party.find(p => p.cls === c.id && p.name);
       return `<div class="ccard ${who ? 'taken' : ''}" style="${who ? `border-color:${c.color}` : ''}"><div class="chead"><span class="ic">${clsIcon(c.id, 40)}</span><h3 style="color:${c.color}">${c.name}</h3>${who ? `<div class="who" style="background:${c.color}">${who.av != null ? `<img src="${avatarOf(who)}">` : ''}${esc(rankName(who))}</div>` : ''}</div>
@@ -475,7 +475,7 @@ function renderParty(S) {
 // Kit check (after perks, before the squadron vote): everyone looks at their kit on their phone
 function renderKitCheck(S) {
   return `<div class="kitchk"><div class="ptitle">🎒 CHECK YOUR KIT</div>
-    <div class="sub">On your phone: tap <b>🎒 KIT</b> to see your class, stats, ability and perk, then tap <b>🎮 GAME</b> to come back.</div>
+    <div class="sub">On your phone: tap <b>🎒 KIT</b> to see your position, stats, ability and perk, then tap <b>🎮 GAME</b> to come back.</div>
     <div class="kitrow">${S.party.map(p => { const c = CLASS[p.cls], pk = c.perks.find(k => k.id === p.perk);
       return `<div class="ccard ${p.kitOk ? 'taken' : ''}" style="${p.kitOk ? `border-color:${c.color}` : ''}"><div class="chead"><img src="${avatarOf(p)}" style="width:48px;height:48px;image-rendering:pixelated"><div><h3>${insignia(p)}${esc(rankName(p))}</h3><div class="sub" style="font-size:19px;color:${c.color}">${c.name}</div></div></div>
         <div class="kitline">⚡ <b>${esc(c.ability ? c.ability.name : 'Command Token')}</b></div><div class="kitline">🎁 <b>${esc(pk ? pk.name : '-')}</b></div>
@@ -483,7 +483,7 @@ function renderKitCheck(S) {
 }
 function renderPerks(S) {
   return `<div style="display:flex;flex-direction:column;gap:12px;height:100%"><div class="ptitle" style="text-align:center;font-size:24px">🎁 PERKS REVEALED: PICK ONE</div>
-    <div class="sub" style="text-align:center;font-size:22px">Each cadet chooses one perk for their class (on your phone or tell the GM)</div>
+    <div class="sub" style="text-align:center;font-size:22px">Each cadet chooses one perk for their position (on your phone or tell the GM)</div>
     <div class="perkgrid" style="grid-template-columns:repeat(${S.party.length},1fr)">${S.party.map(p => { const c = CLASS[p.cls]; return `<div class="ccard ${p.perk ? 'taken' : ''}">
       <div class="chead"><img src="${avatarOf(p)}" style="width:40px;height:40px;image-rendering:pixelated"><div><h3>${insignia(p)}${esc(rankName(p))}</h3><div class="sub" style="font-size:19px">${c.name}</div></div></div>
       ${c.perks.map((k, j) => `<div class="perk big ${p.perk === k.id ? 'sel' : p.perk ? 'off' : ''}"><b>${p.perk === k.id ? '▶ ' : ''}PERK ${'AB'[j]} · ${esc(k.name)}</b><div>${mt(esc(k.text))}</div></div>`).join('')}
