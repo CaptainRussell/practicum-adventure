@@ -205,7 +205,7 @@ function phGame(v, me) {
     case 'party': return phParty(v, me);
     case 'perks': { const cls = CLASS[me.cls];
       return `<div class="ph-h">🎁 PICK YOUR PERK</div><div class="ph-card">${clsIcon(me.cls, 20)} <b>${esc(rankName(me))}</b>, pick ONE perk for your ${cls.name}. Each perk works once per game.</div>`
-        + cls.perks.map(p => pbtn('perk', p.id, `${p.icon} <b>${esc(p.name)}</b><br><small>${mt(esc(p.text))}</small>`, { cls: cls3(me.perk === p.id, !me.perk) })).join('')
+        + cls.perks.map(p => pbtn('perk', p.id, `${p.icon} <b>${esc(p.name)}</b><br><small>${useHtml(p.text)}</small>`, { cls: cls3(me.perk === p.id, !me.perk) })).join('')
         + (me.perk ? '<div class="ph-card ph-center">✅ Locked in. Waiting for the rest of the team...</div>' : ''); }
     case 'kit': return me.kitOk ? '<div class="ph-card ph-center">✅ Kit checked. Your kit is always one tap away in the 🎒 KIT tab.<br><br>Waiting for the rest of the team...</div>'
       : '<div class="ph-h">🎒 CHECK YOUR KIT</div><div class="ph-card">Before you pick a squadron, look at what you\'re bringing: your position, stats, ability and perk.</div><div class="ph-point"><b>Tap the glowing 🎒 KIT tab at the bottom of the screen.</b><div class="ph-arrow">👇</div></div>';
@@ -438,15 +438,16 @@ function phKit(v, me) {
   const row = (req, icon, name, text, state) => {
     const u = req && now[req];
     if (u) return pbtn('req', req, `${icon} <b>${esc(name)}</b> <span class="ph-tag">USE NOW</span><br><small>${mt(esc(u.hint))} · tap to ask the GM</small>`, { cls: 'avail' + (u.hot ? ' hot' : '') });
-    return `<div class="ph-kitrow ${state === 'used' ? 'used' : ''}">${icon} <b>${esc(name)}</b>${state ? ` <span class="ph-tag off">${state.toUpperCase()}</span>` : ''}<br><small>${mt(esc(text))}</small></div>`;
+    const tag = useBadge(state) || (state ? `<span class="ph-tag off">${state.toUpperCase()}</span>` : '');
+    return `<div class="ph-kitrow ${state === 'used' ? 'used' : ''}">${icon} <b>${esc(name)}</b> ${tag}<br><small>${mt(esc(useSplit(text).text))}</small></div>`;
   };
   let h = (PH.kitBack ? '<div class="ph-point">✅ This is your kit: check it any time during the game.<br><b>Now tap the glowing 🎮 GAME tab at the bottom to go back.</b><div class="ph-arrow">👇</div></div>' : '') + `<div class="ph-h">${clsIcon(me.cls, 24)} ${c.name}</div><div class="ph-note">Rank: ${c.rankLong} · Specialty: ${mt(c.guards)} (+1 on those checks)</div>
     <div class="ph-card"><div class="stats">${STATS.map(s => `<div>${s}<b>+${me.st ? me.st[s] : c.stats[s]}</b></div>`).join('')}</div>
       <small>${STATS.map(s => `<b>${s}</b> ${STAT_INFO[s].name}: ${STAT_INFO[s].text}`).join('<br>')}</small></div>`;
   h += `<div class="ph-h">🎒 YOUR KIT <small class="ph-legend">gold = usable now</small></div>`;
   if (c.ability) h += row('ability', clsIcon(me.cls, 20), c.ability.name, c.ability.text, c.ability.auto ? (v.ccInfo && v.ccInfo.negOff ? 'active' : 'passive') : me.used ? 'used' : 'once');
-  else h += row(null, '👑', 'Command Token', c.abilityText, '');
-  if (perk) h += row('perk:' + perk.id, perk.icon || '🎁', perk.name, perk.text, perk.id === 'hold' ? (me.perkUsed ? 'used' : 'passive') : me.perkUsed ? 'used' : 'once');
+  else h += row(null, '👑', 'Command Token', c.abilityText, 'passive');
+  if (perk) h += row('perk:' + perk.id, perk.icon || '🎁', perk.name, perk.text, me.perkUsed ? 'used' : 'once');
   if (up) h += row(null, '⬆️', up.name, up.text, 'upgrade');
   h += `<div class="ph-h">🧺 TEAM ITEMS (${(v.itemInfo || []).length}/3)</div>`;
   h += (v.itemInfo || []).length ? v.itemInfo.map(l => row('item:' + l.id, l.icon, l.name, l.text, '')).join('')

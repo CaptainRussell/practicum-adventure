@@ -212,6 +212,20 @@ function mt(html) {
   return String(html ?? '').replace(METER_ICON_RE, (all, pre, ic, post) => { const m = METERS.find(x => x.icon === ic); if (!m) return all;
     return pre || post ? `<span class="mtn">${pre ? pre + ' ' : ''}${meterTag(m.k)}${post ? ' ' + post : ''}</span>` : meterTag(m.k); });
 }
+/* Single use vs passive: the "Once:" / "Passive:" lead-in of an ability or perk becomes a badge.
+   useSplit('Once, at a BX: the next…') → { kind: 'once', text: 'At a BX: the next…' } */
+function useSplit(text) {
+  const t = String(text || ''), m = /^(Once|Passive)(?:,\s*([^:]+))?:\s*/i.exec(t);
+  if (!m) return { kind: null, text: t };
+  const rest = t.slice(m[0].length), q = m[2];
+  return { kind: m[1].toLowerCase(), text: q ? `${q[0].toUpperCase()}${q.slice(1)}: ${rest}` : rest };
+}
+function useBadge(kind) {
+  return { once: '<span class="use once" title="Single use: once per game"><i>1×</i> ONCE</span>', passive: '<span class="use passive" title="Passive: always on, nothing to press"><i>∞</i> PASSIVE</span>',
+    used: '<span class="use used">USED</span>', active: '<span class="use active">✓ ACTIVE</span>' }[kind] || '';
+}
+// an ability / perk text as badge + text (the Flight Commander's Command Token is passive)
+function useHtml(text, kind) { const u = useSplit(text); return `${useBadge(kind || u.kind)} ${mt(esc(u.text))}`; }
 /* What a choice can do to each meter, computed from its real effects so nothing is hidden:
    the same change in every outcome → that many ▲/▼ (up to 3); a change that depends on the roll or
    the acting (or differs by class) → ❔. Delayed fallout (next:) is still a surprise by design. */
@@ -508,7 +522,10 @@ function rollDie(sides, title, describe, table) {
   showDie(sides, v, title, describe ? describe(v) : '', table);
   return v;
 }
-function injectTable() { return INJECT_ORDER.map(t => { const [lo, hi] = injectRange(t).split('-').map(Number); return { lo, hi: hi || lo, label: INJECT_WHEELS[t].name, icon: INJECT_WHEELS[t].icon, color: INJECT_WHEELS[t].color }; }); }
+// Foresight (Plans Officer, passive): while they're in the party, the d6 never lands on the Wheel of Failure
+function foresightOn(S) { return (S.party || []).some(p => !p.fired && CLASS[p.cls] && CLASS[p.cls].ability && CLASS[p.cls].ability.id === 'foresight'); }
+function wheelFor(d6) { const t = injectTypeFor(d6); return t === 'bad' && foresightOn(S) ? 'mixed' : t; }
+function injectTable() { return INJECT_ORDER.map(t => { const [lo, hi] = injectRange(t).split('-').map(Number), w = t === 'bad' && foresightOn(S) ? 'mixed' : t; return { lo, hi: hi || lo, label: INJECT_WHEELS[w].name + (w !== t ? ' (Foresight)' : ''), icon: INJECT_WHEELS[w].icon, color: INJECT_WHEELS[w].color }; }); }
 const MYSTERY_TABLE = () => MYSTERY.map((m, i) => ({ lo: i + 1, hi: i + 1, label: m.name, icon: m.icon, color: m.color }));
 const LOOT_TABLE = () => [{ lo: 1, hi: 2, label: 'NO LOOT', icon: '💨', color: '#8f8fc8' }, { lo: 3, hi: 4, label: 'LOOT DROP', icon: '🎁', color: '#ffd23f' }];
 // the table for whatever random event is waiting on a cadet's button (shown before they press it)
@@ -1333,10 +1350,10 @@ function spinTrigger() {
   if (!inj || inj.stage !== 'trigger') return;
   doneActor('trigger');
   if (useForesight(inj)) return;
-  const d = rollDie(6, `WHICH WHEEL? · d6${byWho()}`, n => `➜ ${INJECT_WHEELS[injectTypeFor(n)].name}`, injectTable());
-  inj.filter = injectTypeFor(d); inj.stage = 'murphy';
+  const d = rollDie(6, `WHICH WHEEL? · d6${byWho()}`, n => `➜ ${INJECT_WHEELS[wheelFor(n)].name}${wheelFor(n) !== injectTypeFor(n) ? ' (🔮 Foresight)' : ''}`, injectTable());
+  inj.filter = wheelFor(d); inj.stage = 'murphy';
   setActor('murphy', nextActor());
-  log('Inject wheel', INJECT_WHEELS[inj.filter].name);
+  log('Inject wheel', INJECT_WHEELS[inj.filter].name + (inj.filter !== injectTypeFor(d) ? ' (Foresight: not the Wheel of Failure)' : ''));
 }
 // The inject pool for a wheel: injects already used this run are removed, so nothing repeats.
 // (Only if a whole wheel is used up does it refill.)

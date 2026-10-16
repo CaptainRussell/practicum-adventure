@@ -93,7 +93,7 @@ const CLASSES = [
              { id: 'drill', name: 'Budget Drill', text: 'Right now: +3 📦', now: { res: 3 } } ] },
   { id: 'plans', color: '#ff7ae0', name: 'PLANS OFFICER', icon: '🧠', rank: '2d Lt', rankLong: 'Second Lieutenant', guards: '📦', spec: ['res'],
     stats: { CMD: 1, CHA: 1, INS: 3, GRIT: 1 },
-    ability: { id: 'foresight', name: 'Foresight', text: 'Once: the next inject skips the d6 and comes from the Wheel of Success' },
+    ability: { id: 'foresight', auto: true, name: 'Foresight', text: 'Passive: injects never come from the Wheel of Failure (a Failure roll on the d6 lands on the Wheel of Meh instead)' },
     perks: [ { id: 'prepo', icon: '🗃️', name: 'Pre-Positioned Supplies', text: 'Once, at a BX: the next purchase costs no 📦 (you staged the gear ahead of time)' },
              { id: 'emergency', icon: '💵', name: 'Emergency Fund', text: 'Once: +3 📦 right now' } ],
     ups:   [ { id: 'contingency', name: 'Contingency Plan', text: 'Halve the next Wheel of Failure result' },

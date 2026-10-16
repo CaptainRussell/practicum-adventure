@@ -222,6 +222,14 @@ body.player.reality .pl{grid-template-rows:1fr}
 .gate{position:fixed;inset:0;z-index:300;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;cursor:pointer}
 .gate .logo{font-size:44px}
 
+/* single use vs passive badges on abilities and perks */
+.use{display:inline-block;white-space:nowrap;vertical-align:middle;font-family:var(--pixel);font-size:.55em;line-height:1;padding:.35em .5em;border:2px solid;border-radius:3px;margin-right:.3em}
+.use i{font-family:system-ui,"Segoe UI",sans-serif;font-style:normal;font-weight:700;font-size:1.35em;line-height:.8}
+.use.once{color:var(--gold);border-color:var(--gold);background:#3a300066}
+.use.passive{color:#3fd8ff;border-color:#3fd8ff;background:#003a4466}
+.use.used{color:var(--dim);border-color:var(--line);text-decoration:line-through}
+.use.active{color:#06210a;border-color:var(--good);background:var(--good)}
+.ph-kitrow .use,.ph-btn .use{font-size:8px}
 /* labelled meter tags: every meter icon reads "❤️ Morale" in its own colour */
 .mtn{white-space:nowrap} /* "+3 🎯 Mission": the amount never wraps away from its meter */
 .mtag{display:inline-block;white-space:nowrap;padding:0 .35em;margin:0 .1em;border-radius:3px;line-height:1.25;

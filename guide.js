@@ -21,8 +21,8 @@ function initGuide() {
     <p class="g-small">Stats: <b>CMD</b> command, decisions, accountability · <b>CHA</b> persuade, counsel, motivate · <b>INS</b> read people, spot problems, plan · <b>GRIT</b> endure, execute, stretch resources.</p>
     ${CLASSES.map(c => `<div class="g-class"><h3>${c.icon} ${c.name}</h3><div class="g-small">Rank: <b>${c.rankLong} (${c.rank})</b> · Specialty: ${mt(c.guards)}</div>
       <div class="stats">${STATS.map(s => `<div>${s}<b>+${c.stats[s]}</b></div>`).join('')}</div>
-      <p><b>${c.ability ? '⚡ ' + esc(c.ability.name) : '👑 Command'}:</b> ${mt(esc(c.ability ? c.ability.text : c.abilityText))}</p>
-      <p><b>🎁 Perks (pick one):</b></p><ul>${c.perks.map(p => `<li>${p.icon} <b>${esc(p.name)}</b>: ${mt(esc(p.text))}</li>`).join('')}</ul>
+      <p><b>${c.ability ? '⚡ ' + esc(c.ability.name) : '👑 Command'}</b> ${c.ability ? useHtml(c.ability.text) : useHtml(c.abilityText, 'passive')}</p>
+      <p><b>🎁 Perks (pick one):</b></p><ul>${c.perks.map(p => `<li>${p.icon} <b>${esc(p.name)}</b> ${useHtml(p.text)}</li>`).join('')}</ul>
       <p><b>Level-up upgrades (pick one):</b></p><ul>${c.ups.map(u => `<li><b>${esc(u.name)}</b>: ${mt(esc(u.text))}</li>`).join('')}</ul></div>`).join('')}`)}
   ${sec('units', '🏢 Squadrons', `<p>The team <b>votes for its squadron</b> (the Flight Commander breaks ties). Every squadron starts with different meters and has its own Unit members. The <b>commander</b> has a 👍 perk, a 👎 perk and an <b>intent</b>: a priority meter that is worth +${DIFFICULTY.intent} points at 7+ and −${DIFFICULTY.intent} under 4 at the end. Each squadron also has a <b>tendency</b>: a weak spot that drains one meter by 1 after every ${DIFFICULTY.drainEvery} stops.</p>
     ${UNITS.map((u, i) => `<div class="g-class"><h3>${i + 1}. ${u.icon} ${u.name}</h3><div class="g-small">${u.sq}</div>

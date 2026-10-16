@@ -465,7 +465,7 @@ function renderParty(S) {
       const who = S.party.find(p => p.cls === c.id && p.name);
       return `<div class="ccard ${who ? 'taken' : ''}" style="${who ? `border-color:${c.color}` : ''}"><div class="chead"><span class="ic">${clsIcon(c.id, 40)}</span><h3 style="color:${c.color}">${c.name}</h3>${who ? `<div class="who" style="background:${c.color}">${who.av != null ? `<img src="${avatarOf(who)}">` : ''}${esc(rankName(who))}</div>` : ''}</div>
         <div class="sub cline"><span style="color:var(--gold)">${c.rankLong}</span></div>
-        <div class="ab"><b style="color:var(--accent)">${c.ability ? '⚡ ' + esc(c.ability.name) : '👑 COMMAND'}:</b> ${mt(esc(c.ability ? c.ability.text : c.abilityText))}</div>
+        <div class="ab"><b style="color:var(--accent)">${c.ability ? '⚡ ' + esc(c.ability.name) : '👑 COMMAND'}</b> ${c.ability ? useHtml(c.ability.text) : useHtml(c.abilityText, 'passive')}</div>
         
         <div class="cfoot"><div class="cspec"><span class="cspec-lbl">FOCUS</span><div class="cspec-tags">${(c.spec || []).map(k => meterTag(k)).join(' ')}</div></div><div class="statline">${STATS.map(s => `${s} <b>+${c.stats[s]}</b>`).join(' · ')}</div></div></div>`;
     }).join('')}</div></div>`;
@@ -486,7 +486,7 @@ function renderPerks(S) {
     <div class="sub" style="text-align:center;font-size:22px">Each cadet chooses one perk for their position (on your phone or tell the GM)</div>
     <div class="perkgrid" style="grid-template-columns:repeat(${S.party.length},1fr)">${S.party.map(p => { const c = CLASS[p.cls]; return `<div class="ccard ${p.perk ? 'taken' : ''}">
       <div class="chead"><img src="${avatarOf(p)}" style="width:40px;height:40px;image-rendering:pixelated"><div><h3>${insignia(p)}${esc(rankName(p))}</h3><div class="sub" style="font-size:19px">${c.name}</div></div></div>
-      ${c.perks.map((k, j) => `<div class="perk big ${p.perk === k.id ? 'sel' : p.perk ? 'off' : ''}"><b>${p.perk === k.id ? '▶ ' : ''}<span class="pki">${k.icon}</span>${esc(k.name)}</b><div>${mt(esc(k.text))}</div></div>`).join('')}
+      ${c.perks.map((k, j) => `<div class="perk big ${p.perk === k.id ? 'sel' : p.perk ? 'off' : ''}"><b>${p.perk === k.id ? '▶ ' : ''}<span class="pki">${k.icon}</span>${esc(k.name)}</b><div>${useHtml(k.text)}</div></div>`).join('')}
       <div class="sub" style="text-align:center;font-size:20px">${p.perk ? '✅ LOCKED IN' : '⏳ choosing...'}</div></div>`; }).join('')}</div></div>`;
 }
 
