@@ -387,7 +387,7 @@ function renderSide(S) {
     <div class="ugrid">${S.npcs.slice().sort((a, b) => rankIdx(a.rank) - rankIdx(b.rank)).map(n => { const t = TRAIT[n.trait]; return `<div class="npc mini ${isAlly(n) ? 'ally' : ''} ${n.broken || n.gone ? 'broken' : ''} ${n.out ? 'out' : ''}"><img src="${avatar(n.name + n.rank)}"><div>
       <div class="nm">${insignia(n.rank)}${esc(n.rank)} ${esc(n.name)}${isAlly(n) ? ' 🤝' : ''}${n.gone ? ' (GONE)' : n.out ? ' (OUT)' : ''}</div>
       <div class="tr rev">${t.icon} ${t.name}</div>
-      <div class="loy">${Array.from({ length: 5 }, (_, i) => `<i class="${i < n.loy ? 'on' : ''}"></i>`).join('')}</div></div></div>`; }).join('')}</div>`;
+      <div class="loyrow"><div class="loy">${Array.from({ length: 5 }, (_, i) => `<i class="${i < n.loy ? 'on' : ''}"></i>`).join('')}</div>${loyBandHtml(n.loy, isAlly(n), n.broken)}</div></div></div>`; }).join('')}</div>`;
 }
 
 function renderMain(S) {
@@ -511,7 +511,7 @@ function renderManifest(S) {
       <div class="orgline"></div>
       <div class="orgrow">${S.party.map(p => `<div class="orgcard mini" style="border-color:${clsColor(p)}"><img src="${avatarOf(p)}"><div><div class="nm">${insignia(p)}${esc(rankName(p))}</div><div class="rk">${CLASS[p.cls].name}</div></div></div>`).join('')}</div>
       <div class="orgline"></div>
-      <div class="orgrow">${S.npcs.slice().sort((a, b) => rankIdx(a.rank) - rankIdx(b.rank)).map(n => { const t = TRAIT[n.trait]; return `<div class="orgcard"><img src="${avatar(n.name + n.rank)}"><div class="nm">${insignia(n.rank)}${esc(n.rank)} ${esc(n.name)}</div><div class="rk">${esc(n.pub)}</div><div class="rk" style="color:var(--good)">${t.icon} ${esc(t.name)}</div><div class="rk">🎁 ${mt(esc(t.reward))}</div></div>`; }).join('')}</div>
+      <div class="orgrow">${S.npcs.slice().sort((a, b) => rankIdx(a.rank) - rankIdx(b.rank)).map(n => { const t = TRAIT[n.trait]; return `<div class="orgcard"><img src="${avatar(n.name + n.rank)}"><div class="nm">${insignia(n.rank)}${esc(n.rank)} ${esc(n.name)}</div><div class="rk">${esc(n.pub)}</div><div class="rk" style="color:var(--good)">${t.icon} ${esc(t.name)}</div><div class="rk">${loyBandHtml(n.loy, isAlly(n), n.broken)}</div>${traitInfo(n, isAlly(n), (S.traitDone || {})[n.slot]).map(([k, x]) => `<div class="rk ${k}">${mt(esc(x))}</div>`).join('')}</div>`; }).join('')}</div>
     </div>
     ${patchOf(S) ? `<div class="patchrow"><span class="sectlbl">🎖️ YOUR TEAM PATCH</span><span class="pch on" style="--c:${u.color}"><b>${patchOf(S).icon}</b>${esc(patchOf(S).name)}</span></div>` : ''}</div>`;
 }

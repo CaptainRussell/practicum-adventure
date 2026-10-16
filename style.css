@@ -937,3 +937,20 @@ body.gm{font-family:var(--ui);font-size:14px;line-height:1.45;background:#0e1020
 .rollvote .rv{flex-wrap:wrap;padding-bottom:6px}
 .rollvote .rv .votes{position:static;width:100%;justify-content:flex-end;min-height:0}
 .ph-bossbtn{padding:18px 14px}.ph-bossbtn b{font-size:16px}
+/* org chart: who they are, then the trait reward / breaking point once reached */
+.orgcard .rk.reward,.ph-trait.reward{color:var(--good)}
+.orgcard .rk.bp,.ph-trait.bp{color:var(--bad)}
+.ph-trait small{color:var(--dim)}
+.ph-trait.reward small,.ph-trait.bp small{color:inherit}
+/* squadron select bands match the top bar: STRONG = solid green, STEADY = muted, DANGER = red glow */
+.sb4.strong{border-color:var(--good);background:var(--good)}
+.sb4.strong .sbn,.sb4.strong .sbw{color:#06210a}
+.sb4.steady{border-color:#fff3}
+/* loyalty bands (like the meter bands): ALLY = solid green, STEADY = muted, WARY = amber, BROKEN = red */
+.lband{display:inline-block;font-family:var(--pixel);font-size:8px;line-height:1;padding:3px 5px;border:2px solid #fff3;background:#000;color:var(--dim);white-space:nowrap;vertical-align:middle}
+.lband.strong{border-color:var(--good);background:var(--good);color:#06210a}
+.lband.wary{border-color:var(--gold);color:var(--gold)}
+.lband.danger{border-color:var(--bad);background:#3a0010;color:#fff}
+.loyrow{display:flex;align-items:center;gap:6px;margin-top:3px} .loyrow .loy{margin-top:0}
+.orgcard .lband{font-size:10px;margin-top:4px}
+.loytag{--c:#c9b8ff}

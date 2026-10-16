@@ -304,8 +304,8 @@ function phOrg(v) {
     <div class="ph-npc cc"><b>${npcIns(v.cc, 18)} ${esc(v.cc)}</b> <small>Squadron CC</small>
       <div><small>Intent ${meterTag(cc.intent)} · 👍 ${esc(cc.pos.name)} · <span style="${cc.negOff ? 'text-decoration:line-through;opacity:.5' : ''}">👎 ${esc(cc.neg.name)}</span> · ⚠️ ${esc(u.drain.name)}</small></div></div>
     ${v.npcs.slice().sort((a, b) => rankIdx(a.rank) - rankIdx(b.rank)).map(n => { const t = TRAIT[n.trait]; return `<div class="ph-npc ${n.ally ? 'ally' : ''}"><b>${insignia(n.rank, 18)}${esc(n.rank)} ${esc(n.name)}</b>${n.ally ? ' 🤝' : ''}${n.broken ? ' 💔' : ''}${n.gone ? ' (GONE)' : n.out ? ' (OUT)' : ''}
-      ${t ? `<div><small>${t.icon} ${esc(t.name)}${n.done ? ' ✅' : ''}</small></div>` : ''}
-      <div class="loy">${Array.from({ length: 5 }, (_, i) => `<i class="${i < n.loy ? 'on' : ''}"></i>`).join('')}</div></div>`; }).join('')}`;
+      ${t ? `<div><small>${t.icon} ${esc(t.name)}${n.done ? ' ✅' : ''}</small></div>${traitInfo(n, n.ally, n.done).map(([k, x]) => `<div class="ph-trait ${k}"><small>${mt(esc(x))}</small></div>`).join('')}` : ''}
+      <div class="loyrow"><div class="loy">${Array.from({ length: 5 }, (_, i) => `<i class="${i < n.loy ? 'on' : ''}"></i>`).join('')}</div>${loyBandHtml(n.loy, n.ally, n.broken)}</div></div>`; }).join('')}`;
 }
 
 function phNode(v, me) {

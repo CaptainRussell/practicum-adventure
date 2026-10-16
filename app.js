@@ -235,23 +235,34 @@ function useHtml(text, kind) { const u = useSplit(text); return `${useBadge(kind
    the same change in every outcome → that many ▲/▼ (up to 3); a change that depends on the roll or
    the acting (or differs by class) → ❔. Delayed fallout (next:) is still a surprise by design. */
 function choiceShow(ch) {
-  const outs = [];
-  const add = (pre, e) => { const o = {}; METERS.forEach(m => { o[m.k] = ((pre || {})[m.k] || 0) + ((e || {})[m.k] || 0); if ((e && e.set && e.set[m.k] != null) || (pre && pre.set && pre.set[m.k] != null)) o[m.k] = 'set'; }); outs.push(o); };
+  const outs = [], npcs = (S && S.npcs) || [];
+  // an effect's loyalty changes per Unit member: loy {A: 1}, traitLoy, and traitAny when that member has the trait
+  const loyOf = (e, o) => {
+    if (!e) return;
+    for (const s in e.loy || {}) o['L:' + s] = (o['L:' + s] || 0) + e.loy[s];
+    if (e.traitLoy) npcs.filter(n => n.trait === e.traitLoy.trait).forEach(n => { o['L:' + n.slot] = (o['L:' + n.slot] || 0) + e.traitLoy.d; });
+    if (e.traitAny) { const t = e.traitAny, list = t.slot ? npcs.filter(n => n.slot === t.slot) : npcs, traits = t.traits || [t.trait];
+      if (list.some(n => traits.includes(n.trait))) { METERS.forEach(m => { if (t.eff[m.k]) o[m.k] = (o[m.k] || 0) + t.eff[m.k]; }); loyOf(t.eff, o); } }
+  };
+  const add = (pre, e) => { const o = {}; METERS.forEach(m => { o[m.k] = ((pre || {})[m.k] || 0) + ((e || {})[m.k] || 0); if ((e && e.set && e.set[m.k] != null) || (pre && pre.set && pre.set[m.k] != null)) o[m.k] = 'set'; });
+    const tx = {}; loyOf(pre, tx); loyOf(e, tx); for (const k in tx) o[k] = (typeof o[k] === 'number' ? o[k] : 0) + tx[k]; outs.push(o); };
   const one = c => {
     if (c.kind === 'check' && c.check) { add(c.pre, c.check.pass); add(c.pre, c.check.fail); }
     else if (c.kind === 'stars' && c.stars) c.stars.forEach(st => add(c.pre, st));
     else add(c.pre, c.eff);
   };
   if (ch.ifClass) { one({ ...ch, ...normal(ch.ifClass.then), pre: ch.pre }); one({ ...ch, ...normal(ch.ifClass.else), pre: ch.pre }); } else one(ch);
-  return METERS.map(m => {
-    const vals = outs.map(o => o[m.k]); if (vals.every(v => !v)) return null;
-    if (vals.every(v => v === vals[0]) && vals[0] !== 'set') return [m.k, Math.max(-3, Math.min(3, vals[0]))];
-    return [m.k, '?'];
-  }).filter(Boolean);
+  const one1 = (k, label) => {
+    const vals = outs.map(o => o[k]); if (vals.every(v => !v)) return null;
+    const r = vals.every(v => v === vals[0]) && vals[0] !== 'set' ? Math.max(-3, Math.min(3, vals[0])) : '?';
+    return label ? [k, r, label] : [k, r];
+  };
+  const slots = [...new Set(outs.flatMap(o => Object.keys(o).filter(k => k.startsWith('L:'))))].sort();
+  return METERS.map(m => one1(m.k)).concat(slots.map(k => { const n = npcs.find(x => x.slot === k.slice(2)); return n && !n.gone ? one1(k, `${n.rank} ${n.name}`) : null; })).filter(Boolean);
 }
 // returns HTML: labelled meter + green up-arrows / red down-arrows
 function arrows(show) {
-  return (show || []).map(([k, n]) => `<span class="arw">${meterTag(k)}${n === '?' ? '❔' : `<span class="${n > 0 ? 'up' : 'dn'}">${(n > 0 ? '▲' : '▼').repeat(Math.abs(n))}</span>`}</span>`).join(' ');
+  return (show || []).map(([k, n, who]) => `<span class="arw">${k.startsWith('L:') ? `<span class="mtag loytag">🤝 ${esc(who || k.slice(2))}</span>` : meterTag(k)}${n === '?' ? '❔' : `<span class="${n > 0 ? 'up' : 'dn'}">${(n > 0 ? '▲' : '▼').repeat(Math.abs(n))}</span>`}</span>`).join(' ');
 }
 /* Power-ups that are worth using RIGHT NOW (tokens, items, class abilities, perks).
    Shown on the projector and on phones so cadets notice "we could use X here".
@@ -417,6 +428,13 @@ function gradeFor(S, total) {
   if (S.gameOver) return { g: 'F', title: 'GAME OVER', strat: GAME_OVER_TEXT, color: '#ff3b5c' };
   return GRADES.find(g => total >= g.min);
 }
+// A Unit member's loyalty as a word, like the meter bands
+function loyBand(loy, ally, broken) {
+  if (broken || loy <= 0) return { word: 'BROKEN', cls: 'danger' };
+  if (ally) return { word: 'ALLY', cls: 'strong' };
+  return loy <= 2 ? { word: 'WARY', cls: 'wary' } : { word: 'STEADY', cls: 'steady' };
+}
+function loyBandHtml(loy, ally, broken) { const b = loyBand(loy, ally, broken); return `<span class="lband ${b.cls}">${b.word}</span>`; }
 function isAlly(n) { return !n.gone && (n.loy >= 5 || ((n.handpicked || (n.trait === 'cynic' && n.revealed)) && n.loy >= 4)); } // hand-picked (Talent Management) and Cynic: Ally at 4
 
 /* ---------------- leaderboard storage ---------------- */
@@ -630,6 +648,12 @@ function traitReward(n, text, eff, loy) {
   log('Trait', `${n.rank} ${n.name} (${t.name}): ${text}`);
   if (loy) changeLoy(n.slot, loy);
   if (eff) applyEff({ ...eff, why: t.name });
+}
+// What the org chart says about a Unit member's trait: who they are; the reward only once it's earned
+// (Ally, or it already fired) and the breaking point only once they hit it. (The GM console shows everything.)
+function traitInfo(n, ally, done) {
+  const t = TRAIT[n.trait]; if (!t) return [];
+  return [['what', t.what], (ally || done) && ['reward', `🎁 ${t.reward}`], n.broken && ['bp', `💔 ${t.bpText}`]].filter(Boolean);
 }
 const withTrait = id => (S.npcs || []).filter(n => n.trait === id && !n.broken && !n.gone);
 // Family Crisis: the first time the First Sergeant or a Rest Stop shows them care
@@ -2303,7 +2327,7 @@ function gmSide() {
   ${S.unit ? (() => { const u = unitObj(); return `<div class="gcard"><h3>${npcIns(S.cc, 18)} ${esc(S.cc)}</h3><div class="note">Intent: ${METER[u.cc.intent].icon} ${METER[u.cc.intent].label} (now ${S.meters[u.cc.intent]})</div>
     <div>👍 <b>${esc(u.cc.pos.name)}</b> <span class="note">${esc(u.cc.pos.text)}</span></div><div style="${S.flags.ccNegOff ? 'opacity:.4;text-decoration:line-through' : ''}">👎 <b>${esc(u.cc.neg.name)}</b> <span class="note">${esc(u.cc.neg.text)}</span></div></div>`; })() : ''}
   <div class="gcard"><h3>NPCs</h3>${S.npcs.map(n => { const t = TRAIT[n.trait]; return `<div class="row"><b>${n.slot}</b> ${insignia(n.rank, 18)}${esc(n.rank + ' ' + n.name)}${n.gone ? ' <span class="pill">GONE</span>' : ''}
-      ${B('loy', '−', { arg: n.slot + ',-1', cls: 'sm' })}<b>${n.loy}</b>${B('loy', '+', { arg: n.slot + ',1', cls: 'sm' })}
+      ${B('loy', '−', { arg: n.slot + ',-1', cls: 'sm' })}<b>${n.loy}</b>${B('loy', '+', { arg: n.slot + ',1', cls: 'sm' })} ${loyBandHtml(n.loy, isAlly(n), n.broken)}
       <span class="${n.revealed ? 'warnline' : 'note'}">${t.icon} ${t.name}${n.revealed ? '' : ' (hidden)'}</span>
       ${n.revealed ? '' : B('reveal', 'reveal', { arg: n.slot, cls: 'sm' })}${isAlly(n) ? ' <span class="pill y">ALLY</span>' : ''}${n.out ? ` <span class="pill">out ${n.out}</span>` : ''}${n.broken ? ' <span class="pill">broken</span>' : ''}</div>`; }).join('')}</div>
   <div class="gcard"><h3>Inventory (${S.items.length}/3)</h3>${S.items.length ? S.items.map((id, k) => { const it = LOOT.find(l => l.id === id); return `<div class="row">${it.icon} <b>${esc(it.name)}</b> <span class="note">${esc(it.text)}</span> ${B('item', 'use', { arg: k, cls: 'sm' })} ${B('discard', '✖', { arg: k, cls: 'sm' })}</div>`; }).join('') : '<p class="note">Empty</p>'}
