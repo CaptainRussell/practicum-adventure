@@ -115,33 +115,21 @@ function presetAvatar(i, uni, hair) {
 }
 // a cadet's class colour (their icon's border) · the FC's vote also gets a 👑 (Rock, Paper, Rank)
 const clsColor = p => (p && CLASS[p.cls] && CLASS[p.cls].color) || '#8f8fc8';
-/* Air Force rank insignia as a small inline SVG (officer bars / leaves / eagle / stars; enlisted
-   chevrons around a star). Civilians get none. Used next to names on class select and the org chart. */
-const SILVER = '#d6dbe2', GOLD = '#e0b13a';
-const ENLISTED = { AB: 0, Amn: 1, A1C: 2, SrA: 3, SSgt: 4, TSgt: 5, MSgt: 6, SMSgt: 7, CMSgt: 8 };
+/* Air Force rank insignia: the official public-domain SVGs from Wikimedia Commons, in insignia/
+   (US-O1..O8_insignia.svg, E2..E9a_USAF_*.svg). AB and civilians get none. h = height in px.
+   The aspect ratios are stored so the image takes its width before it loads (no layout jump). */
+const INSIGNIA = { // rank: [file, width / height]
+  '2d Lt': ['2dLt', 0.4], '1st Lt': ['1stLt', 0.4], 'Capt': ['Capt', 1.069], 'Maj': ['Maj', 0.953], 'Lt Col': ['LtCol', 0.953],
+  'Col': ['Col', 2.0], 'Brig Gen': ['BrigGen', 1.067], 'Maj Gen': ['MajGen', 2.148],
+  Amn: ['Amn', 2.182], A1C: ['A1C', 1.727], SrA: ['SrA', 1.429], SSgt: ['SSgt', 1.218], TSgt: ['TSgt', 1.063],
+  MSgt: ['MSgt', 0.735], SMSgt: ['SMSgt', 0.661], CMSgt: ['CMSgt', 0.597],
+};
+// load them all up front, so names don't show up without their insignia mid-game
+Object.values(INSIGNIA).forEach(([f]) => { new Image().src = `insignia/${f}.svg`; });
 function rankSvg(rank, h = 24) {
-  const svg = (w, body) => `<svg class="rkins" viewBox="0 0 ${w} 24" width="${(w * h / 24).toFixed(0)}" height="${h}" aria-label="${esc(rank)}">${body}</svg>`;
-  const bar = (x, c) => `<rect x="${x}" y="3" width="6" height="18" rx="1" fill="${c}" stroke="#000" stroke-width="1"/>`;
-  const star = (cx, cy, r, c) => { let d = ''; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; d += `${i ? 'L' : 'M'}${(cx + rr * Math.cos(a)).toFixed(1)},${(cy + rr * Math.sin(a)).toFixed(1)}`; } return `<path d="${d}Z" fill="${c}" stroke="#000" stroke-width=".8"/>`; };
-  const leaf = c => `<path d="M12 2 C19 6 20 13 13 20 L13 23 L11 23 L11 20 C4 13 5 6 12 2Z" fill="${c}" stroke="#000" stroke-width="1"/><path d="M12 5 V19 M12 9 L8 7 M12 9 L16 7 M12 13 L7 11 M12 13 L17 11" stroke="#0006" stroke-width="1" fill="none"/>`;
-  switch (rank) {
-    case '2d Lt': return svg(14, bar(4, GOLD));
-    case '1st Lt': return svg(14, bar(4, SILVER));
-    case 'Capt': return svg(22, bar(3, SILVER) + bar(13, SILVER));
-    case 'Maj': return svg(24, leaf(GOLD));
-    case 'Lt Col': return svg(24, leaf(SILVER));
-    case 'Col': return svg(28, `<path d="M14 6 L19 3 L27 6 L20 9 L18 15 L22 21 L14 18 L6 21 L10 15 L8 9 L1 6 L9 3Z" fill="${SILVER}" stroke="#000" stroke-width="1"/><circle cx="14" cy="9" r="2" fill="#000"/>`);
-    case 'Brig Gen': return svg(18, star(9, 12, 8, SILVER));
-    case 'Maj Gen': return svg(34, star(8, 12, 8, SILVER) + star(26, 12, 8, SILVER));
-  }
-  const n = ENLISTED[rank]; if (n == null) return '';
-  // enlisted: a star in a circle with chevrons below (up to 5) and on top (the extra ones)
-  const low = Math.min(n, 5), top = Math.max(0, n - 5), sw = 1.6, gap = 2.6;
-  let g = `<circle cx="12" cy="${top ? 11 : 6}" r="4" fill="#1b2a55" stroke="${SILVER}" stroke-width="1"/>` + star(12, top ? 11 : 6, 3, SILVER);
-  const base = (top ? 15 : 10.5);
-  for (let i = 0; i < low; i++) { const y = base + i * gap; g += `<polyline points="1,${y - 2} 12,${y + 2} 23,${y - 2}" fill="none" stroke="${SILVER}" stroke-width="${sw}" stroke-linejoin="miter"/>`; }
-  for (let i = 0; i < top; i++) { const y = 6.5 - i * gap; g += `<polyline points="1,${y + 2} 12,${y - 2} 23,${y + 2}" fill="none" stroke="${SILVER}" stroke-width="${sw}"/>`; }
-  return svg(24, g);
+  const r = INSIGNIA[rank]; if (!r) return '';
+  // a background image, not an <img>, so the avatar rules (".pcard img" etc.) never stretch it
+  return `<span class="rkins" role="img" aria-label="${esc(rank)}" title="${esc(rank)}" style="--h:${h}px;aspect-ratio:${r[1]};background-image:url(insignia/${r[0]}.svg)"></span>`;
 }
 // a cadet's / Unit member's rank insignia (nothing for civilians)
 const rankOf = p => (p && p.cls && CLASS[p.cls] ? CLASS[p.cls].rank : p && p.rank) || '';
@@ -212,6 +200,8 @@ function extraText(S, k, f) {
 }
 // A meter icon as a coloured, labelled tag: "❤️ Morale" in the meter's colour.
 function meterTag(k) { const m = METER[k]; return `<span class="mtag" style="--c:${m.color}">${m.icon} ${m.label}</span>`; }
+// a meter's icon in a fixed-size emoji box, so 🎯 ❤️ ⭐ 📦 all render the same size whatever the meter's state
+function meterIcon(m) { return `<span class="micon">${m.icon}</span>`; }
 // Labels every bare meter icon in a piece of (already escaped) HTML. Skips ⭐ used
 // as a star rating ("3⭐", "⭐⭐⭐") so ratings never read as "Trust".
 const METER_ICON_RE = /(?<![\d⭐])(🎯|❤️|⭐|📦)(?!⭐)/gu;
@@ -818,47 +808,50 @@ function rollPreview() {
 }
 
 /* ---- map ---- */
-// 7, 6 or 5 stops (the GM picks before the map opens), then the IG. Slay the Spire style: every
-// stop has 1-3 nodes, the paths branch and merge at random (never crossing), and the run has a rhythm:
-// Scenarios (node type 'crisis') are the bread and butter; Unknowns, Elites and breathers are rare and
-// placed on purpose; the last stop is always a Rest Stop or Supply Depot to prepare for the inspection.
-const MAP_BAGS = [ // what each stop can hold (weights). Scenarios can repeat at a stop; other types can't.
-  [['crisis', 80], ['unknown', 20]],                                // 1 opener
-  [['crisis', 80], ['unknown', 20]],                                // 2 warm-up
-  [['crisis', 55], ['unknown', 15], ['elite', 18], ['depot', 12]],  // 3 first fork
-  [['crisis', 50], ['unknown', 15], ['elite', 22], ['rest', 13]],   // 4 pressure
-  [['crisis', 55], ['unknown', 10], ['elite', 20], ['depot', 15]],  // 5 mid push (7-stop runs only)
-  [['crisis', 50], ['unknown', 10], ['elite', 40]],                 // 6 final push
-  [['rest', 50], ['depot', 50]],                                    // 7 prep before the IG
-];
-// Map-wide limits, so a route never turns into four Rest Stops in a row or an Elite gauntlet.
-// Every run still gets at least one Rest Stop and one Supply Depot (stop 3 or later).
-const MAP_RULES = { maxElites: 2, maxEarlyBreaks: 1, unknowns: [1, 2] }; // unknowns: [min, max] ❓ per map // early break = a Rest Stop or Supply Depot before the prep stop
-// Route length: the GM picks 7, 6 or 5 stops (remembered in this browser). Shorter routes drop
-// middle stops but keep the opener and the prep stop; level-up comes after stop 3 (stop 4 on a 7-stop route).
-const STOP_PLANS = { 7: [0, 1, 2, 3, 4, 5, 6], 6: [0, 1, 2, 3, 5, 6], 5: [0, 1, 2, 5, 6] };
+// 7, 6 or 5 stops (the GM picks before the map opens), then the IG. Slay the Spire style, but every
+// stop has a ROLE (a beat), so every run follows the same arc and only the details change:
+//   opener → warm-up → the test (💀 or 🔦) → supply → final push → prep (🏕️ or 🛒) → IG.
+// Each beat lists the nodes it always offers (fixed) and what fills the rest (fill: weights).
+// Scenarios can repeat at a stop; other types can't. Paths branch and merge at random (never crossing).
+const ROUTE_BEATS = {
+  open:   { name: 'Opener',     fixed: ['crisis'],          fill: [['unknown', 60], ['crisis', 40]],               width: [2, 3] },
+  warm:   { name: 'Warm-up',    fixed: ['crisis'],          fill: [['crisis', 45], ['unknown', 25], ['spot', 30]], width: [2, 3] },
+  test:   { name: 'The test',   fixed: ['elite', 'spot'],   fill: [],                                              width: [2, 2] },
+  supply: { name: 'Supply run', fixed: ['depot'],           fill: [['crisis', 60], ['unknown', 40]],               width: [2, 3] },
+  push:   { name: 'Mid push',   fixed: ['crisis'],          fill: [['unknown', 40], ['spot', 30], ['crisis', 30]], width: [2, 3] },
+  final:  { name: 'Final push', fixed: ['elite', 'crisis'], fill: [['spot', 50], ['crisis', 50]],                  width: [2, 3] },
+  prep:   { name: 'Prep',       fixed: ['rest', 'depot'],   fill: [],                                              width: [2, 2] },
+};
+// Route length: the GM picks 7, 6 or 5 stops (remembered in this browser). Shorter routes drop middle
+// beats but always keep the opener, the test, the final push and the prep stop.
+const STOP_PLANS = {
+  7: ['open', 'warm', 'test', 'supply', 'push', 'final', 'prep'],
+  6: ['open', 'warm', 'test', 'supply', 'final', 'prep'],
+  5: ['open', 'warm', 'test', 'final', 'prep'],
+};
+const MAP_RULES = { unknowns: [1, 2] }; // [min, max] ❓ per map
 const routeStops = () => { const n = +((S && S.stops) || localStorage.getItem('sq_stops') || 6); return STOP_PLANS[n] ? n : 6; };
 const levelAfter = () => (S.map && S.map.levelAfter) || 3;
-const MAP_WIDTH = [[1, 20], [2, 50], [3, 30]]; // how many nodes a stop has: mostly 2, sometimes 3, rarely 1 (the first stop always offers a choice)
 function rollMap() {
   const weighted = bag => {
     let r = Math.random() * bag.reduce((a, b) => a + b[1], 0);
     for (const [k, w] of bag) { if ((r -= w) < 0) return k; }
     return bag[0][0];
   };
-  const n = routeStops(), tiers = STOP_PLANS[n].map(k => MAP_BAGS[k]).map((bag, t) => {
-    const scen = bag.some(x => x[0] === 'crisis'), w = Math.min(scen ? 3 : bag.length, t === 0 ? weighted([[2, 75], [3, 25]]) : weighted(MAP_WIDTH)), row = [];
-    let pool = bag.slice();
-    for (let i = 0; i < w; i++) { const type = weighted(pool); if (type !== 'crisis') pool = pool.filter(x => x[0] !== type); row.push({ type, done: false }); }
-    return row;
-  });
-  // 🔦 spotlights replace an ordinary Scenario at two middle stops. WHO is in the spotlight is rolled on arrival.
-  const mid = shuffle(tiers.map((_, t) => t).slice(1, -1));
-  let placed = 0;
-  for (const t of mid) {
-    if (placed >= Math.min(DIFFICULTY.spotlights, S.party.length)) break;
-    const opts = tiers[t].map((nd, i) => i).filter(i => tiers[t][i].type === 'crisis');
-    if (opts.length) { tiers[t][pickOne(opts)] = { type: 'spot', done: false }; placed++; }
+  // 🔦 spotlights: at most DIFFICULTY.spotlights per map (never more than there are cadets). WHO is in the
+  // spotlight is rolled on arrival. The test's spotlight is handed out first; one past the cap becomes a Scenario.
+  let spots = Math.min(DIFFICULTY.spotlights, S.party.length);
+  const n = routeStops(), plan = STOP_PLANS[n], tiers = plan.map(() => null);
+  const order = plan.map((_, t) => t).sort((a, b) => (plan[b] === 'test') - (plan[a] === 'test'));
+  for (const t of order) {
+    const beat = ROUTE_BEATS[plan[t]], [lo, hi] = beat.width, w = lo + Math.floor(Math.random() * (hi - lo + 1));
+    const types = beat.fixed.slice(0, w);
+    let pool = beat.fill.filter(x => x[0] === 'crisis' || !types.includes(x[0]));
+    while (types.length < w && pool.length) { const k = weighted(pool); types.push(k); if (k !== 'crisis') pool = pool.filter(x => x[0] !== k); }
+    tiers[t] = shuffle(types.map(type => {
+      if (type === 'spot') { if (spots > 0) spots--; else type = 'crisis'; }
+      return { type, done: false };
+    }));
   }
   // links: a random "staircase" walk between neighbouring stops, so paths branch and merge
   // but never cross, and every node has a way in and a way out
@@ -874,26 +867,12 @@ function rollMap() {
     }
     return out;
   });
-  return { tiers, links, levelAfter: n >= 7 ? 4 : 3 };
+  return { tiers, links, beats: plan, levelAfter: n >= 7 ? 4 : 3 };
 }
-// Does a rolled map keep the rhythm? (limits above; an Elite is never forced; never two Elites in a row on a path)
+// The beats fix the arc; this only keeps the ❓ count in range.
 function mapOk(m) {
-  const all = m.tiers.flat(), last = m.tiers.length - 1;
-  if (all.filter(x => x.type === 'elite').length > MAP_RULES.maxElites) return false;
-  const unk = all.filter(x => x.type === 'unknown').length;
-  if (unk < MAP_RULES.unknowns[0] || unk > MAP_RULES.unknowns[1]) return false;
-  if (m.tiers.slice(0, last).flat().filter(x => x.type === 'rest' || x.type === 'depot').length > MAP_RULES.maxEarlyBreaks) return false;
-  // every run has at least one Rest Stop AND one Supply Depot, never in the first two stops (on short routes too)
-  if (m.tiers.slice(0, 2).flat().some(x => x.type === 'rest' || x.type === 'depot')) return false;
-  if (!all.some(x => x.type === 'rest') || !all.some(x => x.type === 'depot')) return false;
-  for (let t = 0; t <= last; t++) {
-    const row = m.tiers[t];
-    if (row.length === 1 && row[0].type === 'elite') return false;
-    if (t < last && !row.some(x => ['crisis', 'unknown', 'spot'].includes(x.type))) return false;
-    if (t < last) row.forEach((x, i) => { if (x.type === 'elite' && m.links[t][i].some(j => m.tiers[t + 1][j].type === 'elite')) x.bad = true; });
-  }
-  if (all.some(x => x.bad)) { all.forEach(x => delete x.bad); return false; }
-  return true;
+  const unk = m.tiers.flat().filter(x => x.type === 'unknown').length;
+  return unk >= MAP_RULES.unknowns[0] && unk <= MAP_RULES.unknowns[1];
 }
 function genMap() {
   let m;

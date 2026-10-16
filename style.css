@@ -20,7 +20,10 @@ body.player::after{content:"";position:fixed;inset:0;pointer-events:none;z-index
 .hud .unit{font-family:var(--pixel);font-size:14px;line-height:1.5}
 .hud .unit small{display:block;font-family:var(--vt);font-size:20px;color:var(--dim)}
 .meters{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-.meter .lbl{font-family:var(--pixel);font-size:11px;display:flex;justify-content:space-between;margin-bottom:6px}
+.meter .lbl{font-family:var(--pixel);font-size:11px;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.meter .lbl .micon{font-size:22px;margin-right:6px}
+/* meter icons: one emoji font at a fixed px size, so every meter's icon is the same size on every screen */
+.micon{display:inline-grid;place-items:center;width:1.2em;height:1.2em;line-height:1;vertical-align:middle;font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif;font-style:normal}
 .bar{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;height:26px;padding:3px;background:#000;border:3px solid #fff2}
 .bar i{background:#ffffff10}
 .bar i.on{background:var(--c);box-shadow:inset 0 -5px 0 #0004,inset 0 4px 0 #fff4}
@@ -382,16 +385,18 @@ body.phone{font-family:var(--vt);font-size:22px;line-height:1.15;min-height:100v
 .ph-cl{font-size:18px;color:var(--dim)}
 .ph-dot{color:var(--good);font-size:20px}
 .ph-meters{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
-.ph-ml{font-family:var(--pixel);font-size:10px;margin-bottom:2px}
+.ph-meters>div{display:flex;flex-direction:column} .ph-meters .ph-band,.ph-meters .ph-bar{margin-top:auto} /* bands line up even under an INTENT tag */
+.ph-ml{font-family:var(--pixel);font-size:11px;margin-bottom:3px;display:flex;align-items:center;gap:4px}
+.ph-ml .micon{font-size:20px}
 .ph-mn{font-family:var(--pixel);font-size:7px;margin-bottom:3px;letter-spacing:.5px}
 .ph-bar{height:12px;background:#000;border:2px solid #fff3}
 .ph-bar i{display:block;height:100%;background:var(--c)}
 .optgrid.bx{grid-template-columns:repeat(3,1fr);gap:8px}
 .optgrid.bx .choice{padding:6px 10px}
 .optgrid.bx .choice .ct{font-size:21px}
-.ph-band{font-family:var(--pixel);font-size:7px;text-align:center;padding:3px 0;border:2px solid #fff3;background:#000}
+.ph-band{font-family:var(--pixel);font-size:8px;text-align:center;padding:4px 0;border:2px solid #fff3;background:#000}
 .ph-band.strong{border-color:var(--good);color:var(--good)}
-.ph-band.danger{border-color:var(--bad);color:var(--bad);background:#000}
+.ph-band.danger{border-color:var(--bad);color:#fff;background:#3a0010;animation:fogdanger 1.8s ease-in-out infinite} /* same red glow as the projector */
 .ph-h{font-family:var(--pixel);font-size:13px;color:var(--gold);margin:12px 0 6px;line-height:1.5}
 .ph-card{background:var(--panel);border:4px solid var(--line);padding:10px 12px;margin:8px 0}
 .ph-center{text-align:center}
@@ -676,8 +681,8 @@ body.gm{font-family:var(--ui);font-size:14px;line-height:1.45;background:#0e1020
 .objchip{display:inline-block;border:2px solid var(--gold);color:var(--gold);font-family:var(--pixel);font-size:9px;padding:3px 6px;margin:2px 4px 2px 0;background:#000}
 .objlbl{font-family:var(--pixel);font-size:9px;color:var(--dim);margin-right:6px}
 /* danger: one line, slow pulse */
-.danger{border:3px solid var(--bad);background:#3a0010;color:#fff;font-size:19px;line-height:1.1;padding:6px 8px;margin-bottom:6px;animation:dangerpulse 2s ease-in-out infinite}
-.danger .dtools{color:var(--gold);font-size:17px;margin-top:3px}
+.danger-alert{border:3px solid var(--bad);background:#3a0010;color:#fff;font-size:19px;line-height:1.1;padding:6px 8px;margin-bottom:6px;animation:dangerpulse 2s ease-in-out infinite}
+.danger-alert .dtools{color:var(--gold);font-size:17px;margin-top:3px}
 @keyframes dangerpulse{50%{box-shadow:0 0 16px #ff2e6399}}
 .ph-danger{border:3px solid var(--bad);background:#3a0010;padding:6px 8px;margin:6px 0;font-size:18px;line-height:1.1}
 .ph-danger small{color:var(--gold)}
@@ -814,14 +819,14 @@ body.gm{font-family:var(--ui);font-size:14px;line-height:1.45;background:#0e1020
 .classgrid .ccard .who{position:static;flex:none;white-space:nowrap;font-size:10px}
 
 /* rank insignia next to names */
-.rkins{display:inline-block;vertical-align:middle;margin-right:5px;flex:none;filter:drop-shadow(1px 1px 0 #000)}
-.nm .rkins{height:14px;width:auto}
+.rkins{display:inline-block;vertical-align:middle;margin-right:5px;flex:none;height:var(--h,24px);width:auto;background:center/contain no-repeat;filter:drop-shadow(1px 1px 0 #000)}
+.nm .rkins{height:22px;width:auto}
 .cline .rkins{height:20px;width:auto}
-.ccname .rkins{height:22px;width:auto}
-.ph-nm .rkins{height:14px;width:auto}
+.ccname .rkins{height:28px;width:auto}
+.ph-nm .rkins{height:22px;width:auto}
 .cline{display:flex;align-items:center}
 .cline .rkins{height:28px;margin-right:8px}
-.orgcard .nm .rkins,.npc .nm .rkins{height:16px}
+.orgcard .nm .rkins,.npc .nm .rkins{height:22px}
 
 /* briefing page 4: integrity on its own screen */
 .integscr{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;height:100%;text-align:center}

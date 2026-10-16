@@ -345,8 +345,8 @@ function renderPowerups(S) {
 // A DEOCS Survey shows the exact number and the 10-pip bar.
 function meterHtml(S, m) {
   const v = S.meters[m.k], b = meterBand(v);
-  if (deocsOn(S)) return `<div class="meter ${b.cls === 'danger' ? 'low' : ''}" style="--c:${m.color}"><div class="lbl"><span>${m.icon} ${m.name}</span><span>${v}</span></div><div class="bar">${Array.from({ length: 10 }, (_, i) => `<i class="${i < v ? 'on' : ''}"></i>`).join('')}</div></div>`;
-  return `<div class="meter fog ${b.cls} ${b.cls === 'danger' ? 'low' : ''}" style="--c:${m.color}"><div class="lbl"><span>${m.icon} ${m.name}</span></div><div class="band">${b.cls === 'danger' ? '⚠️ ' : ''}${b.word}</div></div>`;
+  if (deocsOn(S)) return `<div class="meter ${b.cls === 'danger' ? 'low' : ''}" style="--c:${m.color}"><div class="lbl"><span>${meterIcon(m)} ${m.name}</span><span>${v}</span></div><div class="bar">${Array.from({ length: 10 }, (_, i) => `<i class="${i < v ? 'on' : ''}"></i>`).join('')}</div></div>`;
+  return `<div class="meter fog ${b.cls} ${b.cls === 'danger' ? 'low' : ''}" style="--c:${m.color}"><div class="lbl"><span>${meterIcon(m)} ${m.name}</span></div><div class="band">${b.cls === 'danger' ? '⚠️ ' : ''}${b.word}</div></div>`;
 }
 function renderHud(S) {
   const u = S.unit ? UNITS.find(x => x.id === S.unit) : null;
@@ -363,7 +363,7 @@ function renderHud(S) {
 
 function renderDanger(S) {
   const d = dangerInfo(S); if (!d) return '';
-  return `<div class="danger">⚠️ ${mt(esc(d.text))}${d.tools.length ? `<div class="dtools">Could help now: ${d.tools.map(esc).join(' · ')}</div>` : ''}</div>`;
+  return `<div class="danger-alert">⚠️ ${mt(esc(d.text))}${d.tools.length ? `<div class="dtools">Could help now: ${d.tools.map(esc).join(' · ')}</div>` : ''}</div>`;
 }
 function renderSide(S) {
   const pt = patchOf(S), cr = crownIdx(S);

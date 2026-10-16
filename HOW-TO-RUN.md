@@ -33,7 +33,7 @@
 3. **Perk selection**: the projector reveals each cadet's two perks. Each cadet picks one, then click **Lock perks → pick pilots**.
 4. **Pick your pilot**: each cadet picks one of the 16 numbered 8-bit characters.
 5. **The team votes on the squadron** on their phones, then you show the crew manifest. On the org chart screen the team **votes on their team patch** (their leaderboard name). Votes show on the projector and as 🗳️ counts on your buttons. Click the winner to lock it in. If you skip it, the top-voted patch is used. NPCs are drawn from the cadet roster, and nobody in the current party can be drawn.
-6. **Open the route map**. Each stop has two options (top and bottom path); the team votes and you click the winner.
+6. **Open the route map**. Each stop offers 2 or 3 options; the team votes and you click the winner. Every route follows the same arc, only the details change: ⚔️/❓ opener → warm-up → the test (💀 Elite or 🔦 Spotlight) → 🛒 supply run → final push (💀 or ⚔️) → 🏕️ Rest Stop or 🛒 BX → the IG. Tweak the arc in `ROUTE_BEATS` / `STOP_PLANS` (`app.js`).
 7. On missions, click the letter the party chooses:
    - 🎲 checks: the team votes for the roller, you lock it in, then the roller taps ROLL (or you click **Roll the d20**). All dice are digital and animate on the projector.
    - 🎤 encounters: once you rate the stars, the choice card shows the real meter changes.

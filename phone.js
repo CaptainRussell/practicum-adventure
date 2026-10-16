@@ -162,8 +162,8 @@ function phHeader(v, me) {
       <span class="ph-dot" title="connected">●</span></div>
     ${v.unit ? `<div class="ph-meters">${METERS.map(m => { const x = v.meters[m.k], b = meterBand(x); const intent = v.ccInfo && v.ccInfo.intent === m.k;
       // hidden meters: a small band word unless a DEOCS Survey is running (only the projector's band pulses)
-      if (!v.deocs) return `<div style="--c:${m.color}"><div class="ph-ml">${m.icon}</div><div class="ph-mn" style="color:${m.color}">${m.name}${intent ? '<br><small class="ph-int">INTENT</small>' : ''}</div><div class="ph-band ${b.cls}">${b.word}</div></div>`;
-      return `<div style="--c:${m.color}"><div class="ph-ml">${m.icon} ${x}</div><div class="ph-mn" style="color:${m.color}">${m.name}${intent ? '<br><small class="ph-int">INTENT</small>' : ''}</div><div class="ph-bar"><i style="width:${x * 10}%"></i></div></div>`; }).join('')}</div>
+      if (!v.deocs) return `<div style="--c:${m.color}"><div class="ph-ml">${meterIcon(m)}</div><div class="ph-mn" style="color:${m.color}">${m.name}${intent ? '<br><small class="ph-int">INTENT</small>' : ''}</div><div class="ph-band ${b.cls}">${b.word}</div></div>`;
+      return `<div style="--c:${m.color}"><div class="ph-ml">${meterIcon(m)} ${x}</div><div class="ph-mn" style="color:${m.color}">${m.name}${intent ? '<br><small class="ph-int">INTENT</small>' : ''}</div><div class="ph-bar"><i style="width:${x * 10}%"></i></div></div>`; }).join('')}</div>
       ${v.deocs && !['results', 'debrief'].includes(v.phase) ? `<div class="ph-note" style="text-align:center">📋 DEOCS Survey: exact numbers${v.deocsLeft ? ` for ${v.deocsLeft} more stop${v.deocsLeft === 1 ? '' : 's'}` : ' (last stop)'}</div>` : ''}` : ''}`;
 }
 
