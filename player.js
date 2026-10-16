@@ -407,7 +407,7 @@ function renderMain(S) {
           <div class="uws">This is your squadron's chronic weak spot. It comes with the unit you picked: plan around it.</div></div></div>`;
       return `<div style="display:flex;flex-direction:column;gap:8px;height:100%;padding-bottom:50px"><div class="ptitle" style="text-align:center">CHOOSE YOUR SQUADRON <span class="ptsub">· vote on your phone 📱</span></div>
         <div class="unitgrid u3">${UNITS.map((x, i) => `<div class="unitcard" style="--c:${x.color};position:relative"><div class="ui">${x.icon}</div><div><div class="unm">${x.name}</div><div class="usq">${x.sq}</div>
-          <div class="ustart bands4">${METERS.map(m => { const b = meterBand(x.start[m.k]); return `<div class="sb4 ${b.cls}" style="--mc:${m.color}"><span class="sbi">${m.icon}</span><span class="sbn">${m.name}</span><span class="sbw">${b.word}</span></div>`; }).join('')}</div>
+          <div class="ustart bands4">${METERS.map(m => { const b = meterBand(x.start[m.k]); return `<div class="sb4 ${b.cls}" style="--mc:${m.color}"><span class="sbi">${m.icon}</span><span class="sbn">${m.name}</span><span class="sbw fitw">${b.word}</span></div>`; }).join('')}</div>
           <div class="uwarn"><b>⚠️ SQUADRON WARNING: ${esc(x.drain.name)}</b><div>${esc(x.drain.text)}. ${meterTag(x.drain.k, '−1')} every ${DIFFICULTY.drainEvery} stops</div></div></div>${voteDots(S, x.id)}</div>`).join('')}</div></div>`; }
     case 'patch': return renderPatch(S);
     case 'manifest': return renderManifest(S);
@@ -442,7 +442,7 @@ function renderIntro(S) {
   return `<div class="intro readscr"><div class="ptitle" style="text-align:center">READING THE SCREEN</div>
     <div class="rs-h">JOB 1 · KEEP ALL 4 METERS HIGH</div>
     <div class="rs-meters">${METERS.map(m => `<div class="rs-m" style="--c:${m.color}"><div class="rs-i">${m.icon}</div><b>${m.name}</b><div>${esc(INTRO_METERS[m.k])}</div></div>`).join('')}</div>
-    <div class="rs-bands"><span class="meter fog strong"><span class="band">STRONG</span></span><span class="meter fog steady"><span class="band">STEADY</span></span><span class="meter fog danger low"><span class="band">!!DANGER!!</span></span></div>
+    <div class="rs-bands"><span class="meter fog strong"><span class="band">STRONG</span></span><span class="meter fog steady"><span class="band">STEADY</span></span><span class="meter fog danger low"><span class="band">!DANGER!</span></span></div>
     <div class="rs-t">${mt(esc(INTRO_FOG))}</div></div>`;
 }
 // Briefing page 4: Job 2 on its own screen, so nobody misses it

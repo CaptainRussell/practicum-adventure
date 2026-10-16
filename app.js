@@ -385,6 +385,11 @@ function fitLines(root) {
     while (wide() && k > 0.6) { k -= 0.05; el.style.fontSize = `${k}em`; }
     if (wide()) el.classList.add('wrap'); // still too long at the smallest size: let it wrap
   });
+  // .fitw: a one-word label (e.g. "!DANGER!" on a squadron card) shrinks until it fits its box
+  (root || document).querySelectorAll('.fitw').forEach(el => {
+    el.style.fontSize = ''; let k = 1;
+    while (el.scrollWidth > el.clientWidth + 1 && k > 0.5) { k -= 0.05; el.style.fontSize = `${k}em`; }
+  });
 }
 function effList(S, e) {
   if (!e) return [];
@@ -579,7 +584,7 @@ function dangerInfo(S) {
 // (or the game is over). S.deocsUntil = the last stop (S.nodeCount) the survey covers.
 function deocsOn(S) { return !!S && (['results', 'debrief'].includes(S.phase) || (S.deocsUntil != null && (S.nodeCount || 0) <= S.deocsUntil)); }
 function deocsLeft(S) { return S && S.deocsUntil != null ? Math.max(0, S.deocsUntil - (S.nodeCount || 0)) : 0; }
-function meterBand(v) { return v <= DIFFICULTY.dangerAt ? { word: '!!DANGER!!', cls: 'danger' } : v >= 7 ? { word: 'STRONG', cls: 'strong' } : { word: 'STEADY', cls: 'steady' }; }
+function meterBand(v) { return v <= DIFFICULTY.dangerAt ? { word: '!DANGER!', cls: 'danger' } : v >= 7 ? { word: 'STRONG', cls: 'strong' } : { word: 'STEADY', cls: 'steady' }; }
 function runDeocs() {
   S.deocsUntil = Math.max(S.deocsUntil != null ? S.deocsUntil : -1, (S.nodeCount || 0) + DIFFICULTY.deocsStops);
   log('DEOCS Survey', `Exact meters visible through stop ${S.deocsUntil}`);
