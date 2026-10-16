@@ -141,7 +141,12 @@ function insignia(rankOrPerson, h) { return rankSvg(typeof rankOrPerson === 'str
 function clsIcon(clsId, h) { const c = CLASS[clsId]; return c ? `<span class="clsins">${rankSvg(c.ins || c.rank, h)}</span>` : ''; }
 // An NPC / commander's insignia from a "Lt Col Name" label (nothing for civilians)
 function npcIns(label, h) { const r = RANK_ORDER.slice().sort((a, b) => b.length - a.length).find(x => String(label || '').startsWith(x + ' ')); return r ? rankSvg(r, h) : ''; }
-// Who holds the 👑 tie-break: the Flight Commander, or (no FC in the party / once they're fired) the cadet with the best CMD
+// The chain of command for the 👑 tie-break: Flight Commander, then the SEL, the XO (1st Lt), Plans (2d Lt), the First Sergeant, the UTM
+const CHAIN = ['fc', 'chief', 'xo', 'plans', 'shirt', 'utm'];
+// the next cadet in the chain who isn't fired (skip = a seat to pass over), or -1
+function nextInChain(S, skip) { const ok = (S.party || []).map((p, i) => i).filter(i => i !== skip && !S.party[i].fired && S.party[i].cls);
+  return ok.sort((a, b) => (CHAIN.indexOf(S.party[a].cls) + 1 || 99) - (CHAIN.indexOf(S.party[b].cls) + 1 || 99))[0] ?? -1; }
+// Who holds the 👑 tie-break: the Flight Commander, or (no FC in the party / once they're fired) the next in the chain of command
 function crownIdx(S) { if (!S || !S.party) return -1; if (S.crown != null) return S.crown; return S.party.findIndex(c => c.cls === 'fc'); }
 // A cadet who can't act: in a meeting this stop, or relieved of command for good
 function isOut(S, i) { return i === S.offline || !!(S.party[i] && S.party[i].fired); }
@@ -752,7 +757,7 @@ function crisisLoss(k) {
     const f = S.party.some(c => c.fired) ? -1 : fcIdx() >= 0 ? fcIdx() : crownIdx(S);
     if (f < 0) return 'Nobody is relieved this time: there is no one left to fire.';
     S.party[f].fired = true;
-    const next = S.party.map((_, i) => i).filter(i => !S.party[i].fired).sort((a, b) => statOf(b, 'CMD') - statOf(a, 'CMD'))[0];
+    const next = nextInChain(S) >= 0 ? nextInChain(S) : null;
     S.crown = next != null ? next : -1; S.tokenHolder = S.crown;
     S.requests = (S.requests || []).filter(r => r.slot !== f);
     return `${cadetName(f)} is FIRED: no votes, rolls or perk for the rest of the game. The 👑 tie-break passes to ${next != null ? cadetName(next) : 'nobody'}.`;
@@ -1116,8 +1121,8 @@ function lockParty() {
   const keep = S.party.map((c, i) => i).filter(i => S.party[i].name.trim());
   for (const k in S.clients || {}) { const c = S.clients[k]; if (c.slot != null) { const n = keep.indexOf(c.slot); c.slot = n >= 0 ? n : null; } }
   S.party = p.map(c => ({ ...c, perk: '' }));
-  // no Flight Commander (it's optional): the 👑 tie-break goes to the cadet with the best CMD
-  S.crown = fcIdx() >= 0 ? null : S.party.map((_, i) => i).sort((a, b) => statOf(b, 'CMD') - statOf(a, 'CMD'))[0];
+  // no Flight Commander (it's optional): the 👑 tie-break goes to the next in the chain of command
+  S.crown = fcIdx() >= 0 ? null : nextInChain(S);
   S.tokenHolder = crownIdx(S);
   S.phase = 'perks';
   log('Positions locked', p.map(c => `${c.name} (${CLASS[c.cls].name})`).join('; '));
@@ -1956,7 +1961,7 @@ function boardTable(b) {
 function gmParty() {
   const taken = S.party.map(c => c.cls);
   return `<div class="gcard"><h2>Character select</h2>
-  <p class="note">Cadets pick their positions (by phone or out loud). Flight Commander is optional (without one, the best-CMD cadet holds the 👑 tie-break), and there are no duplicate positions. Leave row 4 blank for a 3-person party. Perks stay hidden until the positions are locked.</p>
+  <p class="note">Cadets pick their positions (by phone or out loud). Flight Commander is optional (without one, the 👑 tie-break goes down the chain of command: SEL, XO, Plans Officer, First Sergeant, UTM), and there are no duplicate positions. Leave row 4 blank for a 3-person party. Perks stay hidden until the positions are locked.</p>
   ${S.party.map((c, i) => `<div class="gchoice"><div class="row">
     <b>P${i + 1}</b>${c.av != null ? `<img src="${avatarOf(c)}" style="width:28px;height:28px;image-rendering:pixelated">` : ''}<input type="text" id="pname${i}" placeholder="Cadet name (or they join by phone)" value="${esc(c.name)}" data-inp="pname" data-arg="${i}">
     ${Object.values(S.clients || {}).some(k => k.slot === i) ? '<span class="pill y">📱 phone</span>' : ''}

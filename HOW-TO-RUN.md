@@ -29,7 +29,7 @@
 
 ## Each party (~30 min)
 1. **New run**. The projector first shows the join QR code full screen: wait until every cadet has scanned it (the console counts who joined), then click **▶️ Start the briefing**. The projector then shows the briefing screens, HOW TO PLAY and READING THE SCREEN. Read them out loud, then go to class select.
-2. **Position select**: cadets pick positions (phone, or you type names and set positions). The Flight Commander is optional (without one, the best-CMD cadet holds the 👑 tie-break), and no two cadets can share a class. Perks are hidden. Click **Lock in the classes → reveal perks**.
+2. **Position select**: cadets pick positions (phone, or you type names and set positions). The Flight Commander is optional (without one, the 👑 tie-break goes down the chain of command: SEL, XO, Plans Officer, First Sergeant, UTM), and no two cadets can share a class. Perks are hidden. Click **Lock in the classes → reveal perks**.
 3. **Perk selection**: the projector reveals each cadet's two perks. Each cadet picks one, then click **Lock perks → pick pilots**.
 4. **Pick your pilot**: each cadet picks one of the 16 numbered 8-bit characters.
 5. **The team votes on the squadron** on their phones. Each squadron card shows its starting meters and its ⚠️ Squadron Warning (the meter it keeps losing); the warning shows again once they pick. Then the team **votes on their team patch** (their leaderboard name) on its own screen, and you show the org chart with the commander's 👍 / 👎 perks. Votes show on the projector and as 🗳️ counts on your buttons. Click the winner to lock it in. If you skip it, the top-voted patch is used. NPCs are drawn from the cadet roster, and nobody in the current party can be drawn.
@@ -52,7 +52,7 @@
 
 ## Crisis Events (real fail states)
 - When a meter hits 0, a Crisis Event strikes as soon as the current event is resolved (your next Continue). If the team fixes the meter before then (an item, a perk), it's cancelled.
-- Every crisis takes something for good: **Morale** = an Airman in the flight dies by suicide (every Unit member −1 loyalty; the screen shows the 988 / Military Crisis Line); **Trust** = the CC fires the Flight Commander, or the 👑 holder if there's no FC (no votes, rolls or perk; the 👑 passes to the cadet with the best CMD); **Mission** = a squadron-specific disaster (all items lost, IG +4 HP); **Resources** = the lowest-loyalty Unit member quits for good and all items are lost. Then the team picks a costly way to dig out.
+- Every crisis takes something for good: **Morale** = an Airman in the flight dies by suicide (every Unit member −1 loyalty; the screen shows the 988 / Military Crisis Line); **Trust** = the CC fires the Flight Commander, or the 👑 holder if there's no FC (no votes, rolls or perk; the 👑 passes down the chain of command); **Mission** = a squadron-specific disaster (all items lost, IG +4 HP); **Resources** = the lowest-loyalty Unit member quits for good and all items are lost. Then the team picks a costly way to dig out.
 - **A second Crisis Event (or a meter hitting 0 in the IG fight after one) = GAME OVER.**
 
 ## Hidden meters and the DEOCS Survey
