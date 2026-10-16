@@ -223,6 +223,7 @@ body.player.reality .pl{grid-template-rows:1fr}
 .gate .logo{font-size:44px}
 
 /* labelled meter tags: every meter icon reads "❤️ Morale" in its own colour */
+.mtn{white-space:nowrap} /* "+3 🎯 Mission": the amount never wraps away from its meter */
 .mtag{display:inline-block;white-space:nowrap;padding:0 .35em;margin:0 .1em;border-radius:3px;line-height:1.25;
   color:var(--c);background:color-mix(in srgb,var(--c) 18%,transparent);border:1px solid color-mix(in srgb,var(--c) 55%,transparent);font-weight:600}
 body.player.reality .mtag{color:#1c2430}

@@ -403,12 +403,12 @@ function renderMain(S) {
     case 'unit': { const u = S.unitRolled && UNITS.find(x => x.id === S.unit);
       if (u) return `<div class="titlescr unitrev" style="--c:${u.color}"><div style="font-size:150px;line-height:1">${u.icon}</div><div class="ptitle" style="color:${u.color};font-size:64px">${u.name}</div><div class="unitsq">${u.sq.toUpperCase()}</div>
         <div class="unitwarn"><div class="uwh">⚠️ SQUADRON WARNING: ${esc(u.drain.name)}</div><div class="uwt">${esc(u.drain.text)}.</div>
-          <div class="uwm">${meterTag(u.drain.k)} <span class="dn">−1</span> every ${DIFFICULTY.drainEvery} stops, all game long</div>
+          <div class="uwm">${meterTag(u.drain.k, '<span class="dn">−1</span>')} every ${DIFFICULTY.drainEvery} stops, all game long</div>
           <div class="uws">This is your squadron's chronic weak spot. It comes with the unit you picked: plan around it.</div></div></div>`;
       return `<div style="display:flex;flex-direction:column;gap:8px;height:100%;padding-bottom:50px"><div class="ptitle" style="text-align:center">CHOOSE YOUR SQUADRON <span class="ptsub">· vote on your phone 📱</span></div>
         <div class="unitgrid u3">${UNITS.map((x, i) => `<div class="unitcard" style="--c:${x.color};position:relative"><div class="ui">${x.icon}</div><div><div class="unm">${x.name}</div><div class="usq">${x.sq}</div>
           <div class="ustart bands4">${METERS.map(m => { const b = meterBand(x.start[m.k]); return `<div class="sb4 ${b.cls}" style="--mc:${m.color}"><span class="sbi">${m.icon}</span><span class="sbn">${m.name}</span><span class="sbw">${b.word}</span></div>`; }).join('')}</div>
-          <div class="uwarn"><b>⚠️ SQUADRON WARNING: ${esc(x.drain.name)}</b><div>${esc(x.drain.text)}. ${meterTag(x.drain.k)} −1 every ${DIFFICULTY.drainEvery} stops</div></div></div>${voteDots(S, x.id)}</div>`).join('')}</div></div>`; }
+          <div class="uwarn"><b>⚠️ SQUADRON WARNING: ${esc(x.drain.name)}</b><div>${esc(x.drain.text)}. ${meterTag(x.drain.k, '−1')} every ${DIFFICULTY.drainEvery} stops</div></div></div>${voteDots(S, x.id)}</div>`).join('')}</div></div>`; }
     case 'patch': return renderPatch(S);
     case 'manifest': return renderManifest(S);
     case 'map': return renderMap(S);
@@ -506,7 +506,7 @@ function renderManifest(S) {
           <div class="cct" style="--t:var(--gold)"><div class="ctl">🎖️ INTENT</div><div class="ctb">${meterTag(cc.intent)}</div><div class="cts">Their top priority</div></div>
           <div class="cct" style="--t:var(--good)"><div class="ctl">👍 REWARDS</div><div class="ctb">${esc(cc.pos.name)}</div><div class="cts">${mt(esc(cc.pos.text))}</div></div>
           <div class="cct" style="--t:var(--bad);${S.flags.ccNegOff ? 'opacity:.4;text-decoration:line-through' : ''}"><div class="ctl">👎 PUNISHES</div><div class="ctb">${esc(cc.neg.name)}</div><div class="cts">${mt(esc(cc.neg.text))}</div></div>
-          <div class="cct" style="--t:var(--warn)"><div class="ctl">⚠️ TENDENCY</div><div class="ctb">${esc(u.drain.name)}</div><div class="cts">${meterTag(u.drain.k)} −1 every ${DIFFICULTY.drainEvery} stops</div></div>
+          <div class="cct" style="--t:var(--warn)"><div class="ctl">⚠️ TENDENCY</div><div class="ctb">${esc(u.drain.name)}</div><div class="cts">${meterTag(u.drain.k, '−1')} every ${DIFFICULTY.drainEvery} stops</div></div>
         </div></div>
       <div class="orgline"></div>
       <div class="orgrow">${S.party.map(p => `<div class="orgcard mini" style="border-color:${clsColor(p)}"><img src="${avatarOf(p)}"><div><div class="nm">${insignia(p)}${esc(rankName(p))}</div><div class="rk">${CLASS[p.cls].name}</div></div></div>`).join('')}</div>
@@ -704,7 +704,7 @@ function renderBoss(S) {
   const Bs = S.boss; if (!Bs) return '';
   let center = '';
   if (Bs.stage === 'intro') center = `<div class="box" style="font-size:28px">The Inspector General has arrived.<br><br>📋 The audit checks your integrity first. Then <b>three rounds</b>. Each round the IG telegraphs an attack, and every cadet picks ONE on their phone:<br><br><b>🗡️ PRESS</b>: roll your best stat to hit the IG<br><b>🛡️ DEFEND</b>: block 2 of the IG's attack</div>`;
-  if (Bs.atk && Bs.stage !== 'done') center += `<div class="tele">🗡️ IG ATTACK: ${esc(Bs.atk.name)} · ${meterTag(Bs.atk.k)} −${Bs.atk.n} at the end of the round<br><span style="font-size:11px;color:#fff">each 🛡️ Defend blocks 2</span></div>`;
+  if (Bs.atk && Bs.stage !== 'done') center += `<div class="tele">🗡️ IG ATTACK: ${esc(Bs.atk.name)} · ${meterTag(Bs.atk.k, `−${Bs.atk.n}`)} at the end of the round<br><span style="font-size:11px;color:#fff">each 🛡️ Defend blocks 2</span></div>`;
   if (Bs.stage === 'hotseat' && !Bs.p2.who) center += `<div class="box" style="font-size:28px">🎲 Everyone rolls a d20. The two LOWEST rolls face the Inspector's questions...</div>`;
   else if (Bs.stage === 'hotseat') center += `<div class="box">${Bs.p2.who.map((w, j) => `<div style="margin:6px 0"><b style="color:var(--gold)">${esc(rankName(S.party[w]))}:</b> "${esc(Bs.p2.q[j])}" ${Bs.p2.stars[j] ? '⭐'.repeat(Bs.p2.stars[j]) : ''}</div>`).join('')}</div>`;
   if (Bs.stage === 'act') center += `<div class="box" style="font-size:24px">📱 PICK YOUR ACTION ON YOUR PHONE · Press target ${examDC(Bs)}${Bs.adverse ? ' · −1 every roll (Adverse Finding)' : ''}

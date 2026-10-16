@@ -214,7 +214,7 @@ function phGame(v, me) {
       return `<button class="ph-av ${mine ? 'sel' : me.av == null && !who ? 'need' : ''}" data-p="av" data-a="${k}" ${who && !mine ? 'disabled' : ''}><img src="${who ? avatarOf(who) : presetAvatar(k)}"><span>${avNum(k)}${who && !mine ? ' · ' + esc(rankName(who)) : ''}</span></button>`; }).join('')}</div>`).join('') + phLook(me);
     case 'unit': {
       if (v.unitPicked) { const u = UNITS.find(x => x.id === v.unit); return `<div class="ph-card ph-center"><span style="font-size:48px">${u.icon}</span><br><b>${u.name}</b><br>${u.sq}</div>
-      <div class="ph-warn">⚠️ SQUADRON WARNING: ${esc(u.drain.name)}<br><small>${esc(u.drain.text)}. ${meterTag(u.drain.k)} −1 every ${DIFFICULTY.drainEvery} stops. It comes with this unit.</small></div>`; }
+      <div class="ph-warn">⚠️ SQUADRON WARNING: ${esc(u.drain.name)}<br><small>${esc(u.drain.text)}. ${meterTag(u.drain.k, '−1')} every ${DIFFICULTY.drainEvery} stops. It comes with this unit.</small></div>`; }
       const votes = v.votes || {};
       return `<div class="ph-h">✋ CHOOSE YOUR SQUADRON</div><div class="ph-note">Details are on the projector. Vote as a team; the Flight Commander breaks ties.</div>${tieLine(v)}` + UNITS.map(u => {
         const voters = Object.keys(votes).filter(s2 => String(votes[s2]) === u.id).map(s2 => v.party[+s2] && rankName(v.party[+s2])).filter(Boolean);
@@ -406,7 +406,7 @@ function phInject(v) {
 
 function phBoss(v, me) {
   const b = v.boss; if (!b) return '';
-  let h = `<div class="ph-h">👹 ${b.round ? `ROUND ${b.round}: ${esc(b.roundName)}` : BOSS.name}</div><div class="ph-card">IG HP ${b.hp}/${b.max}${b.atk && b.stage !== 'done' ? ` · <span style="color:var(--bad)">🗡️ ${meterTag(b.atk.k)} −${b.atk.n} this round</span>` : ''}<div class="ph-bar" style="--c:var(--bad)"><i style="width:${Math.min(100, b.hp / b.max * 100)}%"></i></div>
+  let h = `<div class="ph-h">👹 ${b.round ? `ROUND ${b.round}: ${esc(b.roundName)}` : BOSS.name}</div><div class="ph-card">IG HP ${b.hp}/${b.max}${b.atk && b.stage !== 'done' ? ` · <span style="color:var(--bad)">🗡️ ${meterTag(b.atk.k, `−${b.atk.n}`)} this round</span>` : ''}<div class="ph-bar" style="--c:var(--bad)"><i style="width:${Math.min(100, b.hp / b.max * 100)}%"></i></div>
     ${b.adverse ? '<small style="color:var(--bad)">🚨 Adverse Finding: −1 on every roll</small>' : ''}</div>`;
   if (b.stage === 'intro') h += `<div class="ph-card">The Inspector General has arrived. The audit checks your integrity first. Then three rounds: each round you pick ONE action on this phone.</div>`;
   if (b.stage === 'hotseat') {

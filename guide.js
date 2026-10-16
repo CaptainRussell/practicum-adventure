@@ -28,7 +28,7 @@ function initGuide() {
     ${UNITS.map((u, i) => `<div class="g-class"><h3>${i + 1}. ${u.icon} ${u.name}</h3><div class="g-small">${u.sq}</div>
       <div class="stats">${METERS.map(m => `<div>${m.icon}<b>${u.start[m.k]}</b></div>`).join('')}</div>
       <p><b>🎯 Intent:</b> ${meterTag(u.cc.intent)} · <b>👍 ${esc(u.cc.pos.name)}:</b> ${mt(esc(u.cc.pos.text))} · <b>👎 ${esc(u.cc.neg.name)}:</b> ${mt(esc(u.cc.neg.text))}</p>
-      <p><b>⚠️ Tendency, ${esc(u.drain.name)}:</b> ${esc(u.drain.text)}. ${meterTag(u.drain.k)} −1 every ${DIFFICULTY.drainEvery} stops.</p></div>`).join('')}`)}
+      <p><b>⚠️ Tendency, ${esc(u.drain.name)}:</b> ${esc(u.drain.text)}. ${meterTag(u.drain.k, '−1')} every ${DIFFICULTY.drainEvery} stops.</p></div>`).join('')}`)}
   ${sec('dice', '🎲 Dice & checks', `<ul>
       <li>Risky choices call for a <b>d20 check</b>: d20 + the roller's stat vs a target. <b>Normal ${DC_NORMAL}</b>, <b>Hard ${DC_HARD}</b>. Elite stops add +3.</li>
       <li><b>Specialist +1:</b> when the check's meter is your position's specialty (for example the First Sergeant on ❤️).</li>

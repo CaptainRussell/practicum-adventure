@@ -202,14 +202,15 @@ function extraText(S, k, f) {
   return f === 'name' ? e.name : `${e.rank} ${e.name}`;
 }
 // A meter icon as a coloured, labelled tag: "❤️ Morale" in the meter's colour.
-function meterTag(k) { const m = METER[k]; return `<span class="mtag" style="--c:${m.color}">${m.icon} ${m.label}</span>`; }
+function meterTag(k, amt) { const m = METER[k], tag = `<span class="mtag" style="--c:${m.color}">${m.icon} ${m.label}</span>`; return amt == null ? tag : `<span class="mtn">${tag} ${amt}</span>`; }
 // a meter's icon in a fixed-size emoji box, so 🎯 ❤️ ⭐ 📦 all render the same size whatever the meter's state
 function meterIcon(m) { return `<span class="micon">${m.icon}</span>`; }
 // Labels every bare meter icon in a piece of (already escaped) HTML. Skips ⭐ used
 // as a star rating ("3⭐", "⭐⭐⭐") so ratings never read as "Trust".
-const METER_ICON_RE = /(?<![\d⭐])(🎯|❤️|⭐|📦)(?!⭐)/gu;
+const METER_ICON_RE = /(?:([+−-]\d+) )?(?<![\d⭐])(🎯|❤️|⭐|📦)(?!⭐)(?: ([+−-]\d+)(?![\d]))?/gu;
 function mt(html) {
-  return String(html ?? '').replace(METER_ICON_RE, ic => { const m = METERS.find(x => x.icon === ic); return m ? meterTag(m.k) : ic; });
+  return String(html ?? '').replace(METER_ICON_RE, (all, pre, ic, post) => { const m = METERS.find(x => x.icon === ic); if (!m) return all;
+    return pre || post ? `<span class="mtn">${pre ? pre + ' ' : ''}${meterTag(m.k)}${post ? ' ' + post : ''}</span>` : meterTag(m.k); });
 }
 /* What a choice can do to each meter, computed from its real effects so nothing is hidden:
    the same change in every outcome → that many ▲/▼ (up to 3); a change that depends on the roll or
