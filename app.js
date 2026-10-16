@@ -289,7 +289,6 @@ function usableNow(S) {
       if (ab.id === 'rally') add(i, 'ability', clsIcon(p.cls, 18), ab.name, '❤️ +2 and every Unit member +1 loyalty', S.meters.mor <= 3 || (S.npcs || []).some(n => n.loy <= 1));
       if (ab.id === 'pcs' && pcsCandidates(S).length) add(i, 'ability', clsIcon(p.cls, 18), ab.name, 'PCS an enlisted Unit member: a hand-picked replacement (one rank up, loyalty 4, an Ally)', pcsCandidates(S).some(n => n.loy <= 1));
       if (ab.id === 'sevenlvl' && S.meters.mis < 10) add(i, 'ability', clsIcon(p.cls, 18), ab.name, '+3 🎯', S.meters.mis <= 3);
-      if (ab.id === 'foresight' && !S.forecast && ((ph === 'inject' && inj && inj.stage === 'trigger') || ph === 'map' || ph === 'node')) add(i, 'ability', clsIcon(p.cls, 18), ab.name, 'The next inject comes from the Wheel of Success', ph === 'inject');
     }
     const w = perkWhen(S, p, i);
     if (w) { const pk = cl.perks.find(k => k.id === p.perk) || {}; add(i, 'perk:' + p.perk, pk.icon || '🎁', pk.name || p.perk, w.hint, w.hot); }
@@ -310,10 +309,8 @@ function perkWhen(S, p, i) {
   const anytime = ['map', 'node', 'inject', 'boss'].includes(ph);
   const npcs = S.npcs || [];
   switch (p.perk) {
-    case 'typ': return mission && c.step === 'roll' && c.spec && c.spec.check && c.spec.check.stat === 'CMD' && !c.typ ? { hint: "The roller uses the Flight Commander's CMD", hot: true } : null;
     case 'beenthere': return ph === 'inject' && inj && inj.stage === 'done' && inj.idx != null && MURPHY[inj.idx].type === 'bad' && !inj.cancelled && !inj.blocked ? { hint: 'Cancel this Wheel of Failure result', hot: true } : null;
     case 'ncopull': return anytime && npcs.some(n => !n.gone && n.loy < 5) ? { hint: 'One Unit member +3 loyalty', hot: npcs.some(n => !n.gone && n.loy <= 1) } : null;
-    case 'opendoor': return anytime && npcs.some(n => n.loy < 5) ? { hint: '+1 loyalty to everyone, or +3 to one' } : null;
     case 'deocs': return anytime && !deocsOn(S) ? { hint: `See the exact meters for ${DIFFICULTY.deocsStops} stops, everyone +1 loyalty`, hot: METERS.some(m => S.meters[m.k] <= DIFFICULTY.dangerAt) } : null;
     case 'resiliency': return anytime && S.meters.mor <= 7 ? { hint: '❤️ +3, everyone +1 loyalty, 🎯 −1' } : null;
     case 'readroom': return mission && c.step === 'brief' && !c.intel && c.type !== 'crisisEvent' ? { hint: 'See the exact effects of every choice' } : null;
@@ -457,10 +454,10 @@ function newState() {
     micCount: 0, micLow: false, crises: 0, crisisQueue: [], pendingNext: [], usedMissions: [],
     map: null, pos: { tier: -1, idx: null }, cur: null, inject: null, boss: null,
     gmCards: [], gmUsed: [], dcMod: 0, banner: null, timer: null, // gmCards: GM cards were removed
-    log: [], offline: null, offlineNext: null, forecast: null, reveals: 0, lastTruLoss: 0,
+    log: [], offline: null, offlineNext: null, reveals: 0, lastTruLoss: 0,
     leveled: false, wp: null, gameOver: false, gameOverReasons: [], bossBonus: 0, callsign: '',
     saved: false, debrief: { view: 'objectives', spot: null }, stops: routeStops(), grades: {}, showBoard: false, muted: false,
-    contingency: false, pending: { check: null, star: null, yearend: false, prepo: false }, usedLoot: [],
+    pending: { check: null, star: null, prepo: false }, usedLoot: [],
     spinUntil: 0, nodeCount: 0, final: null, wheel: null,
   };
 }
@@ -598,7 +595,8 @@ function applyEff(e, opt = {}) {
       ccHook('gain').forEach(h => { if (h.k === k) v = Math.max(0, v + h.d); });
       if (k === 'tru' && S.babysit > 0) v = Math.max(0, v - 1); // the CC's babysitter takes the credit
     } else {
-      if (k === 'res' && hasUp('efficiency')) v = Math.min(-1, v + 1);
+      if (k === 'res' && hasUp('contingency')) v = Math.min(-1, v + 1);
+      if (k === 'mis' && hasUp('proficiency')) v = Math.min(-1, v + 1);
       if (k === 'mor' && hasUp('engine')) v = Math.max(v, -1);
       if (k === 'tru' && hasUp('golden')) v = Math.min(-1, v + 1);
       if (k === 'tru' && opt.late) ccHook('late').forEach(h => { v *= 2; ccReact(h, 'Bad news delivered late: ⭐ loss doubled'); });
@@ -803,7 +801,6 @@ function rollCalc(check, roller, d20, o = {}) {
   if (check.stat === 'LOYB') { const n = npc('B'); parts.push([`${n.rank} ${n.name} loyalty`, n.loy]); total += n.loy; }
   else if (check.stat) {
     let sv = statOf(roller, check.stat), lbl = `${cadetName(roller)} ${check.stat}`;
-    if (o.typ && check.stat === 'CMD' && fcIdx() >= 0) { const f = statOf(fcIdx(), 'CMD'); if (f > sv) { sv = f; lbl = 'CMD (Trust Your People)'; } }
     parts.push([lbl, sv]); total += sv;
     const cl = S.party[roller] && CLASS[S.party[roller].cls];
     if (cl && (cl.spec || []).includes(check.m)) { parts.push(['Specialist', 1]); total += 1; }
@@ -833,13 +830,13 @@ function rollOdds(p, safe) {
 }
 // One cadet's odds as the roller (shown in the roller vote): stat bonus, need, specialist
 function rollerOdds(S, i) {
-  const c = S.cur, ch = c.spec.check, p = rollCalc(ch, i, 0, { bonusItem: S.pending.check, typ: c.typ });
+  const c = S.cur, ch = c.spec.check, p = rollCalc(ch, i, 0, { bonusItem: S.pending.check });
   return { stat: ch.stat, bonus: p.total, spec: isSpec(i, ch.m), need: Math.min(20, Math.max(2, p.dc - p.total)) };
 }
 function tackleOdds(S, m, i) { const k = tackleInfo(m, i); return { stat: k.stat, bonus: k.bonus, spec: isSpec(i, m.tackle.m), need: k.need }; }
 function rollPreview() {
   const c = S.cur, r = c.roller ?? bestRoller(c.spec.check.stat, c.spec.check.m);
-  return rollCalc(c.spec.check, r, 0, { bonusItem: S.pending.check, typ: c.typ, safe: c.safe });
+  return rollCalc(c.spec.check, r, 0, { bonusItem: S.pending.check, safe: c.safe });
 }
 
 /* ---- map ---- */
@@ -950,7 +947,7 @@ function takeWaypoint(key) {
   const o = wpOptions().find(x => x.key === String(key)); if (!o) return false;
   const w = S.wp; w.dest = o.j; w.queue.shift(); w.cur = o.kind; S.votes = {};
   log('Waypoint', `${CHECKPOINT[o.kind].name} (toward ${o.then.name})`);
-  if (o.kind === 'inject') { S.phase = 'inject'; snapBase(); S.inject = { stage: 'trigger' }; setActor('trigger', nextActor()); useForesight(S.inject); sfx('alarm'); }
+  if (o.kind === 'inject') { S.phase = 'inject'; snapBase(); S.inject = { stage: 'trigger' }; setActor('trigger', nextActor()); sfx('alarm'); }
   else { S.phase = 'levelup'; sfx('level'); emit('flash', { color: 'gold' }); }
 }
 
@@ -1024,11 +1021,6 @@ function stopOptions() {
   if (c.step === 'choose') return c.type === 'rest' ? restOptions() : depotOptions();
   if (c.step === 'who') return S.npcs.map(n => ({ key: 'who:' + n.slot, label: `${n.rank} ${n.name} (loyalty ${n.loy})${c.trade === 'favor' ? ': −2 loyalty' : ': −1 loyalty'}`, dis: n.out > 0 }));
   return [];
-}
-// Year-End Money (RA perk): the next gain is doubled
-function takeYearend() {
-  if (!S.pending.yearend) return {};
-  S.pending.yearend = false; toast('💰', 'YEAR-END MONEY', 'Gains doubled'); return { double: true };
 }
 // Is a team vote open right now? (Old votes linger in S.votes after the GM locks a choice.)
 function votingOpen(S) {
@@ -1136,7 +1128,7 @@ function lockPerks() {
 }
 function perkOf(c) { return CLASS[c.cls].perks.find(p => p.id === c.perk) || { name: '-', icon: '🎁' }; }
 function upOf(c) { return CLASS[c.cls].ups.find(p => p.id === c.up) || { name: '-' }; }
-// The team votes for its squadron (the Flight Commander breaks ties); the GM locks it in.
+// The team votes for its squadron (the 👑 breaks ties); the GM locks it in.
 function pickUnit(id) {
   if (S.unitRolled) return;
   const u = UNITS.find(x => x.id === id); if (!u) return false;
@@ -1289,7 +1281,7 @@ function resolveRoll(roller, o) {
   let d20 = lead ? o.d20 : 1 + rnd(20);
   if (!lead) { S.spinUntil = Date.now() + 4800; setTimeout(afterSpin, 4860); }
   const bonusItem = S.pending.check; if (bonusItem) { removeItem(bonusItem); S.pending.check = null; }
-  const r = rollCalc(spec.check, roller, d20, { ...o, bonusItem, typ: c.typ, safe });
+  const r = rollCalc(spec.check, roller, d20, { ...o, bonusItem, safe });
   r.roller = roller;
   if (o && o.lead) { r.pass = true; r.nat = 0; r.lead = true; }
   c.rollRes = r;
@@ -1303,7 +1295,7 @@ function resolveRoll(roller, o) {
   else ccApply('afterFail', 'Failed check', h => !h.m || h.m === spec.check.m);
   if (r.nat === 20) { award('crit'); c.lootEarned = true; }
   if (r.nat === 1) c.fumblePending = true;
-  if (S.party[roller] && S.party[roller].up === 'standards') applyEff({ mis: 1, why: 'Standards Bearer' });
+  if (r.pass && S.party[roller] && S.party[roller].up === 'standards') applyEff({ tru: 1, why: 'Standards Bearer' });
   finishStep();
 }
 function rateStars(n, lead) {
@@ -1355,7 +1347,6 @@ function spinTrigger() {
   const inj = S.inject;
   if (!inj || inj.stage !== 'trigger') return;
   doneActor('trigger');
-  if (useForesight(inj)) return;
   const d = rollDie(6, `WHICH WHEEL? · d6${byWho()}`, n => `➜ ${INJECT_WHEELS[wheelFor(n)].name}${wheelFor(n) !== injectTypeFor(n) ? ' (🔮 Foresight)' : ''}`, injectTable());
   inj.filter = wheelFor(d); inj.stage = 'murphy';
   setActor('murphy', nextActor());
@@ -1363,14 +1354,6 @@ function spinTrigger() {
 }
 // The inject pool for a wheel: injects already used this run are removed, so nothing repeats.
 // (Only if a whole wheel is used up does it refill.)
-// Foresight (Plans Officer): the next inject skips the d6 and comes from the Wheel of Success
-function useForesight(inj) {
-  if (!S.forecast || !inj || inj.stage !== 'trigger') return false;
-  S.forecast = null; inj.filter = 'good'; inj.stage = 'murphy'; inj.foresight = true; S.actor = null;
-  notice('🔮', 'FORESIGHT PAYS OFF', 'The Plans Officer saw this coming: no d6 this time. The inject comes from the Wheel of Success.');
-  setActor('murphy', nextActor()); log('Inject wheel', `${INJECT_WHEELS.good.name} (Foresight)`);
-  return true;
-}
 function injectPool(type, keep) {
   const all = MURPHY.map((m, i) => i).filter(i => !type || MURPHY[i].type === type);
   const fresh = all.filter(i => i === keep || !(S.usedInjects || []).includes(i));
@@ -1401,8 +1384,7 @@ function applyInject(choice) {
   if (inj.blocked) note = 'Blocked by Foresight. No effect.';
   else {
     let eff = m.options ? m.options[choice].eff : { ...m.eff };
-    if (m.type === 'bad' && S.contingency) { S.contingency = false; eff = Object.fromEntries(Object.entries(eff).map(([k, v]) => [k, typeof v === 'number' ? Math.trunc(v / 2) : v])); note = 'Halved by Contingency Plan. '; }
-    applyEff(eff, m.type === 'good' ? takeYearend() : {});
+    applyEff(eff);
     withTrait('gossip').forEach(n => { // the rumor mill amplifies whatever just happened
       if (m.type === 'good' && n.loy >= 3) { applyEff({ mor: 1, why: `${n.name} spread the good news` }); toast('📢', 'GOOD NEWS TRAVELS', `${n.rank} ${n.name} spread it: +1 ❤️`); }
       if (m.type === 'bad' && n.loy <= 1) { applyEff({ mor: -1, why: `${n.name} spread the bad news` }); toast('📢', 'RUMOR MILL', `${n.rank} ${n.name} made it worse: −1 ❤️`); }
@@ -1494,7 +1476,7 @@ function applyFumble(f, roller) {
   applyEff(f.eff);
   if (f.special === 'wrongname') { const n = pickOne(S.npcs); changeLoy(n.slot, -1); toast('😬', 'WRONG NAME', `${n.rank} ${n.name} noticed. Loyalty −1`); }
   if (f.special === 'cac' && roller != null && S.phase !== 'boss') { S.offlineNext = roller; toast('💳', 'LOCKED OUT', `${cadetName(roller)} is offline next stop`); }
-  if (f.special === 'chief' && hasClass('chief')) applyEff({ mor: 1, why: 'The Chief told the story at roll call' });
+  if (f.special === 'chief' && hasClass('chief')) applyEff({ mor: 1, why: 'The SEL told the story at roll call' });
   log('Fumble', `${f.name}: ${f.text}`);
 }
 function spinFumble() {
@@ -1712,24 +1694,17 @@ function usePerk(i) {
   const name = cadetName(i), c = S.cur, inj = S.inject;
   let what = '';
   switch (id) {
-    case 'typ': c.typ = true; what = `This CMD check uses the Flight Commander's CMD (+${statOf(fcIdx(), 'CMD')}), no matter who rolls.`; break;
     case 'beenthere': {
       const items = S.items.slice(), flags = { ...S.flags };
       S = JSON.parse(inj.preApply); S.items = items; S.flags = flags; S.actor = null;
-      S.inject.stage = 'done'; S.inject.note = 'Cancelled: the Chief has Been There.'; S.inject.cancelled = true;
-      what = 'The Chief has seen this one before. The Wheel of Failure result is cancelled: no loss.'; break;
+      S.inject.stage = 'done'; S.inject.note = 'Cancelled: the SEL has Been There.'; S.inject.cancelled = true;
+      what = 'The SEL has seen this one before. The Wheel of Failure result is cancelled: no loss.'; break;
     }
     case 'ncopull': {
       const ok = S.npcs.filter(n => !n.gone && n.loy < 5);
       const s = ok.length === 1 ? ok[0].slot : (prompt(`Senior NCO Pull: which Unit member gets +3 loyalty? ${ok.map(n => `${n.slot} = ${n.rank} ${n.name} (${n.loy})`).join(', ')}`, ok[0].slot) || '').trim().toUpperCase();
       const n = ok.find(x => x.slot === s); if (!n) return false;
       changeLoy(n.slot, 3); traitCare(); what = `${n.rank} ${n.name} gets the Senior NCO's attention: +3 loyalty (now ${n.loy}).`; break;
-    }
-    case 'opendoor': {
-      const a = (prompt('Open Door Policy: type ALL for +1 loyalty to everyone, or a letter (A, B, C, D) for +3 to that Unit member', 'ALL') || '').trim().toUpperCase();
-      if (a === 'ALL') S.npcs.forEach(n => changeLoy(n.slot, 1)); else if (npc(a)) changeLoy(a, 3); else return false;
-      what = a === 'ALL' ? 'The door is open: every Unit member +1 loyalty.' : `${npcLabel(S, a)} walked in and was heard: +3 loyalty.`;
-      traitCare(); break;
     }
     case 'deocs': runDeocs(); S.npcs.forEach(n => changeLoy(n.slot, 1)); traitCare(); what = `The climate survey is in: the exact meter values are on screen for the next ${DIFFICULTY.deocsStops} stops, and every Unit member feels heard (+1 loyalty).`; break;
     case 'resiliency': applyEff({ mor: 3, mis: -1, why: 'Resiliency Day' }); S.npcs.forEach(n => changeLoy(n.slot, 1)); traitCare(); what = 'A day off the line: ❤️ +3 and every Unit member +1 loyalty, but 🎯 −1.'; break;
@@ -1774,9 +1749,6 @@ function useAbility(i) {
   } else if (ab.id === 'sevenlvl') {
     applyEff({ mis: 3, why: '7-Level Upgrade' });
     what = 'The UTM pushes the flight through 7-level upgrade training: 🎯 +3.';
-  } else if (ab.id === 'foresight') {
-    S.forecast = { good: true };
-    what = 'The Plans Officer sees it coming: the next inject skips the d6 and comes from the Wheel of Success.';
   }
   c.used++;
   notice(clsIcon(c.cls, 80), `${rankName(c).toUpperCase()}: ${ab.name.toUpperCase()}`, what); sfx('loot');
@@ -1908,7 +1880,7 @@ function gmMain() {
     case 'party': return gmParty();
     case 'perks': return gmPerks();
     case 'kit': return gmKit();
-    case 'unit': return `<div class="gcard"><h2>Pick the squadron</h2><p class="note">The team votes on their phones (✋; the Flight Commander breaks ties). Click the winner: it draws the Unit members (excluding anyone in this party) and deals traits.</p>
+    case 'unit': return `<div class="gcard"><h2>Pick the squadron</h2><p class="note">The team votes on their phones (✋; the 👑 breaks ties). Click the winner: it draws the Unit members (excluding anyone in this party) and deals traits.</p>
       ${S.unitRolled ? B('toPatch', '🎖️ Next: pick the team patch', { cls: 'pri' }) : `<div class="row">${UNITS.map(u => B('pickUnit', `${u.icon} ${u.name}${voteTag(u.id)}`, { arg: u.id, cls: 'go' })).join('')}</div>`}</div>`;
     case 'join': return gmJoin();
     case 'intro': return gmIntro();
@@ -2066,7 +2038,7 @@ function gmManifest() {
 // Team patch = team name: its own screen between the squadron reveal and the org chart
 function gmPatch() {
   return `<div class="gcard"><h2>🎖️ Team patch</h2>
-  <p class="note">The patch is the team's name on the leaderboard. The team votes on their phones (✋; the Flight Commander breaks ties). Click the winner to lock it in. Patches already on the leaderboard are taken. If nobody locks one in, the top vote (or the first free patch) is used.</p>
+  <p class="note">The patch is the team's name on the leaderboard. The team votes on their phones (✋; the 👑 breaks ties). Click the winner to lock it in. Patches already on the leaderboard are taken. If nobody locks one in, the top vote (or the first free patch) is used.</p>
   <div class="row">${S.patch ? `<span class="pill y">${(patchOf(S) || {}).icon} ${esc(S.callsign)} locked in</span> ${B('unsetPatch', 'Change (reopen the vote)', { cls: 'sm' })}`
     : (PATCHES[S.unit] || []).map(p => B('setPatch', `${p.icon} ${esc(p.name)}${patchFree(S, p.id) ? voteTag(p.id) : ' (taken)'}`, { arg: p.id, cls: 'go sm', dis: !patchFree(S, p.id) })).join(' ')}</div>
   <div class="row">${B('showManifest', '📋 Show the org chart', { cls: 'pri' })}</div></div>`;
@@ -2115,7 +2087,7 @@ function gmNode() {
       ${S.party.map((p, i) => `<div class="row"><b style="width:140px">${esc(cadetName(i))}</b>${STATS.map(st => B('depotTrain', `${st} ${sign(statOf(i, st))} → ${sign(statOf(i, st) + 1)}`, { arg: `${i},${st}`, cls: 'sm' })).join('')}</div>`).join('')}
       ${B('depotBack', '⬅️ Back', { cls: 'sm' })}`;
     else body = gmDonePanel();
-    return `<div class="gcard"><h2>${rest ? '🏕️ Rest Stop' : '🛒 Base Exchange (BX)'}</h2><p class="note">The party votes on their phones (✋); click the winning option.${S.pending.yearend ? ' 💰 Year-End Money is armed: gains are doubled.' : ''}</p>${body}</div>`;
+    return `<div class="gcard"><h2>${rest ? '🏕️ Rest Stop' : '🛒 Base Exchange (BX)'}</h2><p class="note">The party votes on their phones (✋); click the winning option.</p>${body}</div>`;
   }
   if (c.type === 'unknown') {
     const my = c.mystery != null ? MYSTERY[c.mystery] : null;
@@ -2149,7 +2121,6 @@ function gmRollPanel() {
     <div class="note">Modifiers (besides the die): ${preview.parts.map(p => `${esc(p[0])} ${sign(p[1])}`).join(', ') || 'none'}</div>
     <div class="row">
       ${S.items.map((id, k) => { const l = LOOT.find(x => x.id === id); return l.use.type === 'check' ? B('item', `${l.icon} ${esc(l.name)} +${l.use.n} ${S.pending.check === id ? '(ON)' : ''}`, { arg: k, cls: S.pending.check === id ? 'on' : '' }) : ''; }).join('')}
-      ${c.typ ? '<span class="pill y">Trust Your People (FC CMD)</span>' : ''}
       ${S.dcMod ? `<span class="pill y">Loaded Dice ${sign(S.dcMod)}</span>` : ''}
     </div>
     <div class="row">${B('resolveRoll', '🎲 Roll the d20', { cls: 'pri', dis: !c.rollerLocked })} <span class="note">${c.rollerLocked ? 'The roller taps ROLL on their phone (or press it for them).' : 'Lock in a roller first.'}</span></div></div>`;
@@ -2189,7 +2160,7 @@ function gmInject() {
   if (inj.stage === 'trigger') body = `<p class="note">d6 picks the wheel: ${INJECT_ORDER.map(t => `${injectRange(t)} ${INJECT_WHEELS[t].name}`).join(' · ')}.</p>${B('spinTrigger', '🎲 Roll the d6', { cls: 'pri' })}`;
   else if (spinning()) body = '<p class="note">Spinning on the projector...</p>';
   else if (inj.stage === 'clear') body = `<p class="bigres ok">ALL CLEAR</p>${B('closeInject', 'Continue ➡️', { cls: 'pri' })}`;
-  else if (inj.stage === 'murphy') body = `<p class="bigres">${INJECT_WHEELS[inj.filter].icon} ${INJECT_WHEELS[inj.filter].name}</p>${inj.foresight ? '<p class="warnline">🔮 Foresight: straight to the Wheel of Success</p>' : ''}${B('spinMurphy', '🎡 Spin the wheel', { cls: 'pri' })}`;
+  else if (inj.stage === 'murphy') body = `<p class="bigres">${INJECT_WHEELS[inj.filter].icon} ${INJECT_WHEELS[inj.filter].name}</p>${B('spinMurphy', '🎡 Spin the wheel', { cls: 'pri' })}`;
   else if (inj.stage === 'result') body = `<p class="bigres">${esc(m.name)} <span class="pill">${m.type}</span></p><p>${esc(fill(S, m.text || ''))} ${m.options ? '' : effText(S, m.eff)}</p>
       ${inj.blocked ? '<p class="ok">Blocked by Foresight.</p>' : ''}
       ${m.options ? `<p class="note">The team votes on their phones (✋) for how to respond; click the winner.</p><div class="row">${m.options.map((o, i) => B('applyInject', `${esc(fill(S, o.t))}: ${effText(S, o.eff)}${voteTag(i)}`, { arg: i, cls: 'go' })).join('')}
@@ -2321,11 +2292,10 @@ function gmSide() {
   <div class="gcard"><h3>Meters (manual override)</h3><div class="gmeters">${METERS.map(m => `<div class="mt">${m.icon}<span>${m.name}</span>${B('meter', '−', { arg: m.k + ',-1', cls: 'sm' })}<b>${S.meters[m.k]}</b>${B('meter', '+', { arg: m.k + ',1', cls: 'sm' })}</div>`).join('')}</div>
     <div class="note">${deocsOn(S) ? `📋 DEOCS Survey running: players see exact numbers (${deocsLeft(S)} more stop${deocsLeft(S) === 1 ? '' : 's'})` : `Players see STRONG / STEADY / DANGER (≤${DIFFICULTY.dangerAt}), not numbers.`}</div>
     ${S.crisisQueue.length ? `<p class="warnline">Crisis queued: ${S.crisisQueue.map(k => METER[k].name).join(', ')}</p>` : ''}</div>
-  <div class="gcard"><h3>Party & abilities</h3><p class="note">👑 The Flight Commander breaks tied votes (Rock, Paper, Rank). That is the token's only power.</p>
+  <div class="gcard"><h3>Party & abilities</h3><p class="note">👑 The Flight Commander (without one, the next in the chain of command) breaks tied votes (Rock, Paper, Rank). That is the token's only power.</p>
     ${S.party.map((p, i) => { const ab = CLASS[p.cls].ability; return `<div class="row"><b>${clsIcon(p.cls, 18)} ${esc(p.name)}${i === crownIdx(S) ? ' 👑' : ''}${p.fired ? ' 🪓 FIRED' : ''}</b>
       ${ab ? B('ability', `${esc(ab.name)} ${ab.auto ? '(passive)' : p.used >= abilityLimit(p) ? '(used)' : ''}`, { arg: i, cls: 'sm', dis: ab.auto || p.used >= abilityLimit(p), title: ab.text }) : ''}
-      <span class="note">${esc(perkOf(p).name)}${p.up ? ' · ' + esc(upOf(p).name) : ''}</span></div>`; }).join('')}
-    ${S.forecast ? '<p class="warnline">🔮 Foresight is set: the next inject comes from the Wheel of Success</p>' : ''}</div>
+      <span class="note">${esc(perkOf(p).name)}${p.up ? ' · ' + esc(upOf(p).name) : ''}</span></div>`; }).join('')}</div>
   <div class="gcard"><h3>🎁 Perks (once per game)</h3>${S.party.map((p, i) => { const pk = perkOf(p), used = S.flags['perkUsed_' + p.perk], w = perkWhen(S, p, i);
       return `<div class="row"><b>${clsIcon(p.cls, 18)} ${esc(p.name)}</b> ${pk.icon} ${esc(pk.name)} ${used ? '<span class="pill">used</span>' : w ? B('perkUse', 'use now', { arg: i, cls: 'sm go', title: w.hint }) : '<span class="note">not now</span>'}
         ${used && p.perk !== 'hold' ? B('perkReset', '↺', { arg: i, cls: 'sm', title: 'Manual fix: mark unused' }) : ''}</div>`; }).join('')}</div>
@@ -2376,21 +2346,20 @@ act('depotPick', k => {
   const c = S.cur, done = (txt) => { if (k !== 'skip') depotTax(); c.trades = (c.trades || 0) + 1; c.step = 'done'; c.result = txt; log('Base Exchange', txt); };
   if (k === 'favor' || k === 'tasker') { c.trade = k; c.step = 'who'; S.votes = {}; return; }
   if (k === 'train') { c.step = 'train'; return; }
-  if (k === 'pizza') { const dbl = takeYearend(); bxSpend(2, 'Pizza for the flight'); applyEff({ mor: 3, why: 'Pizza for the flight' }, dbl); return done('Pizza for the whole flight: 📦 for ❤️'); }
-  if (k === 'coffee' || k === 'schmooze') { const dbl = takeYearend(); bxSpend(2, 'Coffee for the Group CC'); applyEff({ tru: 2, why: 'Coffee for the Group CC' }, dbl); return done("Coffee run for the Group CC's staff: 📦 for ⭐"); }
+  if (k === 'pizza') { bxSpend(2, 'Pizza for the flight'); applyEff({ mor: 3, why: 'Pizza for the flight' }); return done('Pizza for the whole flight: 📦 for ❤️'); }
+  if (k === 'coffee' || k === 'schmooze') { bxSpend(2, 'Coffee for the Group CC'); applyEff({ tru: 2, why: 'Coffee for the Group CC' }); return done("Coffee run for the Group CC's staff: 📦 for ⭐"); }
   if (k === 'deocs') { bxSpend(1, 'DEOCS Survey'); runDeocs(); return done(`DEOCS Survey: exact meter values for the next ${DIFFICULTY.deocsStops} stops`); }
-  if (k === 'overtime') { const dbl = takeYearend(); applyEff({ mor: -2, why: 'Mandatory overtime' }); applyEff({ res: 3, why: 'Mandatory overtime' }, dbl); return done('Skipped the lunch run for mandatory overtime: ❤️ for 📦'); }
-  if (k === 'offbooks') { const dbl = takeYearend(); applyEff({ res: 4, flag: 'OFF_BOOKS', why: 'GPC card, no paperwork' }, dbl); return done('Put it on the unit GPC card: +4 📦, no paperwork'); }
+  if (k === 'overtime') { applyEff({ mor: -2, why: 'Mandatory overtime' }); applyEff({ res: 3, why: 'Mandatory overtime' }); return done('Skipped the lunch run for mandatory overtime: ❤️ for 📦'); }
+  if (k === 'offbooks') { applyEff({ res: 4, flag: 'OFF_BOOKS', why: 'GPC card, no paperwork' }); return done('Put it on the unit GPC card: +4 📦, no paperwork'); }
   done('Just browsing: no purchase');
 });
 // favor / tasker: the team picks which Unit member pays
 act('depotWho', sl => {
   const c = S.cur, n = npc(sl); if (!n) return false;
-  const dbl = takeYearend();
   if (c.trade === 'favor') { changeLoy(sl, -2); c.lootEarned = true; c.result = `Called in a favor from ${n.rank} ${n.name}: free loot spin`; }
   else {
     const coast = n.trait === 'coaster' && !n.broken, over = n.trait === 'overach' && !n.broken;
-    changeLoy(sl, coast ? 1 : over ? -2 : -1); applyEff({ mis: coast ? 5 : 3, why: 'Volunteered for the tasker' }, dbl);
+    changeLoy(sl, coast ? 1 : over ? -2 : -1); applyEff({ mis: coast ? 5 : 3, why: 'Volunteered for the tasker' });
     c.result = `Volunteered ${n.rank} ${n.name} for the tasker: +${coast ? 5 : 3} 🎯${coast ? ' (a challenge woke the Coaster up)' : over ? ' (the Over-Achiever is overloaded)' : ''}`;
   }
   depotTax(); c.trades = (c.trades || 0) + 1;
@@ -2450,7 +2419,6 @@ act('choose', a => choose(+a));
 act('timer', a => { S.timer = +a ? { end: Date.now() + (+a) * 1000, label: S.cur && S.cur.step === 'stars' ? 'ACT IT OUT' : 'DECIDE' } : null; });
 act('roller', a => { if (isOut(S, +a)) return false; S.cur.roller = +a; S.cur.rollerLocked = true; S.votes = {}; sfx('click'); });
 act('lead', a => { S.cur.lead = +a; });
-act('typ', () => { S.cur.typ = !S.cur.typ; });
 act('resolveRoll', () => { if (!S.cur.rollerLocked) return false; resolveRoll(S.cur.roller, {}); });
 act('stars', a => rateStars(+a, S.cur.lead ?? S.tokenHolder));
 act('perkUse', i => usePerk(+i));
@@ -2462,12 +2430,12 @@ act('loot', () => spinLoot());
 act('nodeDone', () => { if (S.cur && S.cur.type !== 'crisisEvent' && crisisNow('node')) return; afterNode(); });
 act('restMeter', k => {
   const less = ccHook('restLess')[0];
-  applyEff({ ...Object.fromEntries(METERS.map(m => [m.k, m.k === k ? DIFFICULTY.restMain - (less ? 1 : 0) : DIFFICULTY.restOthers])), why: 'Rest Stop' }, takeYearend());
+  applyEff({ ...Object.fromEntries(METERS.map(m => [m.k, m.k === k ? DIFFICULTY.restMain - (less ? 1 : 0) : DIFFICULTY.restOthers])), why: 'Rest Stop' });
   if (less) ccReact(less, `Rest Stop: ${METER[k].label} +${DIFFICULTY.restMain - 1} instead of +${DIFFICULTY.restMain}`);
   S.cur.step = 'done'; S.cur.result = `Rested: +${DIFFICULTY.restMain} ${METER[k].name}, +${DIFFICULTY.restOthers} everything else`;
 });
 act('restRecharge', i => { S.party[+i].used = 0; S.cur.step = 'done'; S.cur.result = `${cadetName(+i)}'s ability recharged`; toast('🔋', 'RECHARGED', cadetName(+i)); log('Rest Stop', 'Ability recharged'); });
-act('restLoy', () => { const dbl = takeYearend(), less = ccHook('restLess')[0]; S.npcs.forEach(n => changeLoy(n.slot, dbl.double ? 2 : 1)); traitCare(); if (less) ccReact(less, 'Rest Stop: no ❤️ this time'); else applyEff({ mor: 1, why: 'Rest Stop' }, dbl); S.cur.step = 'done'; S.cur.result = '+1 loyalty for the whole Unit, +1 Morale'; log('Rest Stop', '+1 loyalty all'); });
+act('restLoy', () => { const less = ccHook('restLess')[0]; S.npcs.forEach(n => changeLoy(n.slot, 1)); traitCare(); if (less) ccReact(less, 'Rest Stop: no ❤️ this time'); else applyEff({ mor: 1, why: 'Rest Stop' }); S.cur.step = 'done'; S.cur.result = '+1 loyalty for the whole Unit, +1 Morale'; log('Rest Stop', '+1 loyalty all'); });
 act('spinMystery', () => {
   const c = S.cur;
   if (!c || c.step !== 'spin') return false;
@@ -2492,7 +2460,6 @@ act('closeInject', () => closeInject());
 act('confirmLevel', () => {
   S.party.forEach(p => {
     const u = upOf(p);
-    if (p.up === 'contingency') S.contingency = true;
     if (u.now) applyEff({ ...u.now, why: u.name });
     if (p.up === 'council') S.npcs.forEach(n => changeLoy(n.slot, 1));
     if (p.up === 'wingman') { const n = S.npcs.slice().sort((a, b) => a.loy - b.loy)[0]; if (n) changeLoy(n.slot, 2); }

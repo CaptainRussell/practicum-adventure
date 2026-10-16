@@ -204,7 +204,7 @@ function publicView(slot) {
       check: c.step === 'roll' && c.spec && c.spec.check ? { stat: c.spec.check.stat } : null };
     if (c.step === 'roll' && c.spec && c.spec.check) {
       const p = rollPreview(), st = c.spec.check.stat;
-      Object.assign(v.cur, { safe: !!c.safe, odds: rollOdds(p, c.safe), typ: !!c.typ,
+      Object.assign(v.cur, { safe: !!c.safe, odds: rollOdds(p, c.safe),
         odds4: S.party.map((_, i) => isOut(S, i) ? null : rollerOdds(S, i)),
         stats: st && st !== 'LOYB' ? S.party.map((_, i) => rollBonus(i, st, c.spec.check.m)) : null,
         spec: st && st !== 'LOYB' ? S.party.map((_, i) => isSpec(i, c.spec.check.m)) : null });

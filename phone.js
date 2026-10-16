@@ -216,14 +216,14 @@ function phGame(v, me) {
       if (v.unitPicked) { const u = UNITS.find(x => x.id === v.unit); return `<div class="ph-card ph-center"><span style="font-size:48px">${u.icon}</span><br><b>${u.name}</b><br>${u.sq}</div>
       <div class="ph-warn">⚠️ SQUADRON WARNING: ${esc(u.drain.name)}<br><small>${esc(u.drain.text)}. ${meterTag(u.drain.k, '−1')} every ${DIFFICULTY.drainEvery} stops. It comes with this unit.</small></div>`; }
       const votes = v.votes || {};
-      return `<div class="ph-h">✋ CHOOSE YOUR SQUADRON</div><div class="ph-note">Details are on the projector. Vote as a team; the Flight Commander breaks ties.</div>${tieLine(v)}` + UNITS.map(u => {
+      return `<div class="ph-h">✋ CHOOSE YOUR SQUADRON</div><div class="ph-note">Details are on the projector. Vote as a team; the 👑 breaks ties.</div>${tieLine(v)}` + UNITS.map(u => {
         const voters = Object.keys(votes).filter(s2 => String(votes[s2]) === u.id).map(s2 => v.party[+s2] && rankName(v.party[+s2])).filter(Boolean);
         return pbtn('vote', u.id, `${u.icon} <b>${esc(u.sq)}</b>${voters.length ? `<div class="ph-voters">✋ ${voterHtml(v, voters)}</div>` : ''}`, { cls: cls3(String(votes[v.you]) === u.id, !voted(v)) });
       }).join(''); }
     case 'patch': { // team patch: a team vote, like the squadron (the GM locks in the winner)
       const votes = v.votes || {};
       const pick = v.patch ? `<div class="ph-card ph-center">🎖️ TEAM PATCH LOCKED IN<br><span style="font-size:40px">${v.patch.icon}</span><br><b>${esc(v.patch.name)}</b></div>`
-        : `<div class="ph-h">✋ VOTE ON YOUR TEAM PATCH</div><div class="ph-note">The patch is your team's name on the leaderboard. Vote as a team; the Flight Commander breaks ties.</div>${tieLine(v)}<div class="ph-row">${(v.patches || []).map(p => {
+        : `<div class="ph-h">✋ VOTE ON YOUR TEAM PATCH</div><div class="ph-note">The patch is your team's name on the leaderboard. Vote as a team; the 👑 breaks ties.</div>${tieLine(v)}<div class="ph-row">${(v.patches || []).map(p => {
           const voters = Object.keys(votes).filter(s2 => String(votes[s2]) === p.id).map(s2 => v.party[+s2] && rankName(v.party[+s2])).filter(Boolean);
           return pbtn('vote', p.id, `<span style="font-size:34px">${p.icon}</span><br><small>${esc(p.name)}${p.taken ? '<br>TAKEN' : ''}</small>${voters.length ? `<div class="ph-voters">✋ ${voterHtml(v, voters)}</div>` : ''}`, { cls: cls3(String(votes[v.you]) === p.id, !voted(v) && !p.taken), dis: p.taken });
         }).join('')}</div>`;
@@ -338,7 +338,7 @@ function phNode(v, me) {
     const st = c.check && c.check.stat;
     const bon = i => c.stats ? `${st} ${sign(c.stats[i])}${c.spec && c.spec[i] ? ' ★' : ''}` : '';
     if (c.rollerVote) return top + phRollerVote(v, st, c.odds4, offline);
-    let h = `<div class="ph-card ph-center">🎲 <b>${st === 'LOYB' ? "A1C loyalty" : st || 'Luck'}</b> · <b style="color:var(--gold)">${esc(c.odds || '')}</b><br><small>Roller: ${esc(who)}${c.stats ? ` (${bon(c.roller)})` : ''}${c.typ ? " · FC's CMD" : ''}</small></div>`;
+    let h = `<div class="ph-card ph-center">🎲 <b>${st === 'LOYB' ? "A1C loyalty" : st || 'Luck'}</b> · <b style="color:var(--gold)">${esc(c.odds || '')}</b><br><small>Roller: ${esc(who)}${c.stats ? ` (${bon(c.roller)})` : ''}</small></div>`;
     h += rollerMine && !offline
       ? pbtn('roll', null, '🎲 ROLL THE d20!', { cls: 'ph-big ph-roll need', dis: v.spinning })
       : `<div class="ph-card ph-center">⏳ Waiting for ${esc(who)} to roll...</div>`;

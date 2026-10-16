@@ -83,7 +83,6 @@ function playFx(f) {
         <div class="bt" style="font-size:22px;color:var(--dim)">Added to your team items (${f.count}/3). Ask the GM to use it when it helps!</div></div>`, 'solid'); }, 4200);
     case 'multiDice': return enqueue(() => multiDiceOverlay(f), 4200 + 1800);
     case 'loyDelta': return enqueue(() => showLoy(f), 0);
-    case 'forecast': return enqueue(() => showToast('🔮', 'FORESIGHT', `Next inject: ${MURPHY[f.idx].name}`), 0);
     case 'levelDone': return enqueue(() => showToast('⬆️', 'UPGRADES LOCKED IN', 'Back to the map'), 0);
     case 'big': return enqueue(() => overlay(`<div class="bigcard ${f.cls || ''}"><div style="font-size:70px">${f.icon || ''}</div><h2>${esc(f.title)}</h2><div class="bt">${esc(f.text)}</div></div>`), 3600);
     case 'roll': return enqueue(() => rollOverlay(f), 6200);
@@ -388,8 +387,7 @@ function renderSide(S) {
     <div class="ugrid">${S.npcs.slice().sort((a, b) => rankIdx(a.rank) - rankIdx(b.rank)).map(n => { const t = TRAIT[n.trait]; return `<div class="npc mini ${isAlly(n) ? 'ally' : ''} ${n.broken || n.gone ? 'broken' : ''} ${n.out ? 'out' : ''}"><img src="${avatar(n.name + n.rank)}"><div>
       <div class="nm">${insignia(n.rank)}${esc(n.rank)} ${esc(n.name)}${isAlly(n) ? ' 🤝' : ''}${n.gone ? ' (GONE)' : n.out ? ' (OUT)' : ''}</div>
       <div class="tr rev">${t.icon} ${t.name}</div>
-      <div class="loy">${Array.from({ length: 5 }, (_, i) => `<i class="${i < n.loy ? 'on' : ''}"></i>`).join('')}</div></div></div>`; }).join('')}</div>
-    ${S.forecast ? '<div class="banner blue">🔮 FORESIGHT: THE NEXT INJECT COMES FROM THE WHEEL OF SUCCESS</div>' : ''}`;
+      <div class="loy">${Array.from({ length: 5 }, (_, i) => `<i class="${i < n.loy ? 'on' : ''}"></i>`).join('')}</div></div></div>`; }).join('')}</div>`;
 }
 
 function renderMain(S) {
@@ -525,7 +523,7 @@ function renderPatch(S) {
     <div class="patchrow big">${(PATCHES[S.unit] || []).map(p => { const taken = (P.usedPatches || []).includes(`${S.unit}:${p.id}`); return `<span class="pch ${S.patch === p.id ? 'on' : S.patch ? 'off' : ''} ${taken ? 'taken' : ''}" style="--c:${u.color}"><b>${p.icon}</b>${esc(p.name)}${taken ? '<br>TAKEN' : ''}${S.patch ? '' : voteDots(S, p.id)}</span>`; }).join('')}</div>${renderTie(S)}</div>`;
 }
 
-// Two lanes: at every stop the party picks the top or bottom option (votes show as avatars).
+// The route map: at every stop the party picks one of the 2-3 options its paths reach (votes show as avatars).
 function renderMap(S) {
   const n = S.map.tiers.length, W = 1000, H = 520, startX = 48, bossX = 946, gap = 165;
   // checkpoints between stops (in the order they happen): 🎡 inject, then ⬆️ level up

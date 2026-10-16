@@ -101,9 +101,9 @@
 
   window.simRun = function (active) {
     startRun();
-    const classes = shuffle(CLASSES.map(c => c.id).filter(id => id !== 'fc')).slice(0, 3);
-    S.party = ['fc', ...classes].map((cls, i) => ({ name: 'Sim' + i, cls, perk: pick(CLASS[cls].perks).id, up: '', used: 0, av: i }));
-    S.tokenHolder = 0; pickUnit(pick(UNITS).id); S.patch = PATCHES[S.unit][0].id; S.callsign = 'SIM';
+    const classes = shuffle(CLASSES.map(c => c.id)).slice(0, 4); // the Flight Commander is optional
+    S.party = classes.map((cls, i) => ({ name: 'Sim' + i, cls, perk: pick(CLASS[cls].perks).id, up: '', used: 0, av: i }));
+    S.tokenHolder = 0; S.crown = fcIdx() >= 0 ? null : nextInChain(S); pickUnit(pick(UNITS).id); S.patch = PATCHES[S.unit][0].id; S.callsign = 'SIM';
     S.map = genMap(); S.mapLocked = true; S.phase = 'map'; S.pos = { tier: -1, idx: null };
     for (let g = 0; g < 400 && S.phase !== 'results'; g++) {
       S.spinUntil = 0; S.notice = null; FX = [];

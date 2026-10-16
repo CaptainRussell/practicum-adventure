@@ -35,19 +35,21 @@ integrity trap to see the Game Over path.
 
 | Phase | Do this as the cadets | Do this as the GM | Watch for |
 |---|---|---|---|
-| Intro | Read the two briefing screens on the projector | Next ➡ position select | Can a cadet tell what to do from the projector alone? |
-| Position select | Each phone picks a different position; try picking a taken one | Lock positions | Duplicate blocked? |
+| Join | Scan the full-screen QR (or let the bench join) | Start the briefing | Join count on the console |
+| Intro | Read the two briefing screens on the projector | Next ➡ pilots | Can a cadet tell what to do from the projector alone? |
+| Pilots | Each phone picks an avatar | Continue | Taken avatars disabled? |
+| Position select | Each phone picks a different position (try a run with no Flight Commander) | Lock positions | Duplicate blocked? 👑 goes down the chain of command? |
 | Perks | Each phone picks a perk | Lock perks | Perks only revealed now? |
-| Pilots | Each phone picks an avatar | Done → roll unit | Taken avatars disabled? |
-| Unit | FC's phone rolls the d6 | Show manifest | Only FC gets the button; other phones say "look up" |
-| Map (×6) | All vote; split the vote once | Click the winner | Vote avatars on the projector; 🗳️ counts on the console |
-| Mission | Vote; 👑 holder changes roller; someone boosts, toggles Play it safe; roller taps ROLL | Choose the voted letter | Odds text matches the result; boost meters paid after |
+| Kit check | Look over ability, perk and items | Continue | ONCE / PASSIVE badges read clearly? |
+| Squadron / patch | Vote on the squadron, then the team patch | Click the winners, show the org chart | Squadron Warning on the pick screen; 👎 crossed out with an XO |
+| Map (×5-7) | All vote; split the vote once | Click the winner | Vote avatars on the projector; 🗳️ counts on the console |
+| Mission | Vote on a choice, vote for the roller; roller taps ROLL | Choose the voted letter, lock the roller | Odds text matches the result; phone arrows match the projector |
 | 🎤 encounter | Act it out | Rate stars | Phones show "act it out" |
 | Loot / fumble | Assigned cadet taps d4 / wheel | Continue | Rotation of turns feels fair |
-| Inject | Assigned cadet rolls d10, another spins Murphy; vote on response | Apply winner | Wheel result matches the applied effect |
-| Requests | From MY KIT: ask for ability, Intel, Waiver, an item | Approve / Dismiss in the sidebar | Each request does what it says |
-| Level up (after stop 3) | Each phone picks an upgrade | Confirm | |
-| Boss P1–P3 | Hot seat roller taps; in P3 each picks a stat and rolls | Rate interview stars, resolve | P3 resolves on the last phone roll |
+| Inject | Assigned cadet rolls the d6, another spins the wheel; vote on the response | Apply winner | Wheel result matches the applied effect |
+| Requests | From MY KIT: ask for ability, a perk, an item | Approve / Dismiss in the sidebar | Each request does what it says |
+| Level up (after stop 3, or 4 on 7 stops) | Each phone picks an upgrade | Confirm | |
+| Boss | Audit, then 3 rounds: each picks Press or Defend; Interview in round 2 | Rate interview stars, resolve | Allies deal Audit damage |
 | Results / debrief | | Save leaderboard, power down, score rubric, export CSV | Leaderboard and CSV contents |
 
 Rough timing target from HOW-TO-RUN: ~30 min per party. Note your actual time per stop.
@@ -82,12 +84,12 @@ questions connect to what actually happened in the run?
    to its cadet's new row when empty rows are dropped. Re-check: 4 phones join, ✖ P2, give the
    other three positions, lock. Each remaining phone should show its own name.
 
+**Fixed since:** choice arrows are computed from each choice's real effects (`choiceShow` in
+`app.js`) on the projector, the console and phones; the old hand-written arrows are gone.
+
 **Still open:**
 
-4. **Arrows understate some effects.** E.g. M10 "Chew out the sponsor" shows ❤️ ▼▼ but applies
-   ❤️ −3; M11 "Formal paperwork" shows ⭐ ▲ ❤️ ▼▼ but also gives 🎯 +1 and ❤️ −3. Possibly
-   intentional (Intel Briefing reveals exact effects), but worth deciding.
-5. **Minor:** offline (📵 in a meeting) cadets can still vote on mission choices from their
+4. **Minor:** offline (📵 in a meeting) cadets can still vote on mission choices from their
    phone (the button is disabled on the phone, but the GM does not re-check it); boss P3 lets the
    GM tick "Ally auto-pass" for more cadets than there are allies; the GM console's Waiver button
    shows after a *passed* roll too.
