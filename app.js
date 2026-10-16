@@ -708,8 +708,10 @@ function crisisNow(resume) {
   if (S.crises >= 1) { crisisGameOver(k); return true; }
   S.crises++;
   S.phase = 'node'; S.inject = null; S.actor = null; S.votes = {}; S.banner = null; S.wheel = null;
-  const C = CRISES[k], death = fill(S, typeof C.death === 'object' ? C.death[S.unit] || Object.values(C.death)[0] : C.death);
-  const lost = crisisLoss(k);
+  const C = CRISES[k], lost = crisisLoss(k);
+  let death = fill(S, typeof C.death === 'object' ? C.death[S.unit] || Object.values(C.death)[0] : C.death);
+  // no Flight Commander in the party: the CC relieves whoever was leading (the 👑 holder crisisLoss just fired)
+  if (k === 'tru' && fcIdx() < 0) { const f = S.party.findIndex(c => c.fired); death = fill(S, `{CC} calls you in: "I no longer have confidence in your flight's leadership."${f >= 0 ? ` ${cadetName(f)}, the acting lead, is relieved, effective now.` : ''}`); }
   snapBase();
   S.cur = { type: 'crisisEvent', meter: k, step: 'brief', choice: null, intel: false, death, lost };
   emit('flash'); sfx('alarm');
@@ -724,7 +726,7 @@ function crisisLoss(k) {
   if (k === 'tru') {
     // the Flight Commander, or the 👑 holder when the party has no FC; only one cadet is ever fired
     const f = S.party.some(c => c.fired) ? -1 : fcIdx() >= 0 ? fcIdx() : crownIdx(S);
-    if (f < 0) return CRISES.tru.loss;
+    if (f < 0) return 'Nobody is relieved this time: there is no one left to fire.';
     S.party[f].fired = true;
     const next = S.party.map((_, i) => i).filter(i => !S.party[i].fired).sort((a, b) => statOf(b, 'CMD') - statOf(a, 'CMD'))[0];
     S.crown = next != null ? next : -1; S.tokenHolder = S.crown;
