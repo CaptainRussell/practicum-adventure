@@ -272,7 +272,7 @@ function usableNow(S) {
       if (ab.id === 'foresight' && !S.forecast && ((ph === 'inject' && inj && inj.stage === 'trigger') || ph === 'map' || ph === 'node')) add(i, 'ability', clsIcon(p.cls, 18), ab.name, 'The next inject comes from the Wheel of Success', ph === 'inject');
     }
     const w = perkWhen(S, p, i);
-    if (w) add(i, 'perk:' + p.perk, '🎁', (cl.perks.find(k => k.id === p.perk) || {}).name || p.perk, w.hint, w.hot);
+    if (w) { const pk = cl.perks.find(k => k.id === p.perk) || {}; add(i, 'perk:' + p.perk, pk.icon || '🎁', pk.name || p.perk, w.hint, w.hot); }
   });
   // "moment" = only useful right now (cancel this result, reroll this failure, skip this die...):
   // the projector asks the team to decide; everything else lives on phones as "You can use now"
@@ -1111,7 +1111,7 @@ function lockPerks() {
   log('Perks locked', S.party.map(c => `${c.name}: ${perkOf(c).name}`).join('; '));
   return '';
 }
-function perkOf(c) { return CLASS[c.cls].perks.find(p => p.id === c.perk) || { name: '-' }; }
+function perkOf(c) { return CLASS[c.cls].perks.find(p => p.id === c.perk) || { name: '-', icon: '🎁' }; }
 function upOf(c) { return CLASS[c.cls].ups.find(p => p.id === c.up) || { name: '-' }; }
 // The team votes for its squadron (the Flight Commander breaks ties); the GM locks it in.
 function pickUnit(id) {
@@ -1732,7 +1732,7 @@ function usePerk(i) {
     case 'readiness': S.flags.MOCK_INSPECTION = true; what = `The flight runs its own readiness inspection and fixes what it finds. The IG will start with ${DIFFICULTY.mockInsp} less HP.`; break;
   }
   S.flags['perkUsed_' + id] = true;
-  notice('🎁', `${name.toUpperCase()}: ${pk.name.toUpperCase()}`, what); sfx('loot'); log('Perk', `${name}: ${pk.name}`);
+  notice(pk.icon || '🎁', `${name.toUpperCase()}: ${pk.name.toUpperCase()}`, what); sfx('loot'); log('Perk', `${name}: ${pk.name}`);
 }
 function useAbility(i) {
   const c = S.party[i], ab = CLASS[c.cls].ability; if (!ab) return;
@@ -1952,7 +1952,7 @@ function gmPerks() {
   return `<div class="gcard"><h2>🎁 Perk selection</h2>
   <p class="note">The projector now reveals each cadet's two perks. They pick one (by phone or out loud).</p>
   ${S.party.map((c, i) => `<div class="gchoice"><b>${clsIcon(c.cls, 18)} ${esc(rankName(c))}</b> <span class="note">${CLASS[c.cls].name}</span>
-    <div class="row">${CLASS[c.cls].perks.map(p => `<label class="b ${c.perk === p.id ? 'on' : ''}"><input type="radio" class="hide" name="perk${i}" data-inp="pperk" data-arg="${i}" value="${p.id}" ${c.perk === p.id ? 'checked' : ''}>${esc(p.name)}: <span class="note">${esc(p.text)}</span></label>`).join('')}</div></div>`).join('')}
+    <div class="row">${CLASS[c.cls].perks.map(p => `<label class="b ${c.perk === p.id ? 'on' : ''}"><input type="radio" class="hide" name="perk${i}" data-inp="pperk" data-arg="${i}" value="${p.id}" ${c.perk === p.id ? 'checked' : ''}>${p.icon} ${esc(p.name)}: <span class="note">${esc(p.text)}</span></label>`).join('')}</div></div>`).join('')}
   <div class="warnline">${esc(S.partyWarn || '')}</div>
   <div class="row">${B('backToClasses', '⬅️ Back to positions')} ${B('lockPerks', '✅ Lock perks → check your kit', { cls: 'pri', dis: S.party.some(c => !c.perk) })}</div></div>`;
 }
@@ -1962,7 +1962,7 @@ function gmKit() {
   const done = S.party.filter(c => c.kitOk).length;
   return `<div class="gcard"><h2>🎒 Check your kit</h2>
   <p class="note">Every cadet opens the 🎒 KIT tab on their phone to see their position, stats, ability and perk, then taps 🎮 GAME to come back (it marks them ✅ here). Cadets without a phone: read their kit to them from the projector.</p>
-  ${S.party.map(c => `<div class="row">${c.kitOk ? '✅' : '⏳'} ${clsIcon(c.cls, 18)} <b>${esc(rankName(c))}</b> <span class="note">${esc(CLASS[c.cls].name)} · ${esc(perkOf(c).name)}</span></div>`).join('')}
+  ${S.party.map(c => `<div class="row">${c.kitOk ? '✅' : '⏳'} ${clsIcon(c.cls, 18)} <b>${esc(rankName(c))}</b> <span class="note">${esc(CLASS[c.cls].name)} · ${perkOf(c).icon} ${esc(perkOf(c).name)}</span></div>`).join('')}
   <div class="row">${B('kitDone', `${done === S.party.length ? '✅' : '➡️'} Continue → choose the squadron (${done}/${S.party.length} checked)`, { cls: 'pri' })}</div></div>`;
 }
 act('kitDone', () => { S.phase = 'unit'; S.votes = {}; sfx('start'); });
@@ -2210,7 +2210,7 @@ function gmBoss() {
 // A "use this perk" button for whoever has it, only when it can be used right now
 function gmPerkButton(id) {
   const i = S.party.findIndex(p => p.perk === id); if (i < 0 || !perkWhen(S, S.party[i], i)) return '';
-  return B('perkUse', `🎁 ${esc(cadetName(i))}: ${esc(perkOf(S.party[i]).name)}`, { arg: i, cls: 'go' });
+  return B('perkUse', `${perkOf(S.party[i]).icon} ${esc(cadetName(i))}: ${esc(perkOf(S.party[i]).name)}`, { arg: i, cls: 'go' });
 }
 
 function gmResults() {
@@ -2274,7 +2274,7 @@ function gmSide() {
       <span class="note">${esc(perkOf(p).name)}${p.up ? ' · ' + esc(upOf(p).name) : ''}</span></div>`; }).join('')}
     ${S.forecast ? '<p class="warnline">🔮 Foresight is set: the next inject comes from the Wheel of Success</p>' : ''}</div>
   <div class="gcard"><h3>🎁 Perks (once per game)</h3>${S.party.map((p, i) => { const pk = perkOf(p), used = S.flags['perkUsed_' + p.perk], w = perkWhen(S, p, i);
-      return `<div class="row"><b>${clsIcon(p.cls, 18)} ${esc(p.name)}</b> ${esc(pk.name)} ${used ? '<span class="pill">used</span>' : w ? B('perkUse', 'use now', { arg: i, cls: 'sm go', title: w.hint }) : '<span class="note">not now</span>'}
+      return `<div class="row"><b>${clsIcon(p.cls, 18)} ${esc(p.name)}</b> ${pk.icon} ${esc(pk.name)} ${used ? '<span class="pill">used</span>' : w ? B('perkUse', 'use now', { arg: i, cls: 'sm go', title: w.hint }) : '<span class="note">not now</span>'}
         ${used && p.perk !== 'hold' ? B('perkReset', '↺', { arg: i, cls: 'sm', title: 'Manual fix: mark unused' }) : ''}</div>`; }).join('')}</div>
   ${S.unit ? (() => { const u = unitObj(); return `<div class="gcard"><h3>${npcIns(S.cc, 18)} ${esc(S.cc)}</h3><div class="note">Intent: ${METER[u.cc.intent].icon} ${METER[u.cc.intent].label} (now ${S.meters[u.cc.intent]})</div>
     <div>👍 <b>${esc(u.cc.pos.name)}</b> <span class="note">${esc(u.cc.pos.text)}</span></div><div style="${S.flags.ccNegOff ? 'opacity:.4;text-decoration:line-through' : ''}">👎 <b>${esc(u.cc.neg.name)}</b> <span class="note">${esc(u.cc.neg.text)}</span></div></div>`; })() : ''}

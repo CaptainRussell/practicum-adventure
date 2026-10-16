@@ -478,7 +478,7 @@ function renderKitCheck(S) {
     <div class="sub">On your phone: tap <b>🎒 KIT</b> to see your position, stats, ability and perk, then tap <b>🎮 GAME</b> to come back.</div>
     <div class="kitrow">${S.party.map(p => { const c = CLASS[p.cls], pk = c.perks.find(k => k.id === p.perk);
       return `<div class="ccard ${p.kitOk ? 'taken' : ''}" style="${p.kitOk ? `border-color:${c.color}` : ''}"><div class="chead"><img src="${avatarOf(p)}" style="width:48px;height:48px;image-rendering:pixelated"><div><h3>${insignia(p)}${esc(rankName(p))}</h3><div class="sub" style="font-size:19px;color:${c.color}">${c.name}</div></div></div>
-        <div class="kitline">⚡ <b>${esc(c.ability ? c.ability.name : 'Command Token')}</b></div><div class="kitline">🎁 <b>${esc(pk ? pk.name : '-')}</b></div>
+        <div class="kitline">⚡ <b>${esc(c.ability ? c.ability.name : 'Command Token')}</b></div><div class="kitline">${pk ? pk.icon : '🎁'} <b>${esc(pk ? pk.name : '-')}</b></div>
         <div class="kitst">${p.kitOk ? '✅ CHECKED' : '⏳ checking…'}</div></div>`; }).join('')}</div></div>`;
 }
 function renderPerks(S) {
@@ -486,7 +486,7 @@ function renderPerks(S) {
     <div class="sub" style="text-align:center;font-size:22px">Each cadet chooses one perk for their position (on your phone or tell the GM)</div>
     <div class="perkgrid" style="grid-template-columns:repeat(${S.party.length},1fr)">${S.party.map(p => { const c = CLASS[p.cls]; return `<div class="ccard ${p.perk ? 'taken' : ''}">
       <div class="chead"><img src="${avatarOf(p)}" style="width:40px;height:40px;image-rendering:pixelated"><div><h3>${insignia(p)}${esc(rankName(p))}</h3><div class="sub" style="font-size:19px">${c.name}</div></div></div>
-      ${c.perks.map((k, j) => `<div class="perk big ${p.perk === k.id ? 'sel' : p.perk ? 'off' : ''}"><b>${p.perk === k.id ? '▶ ' : ''}PERK ${'AB'[j]} · ${esc(k.name)}</b><div>${mt(esc(k.text))}</div></div>`).join('')}
+      ${c.perks.map((k, j) => `<div class="perk big ${p.perk === k.id ? 'sel' : p.perk ? 'off' : ''}"><b>${p.perk === k.id ? '▶ ' : ''}PERK ${'AB'[j]} · ${k.icon} ${esc(k.name)}</b><div>${mt(esc(k.text))}</div></div>`).join('')}
       <div class="sub" style="text-align:center;font-size:20px">${p.perk ? '✅ LOCKED IN' : '⏳ choosing...'}</div></div>`; }).join('')}</div></div>`;
 }
 

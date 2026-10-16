@@ -205,7 +205,7 @@ function phGame(v, me) {
     case 'party': return phParty(v, me);
     case 'perks': { const cls = CLASS[me.cls];
       return `<div class="ph-h">🎁 PICK YOUR PERK</div><div class="ph-card">${clsIcon(me.cls, 20)} <b>${esc(rankName(me))}</b>, pick ONE perk for your ${cls.name}. Each perk works once per game.</div>`
-        + cls.perks.map(p => pbtn('perk', p.id, `<b>${esc(p.name)}</b><br><small>${mt(esc(p.text))}</small>`, { cls: cls3(me.perk === p.id, !me.perk) })).join('')
+        + cls.perks.map(p => pbtn('perk', p.id, `${p.icon} <b>${esc(p.name)}</b><br><small>${mt(esc(p.text))}</small>`, { cls: cls3(me.perk === p.id, !me.perk) })).join('')
         + (me.perk ? '<div class="ph-card ph-center">✅ Locked in. Waiting for the rest of the team...</div>' : ''); }
     case 'kit': return me.kitOk ? '<div class="ph-card ph-center">✅ Kit checked. Your kit is always one tap away in the 🎒 KIT tab.<br><br>Waiting for the rest of the team...</div>'
       : '<div class="ph-h">🎒 CHECK YOUR KIT</div><div class="ph-card">Before you pick a squadron, look at what you\'re bringing: your position, stats, ability and perk.</div><div class="ph-point"><b>Tap the glowing 🎒 KIT tab at the bottom of the screen.</b><div class="ph-arrow">👇</div></div>';
@@ -446,7 +446,7 @@ function phKit(v, me) {
   h += `<div class="ph-h">🎒 YOUR KIT <small class="ph-legend">gold = usable now</small></div>`;
   if (c.ability) h += row('ability', clsIcon(me.cls, 20), c.ability.name, c.ability.text, c.ability.auto ? (v.ccInfo && v.ccInfo.negOff ? 'active' : 'passive') : me.used ? 'used' : 'once');
   else h += row(null, '👑', 'Command Token', c.abilityText, '');
-  if (perk) h += row('perk:' + perk.id, '🎁', perk.name, perk.text, perk.id === 'hold' ? (me.perkUsed ? 'used' : 'passive') : me.perkUsed ? 'used' : 'once');
+  if (perk) h += row('perk:' + perk.id, perk.icon || '🎁', perk.name, perk.text, perk.id === 'hold' ? (me.perkUsed ? 'used' : 'passive') : me.perkUsed ? 'used' : 'once');
   if (up) h += row(null, '⬆️', up.name, up.text, 'upgrade');
   h += `<div class="ph-h">🧺 TEAM ITEMS (${(v.itemInfo || []).length}/3)</div>`;
   h += (v.itemInfo || []).length ? v.itemInfo.map(l => row('item:' + l.id, l.icon, l.name, l.text, '')).join('')
