@@ -188,10 +188,10 @@ function phResult(v) {
   const r = v.result; if (!r) return '';
   const lootOf = id => LOOT.find(x => x.id === id);
   const rows = [
-    ...r.meters.map(([k, d]) => `<div class="${d > 0 ? 'up' : 'dn'}">${METER[k].icon} ${METER[k].label} <b>${sign(d)}</b></div>`),
-    ...r.loy.map(([w, d]) => `<div class="${d > 0 ? 'up' : 'dn'}">🤝 ${esc(w)} loyalty <b>${sign(d)}</b></div>`),
-    ...r.gained.map(id => `<div class="up">🎁 Gained ${lootOf(id).icon} ${esc(lootOf(id).name)}</div>`),
-    ...r.lost.map(id => `<div>🎒 Used ${lootOf(id).icon} ${esc(lootOf(id).name)}</div>`),
+    ...r.meters.map(([k, d]) => `<div class="${d > 0 ? 'up' : 'dn'}"><b>${sign(d)}</b> ${METER[k].icon} ${METER[k].label}</div>`),
+    ...r.loy.map(([w, d]) => `<div class="${d > 0 ? 'up' : 'dn'}"><b>${sign(d)}</b> 🤝 ${esc(w)} loyalty</div>`),
+    ...r.gained.map(id => `<div class="up"><b>+</b> ${lootOf(id).icon} ${esc(lootOf(id).name)}</div>`),
+    ...r.lost.map(id => `<div><b>-</b> ${lootOf(id).icon} ${esc(lootOf(id).name)} <small>used</small></div>`),
   ];
   return `<div class="ph-card ph-result"><div class="ph-h" style="margin-top:0">RESULT</div><b>${esc(r.head)}</b>${rows.length ? `<div class="ph-rrows">${rows.join('')}</div>` : '<div class="ph-note">No change to your meters.</div>'}<div class="ph-note">Waiting for the GM to continue...</div></div>`;
 }

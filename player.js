@@ -330,15 +330,17 @@ function renderTie(S) { return ''; }
 function renderResultCard(S) {
   if (!resultReady(S)) return '';
   const r = resultSummary(S), lootOf = id => LOOT.find(x => x.id === id);
+  // one change per line, amount first: "−1 ⭐ Trust", "+ 📦 Pallet of Spares"
+  const row = (cls, amt, what) => `<div class="rrow ${cls}"><b>${amt}</b><span>${what}</span></div>`;
   const rows = [
-    ...r.meters.map(([k, d]) => `<div class="rrow ${d > 0 ? 'up' : 'dn'}">${METER[k].icon} ${METER[k].label.toUpperCase()} <b>${sign(d)}</b> <small>${deocsOn(S) ? `now ${S.meters[k]}` : meterBand(S.meters[k]).word}</small></div>`),
-    ...r.loy.map(([who, d]) => `<div class="rrow ${d > 0 ? 'up' : 'dn'}">🤝 ${esc(who)} LOYALTY <b>${sign(d)}</b></div>`),
-    ...r.gained.map(id => `<div class="rrow up">🎁 GAINED ${lootOf(id).icon} ${esc(lootOf(id).name)}</div>`),
-    ...r.lost.map(id => `<div class="rrow">🎒 USED ${lootOf(id).icon} ${esc(lootOf(id).name)}</div>`),
+    ...r.meters.map(([k, d]) => row(d > 0 ? 'up' : 'dn', sign(d), `${METER[k].icon} ${METER[k].label}`)),
+    ...r.loy.map(([who, d]) => row(d > 0 ? 'up' : 'dn', sign(d), `🤝 ${esc(who)} loyalty`)),
+    ...r.gained.map(id => row('up', '+', `${lootOf(id).icon} ${esc(lootOf(id).name)}`)),
+    ...r.lost.map(id => row('', '-', `${lootOf(id).icon} ${esc(lootOf(id).name)} <small>used</small>`)),
   ];
   const good = r.meters.reduce((a, [, d]) => a + d, 0);
   const tested = S.phase === 'node' && S.cur && !['rest', 'depot', 'unknown'].includes(S.cur.type) ? objChips(curMission()) : '';
-  return `<div class="rescard"><div class="bigcard ${good > 0 ? 'good' : good < 0 ? 'bad' : ''}"><div class="sectlbl">${teamTag(S) ? esc(teamTag(S)) + ' · ' : ''}RESULT</div>${(() => { const rr = S.phase === 'node' && S.cur && S.cur.rollRes; if (!rr) return `<h2>${esc(resultHeadline(S))}</h2>`;
+  return `<div class="rescard"><div class="bigcard ${good > 0 ? 'good' : good < 0 ? 'bad' : ''}"><div class="sectlbl">${teamTag(S) ? esc(teamTag(S)) + ' · ' : ''}RESULT</div>${(() => { const rr = S.phase === 'node' && S.cur && S.cur.rollRes; if (!rr) { const c = S.cur; if (S.phase === 'node' && c && c.stars) return `<h2>🎤 ${esc(cadetName(c.lead))}</h2><div class="rstars">${[1, 2, 3].map(k => `<span class="${k <= c.stars ? 'on' : ''}">⭐</span>`).join('')}</div>`; return `<h2>${esc(resultHeadline(S))}</h2>`; }
     const v = rr.nat === 20 ? 'CRITICAL!' : rr.nat === 1 ? 'FUMBLE!' : rr.pass ? 'SUCCESS' : 'FAILED';
     return `<h2 class="verdict2 ${rr.pass ? 'up' : 'dn'}">${rr.lead ? '👑 ' : ''}${v}</h2><div class="bt rmath">rolled ${rr.d20} · total ${rr.total} vs target ${rr.dc}${rr.lead ? ' · Lead From the Front' : ''}</div>`; })()}${tested ? `<div class="sob" style="margin:4px 0 8px"><span class="objlbl">THIS TESTED</span>${tested}</div>` : ''}
     ${rows.length ? `<div class="rrows">${rows.join('')}</div>` : '<div class="bt">No change to your meters.</div>'}

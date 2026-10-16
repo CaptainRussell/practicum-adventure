@@ -586,10 +586,11 @@ body.gm{font-family:var(--ui);font-size:14px;line-height:1.45;background:#0e1020
 /* projector result card: stays up until the GM clicks Continue */
 .rescard{position:fixed;inset:0;z-index:45;background:#000b;display:flex;align-items:center;justify-content:center}
 .rescard .bigcard{min-width:620px}
-.rrows{display:flex;flex-direction:column;gap:8px;margin-top:18px;align-items:center}
-.rrow{font-family:var(--pixel);font-size:20px;text-shadow:3px 3px 0 #000}
-.rrow b{font-size:26px;margin:0 8px}
+.rrows{display:flex;flex-direction:column;gap:10px;margin:18px auto 0;width:fit-content}
+.rrow{display:grid;grid-template-columns:2.6em auto;align-items:center;column-gap:14px;font-family:var(--pixel);font-size:20px;text-shadow:3px 3px 0 #000;text-align:left}
+.rrow b{font-size:26px;text-align:right}
 .rrow small{font-family:var(--vt);font-size:24px;color:var(--dim)}
+.rstars{font-size:44px;letter-spacing:6px;margin-top:4px} .rstars span{opacity:.2;filter:grayscale(1)} .rstars span.on{opacity:1;filter:none}
 .rrow.up{color:var(--good)} .rrow.dn{color:var(--bad)}
 .rwait{font-family:var(--vt);font-size:22px;color:var(--dim);margin-top:18px}
 /* inject: the d6 picks one of three wheels */

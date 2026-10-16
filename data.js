@@ -767,7 +767,7 @@ const CRISES = {
   tru: { title: 'RELIEVED OF COMMAND', icon: '🪓', loss: "The Flight Commander (or, with no FC, whoever holds the 👑) is FIRED: no votes, rolls, perk or 👑 for the rest of the game. The tie-break passes to the next cadet.",
     death: '{CC} calls you in: "I no longer have confidence in your flight commander." The Flight Commander is relieved, effective now.',
     choices: [
-      { t: 'The acting lead briefs {CC} on a turnaround plan', mic: true, kind: 'stars', pre: { set: { tru: 2 } }, stars: [ { tru: -1, mor: -2 }, { mor: -2 }, { tru: 1, mor: -1 } ] },
+      { t: 'The acting lead briefs {CC} on a turnaround plan', mic: true, speaker: 'crown', kind: 'stars', pre: { set: { tru: 2 } }, stars: [ { tru: -1, mor: -2 }, { mor: -2 }, { tru: 1, mor: -1 } ] },
       { t: 'Accept a babysitter from group (for 2 stops, every ⭐ gain is 1 less)', kind: 'fx', eff: { set: { tru: 3 }, mor: -2, flag: 'BABYSITTER' } } ] },
   res: { title: 'OUT OF GAS', icon: '⛽', loss: 'Your lowest-loyalty Unit member quits the unit for good, and every team item is gone.',
     death: 'The money and the people ran out at the same time. Shifts went uncovered, and someone finally walked out.',

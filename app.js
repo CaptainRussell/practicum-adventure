@@ -1083,7 +1083,7 @@ function resultHeadline(S) {
   if (S.phase === 'inject' && i) return `${INJECT_WHEELS[MURPHY[i.idx].type].icon} ${MURPHY[i.idx].name}${i.note ? ' · ' + fill(S, i.note) : ''}`;
   if (!c) return '';
   if (c.rollRes) { const r = c.rollRes; return `🎲 ${r.d20} → ${r.total} vs ${r.dc}: ${r.nat === 20 ? 'CRITICAL!' : r.nat === 1 ? 'FUMBLE!' : r.pass ? 'SUCCESS' : 'FAILED'}`; }
-  if (c.stars) return `🎤 ${cadetName(c.lead)}: ${'⭐'.repeat(c.stars)}`;
+  if (c.stars) return `🎤 ${cadetName(c.lead)} · ${c.stars} of 3 ⭐`;
   if (c.result) return c.result;
   return 'DECISION LOCKED IN';
 }
@@ -1250,7 +1250,7 @@ function choose(i) {
   if (c.swap && c.swap.includes(i)) effIdx = c.swap[0] === i ? c.swap[1] : c.swap[0];
   const base = m.choices[i], src = m.choices[effIdx];
   let spec = src.ifClass ? { ...src, ...normal(src.ifClass[src.ifClass.cls.some(hasClass) ? 'then' : 'else']) } : { ...src };
-  spec.tags = base.tags; spec.mic = src.mic;
+  spec.tags = base.tags; spec.mic = src.mic; spec.speaker = src.speaker;
   c.choice = i; c.spec = spec;
   if (c.type !== 'spot') S.banner = null;
   sfx('click');
@@ -1271,6 +1271,7 @@ function choose(i) {
   else if (spec.kind === 'stars') {
     c.step = 'stars';
     if (c.type === 'spot') c.lead = c.slot; // the spotlighted cadet does the talking
+    else if (spec.speaker === 'crown' && crownIdx(S) >= 0) c.lead = crownIdx(S); // the choice names who talks (the acting lead holds the 👑): no wheel
     else { c.lead = null; setActor('speaker', nextActor()); } // a cadet spins for the speaker
   }
 }
