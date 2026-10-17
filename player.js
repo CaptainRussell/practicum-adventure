@@ -46,6 +46,8 @@ function nextQ() {
   const it = Q.shift(); if (!it) { qBusy = false; return; }
   qBusy = true; let clean = null;
   try { clean = it[0](); } catch (e) { console.error(e); }
+  // A null duration holds the queue until the overlay is explicitly dismissed.
+  if (it[1] == null) return;
   setTimeout(() => { try { typeof clean === 'function' && clean(); } catch (e) { } nextQ(); }, it[1]);
 }
 function overlay(html, cls = '') {
@@ -85,6 +87,10 @@ function playFx(f) {
     case 'loyDelta': return enqueue(() => showLoy(f), 0);
     case 'levelDone': return enqueue(() => showToast('⬆️', 'UPGRADES LOCKED IN', 'Back to the map'), 0);
     case 'big': return enqueue(() => overlay(`<div class="bigcard ${f.cls || ''}"><div style="font-size:70px">${f.icon || ''}</div><h2>${esc(f.title)}</h2><div class="bt">${esc(f.text)}</div></div>`), 3600);
+    case 'critical': return enqueue(() => {
+      const d = overlay(`<div class="bigcard ${f.cls || 'bad'}"><div style="font-size:70px">${f.icon || '🚨'}</div><h2>${esc(f.title)}</h2><div class="bt">${esc(f.text)}</div><div class="bt" style="margin-top:20px;font-size:14px;color:var(--gold)">CLICK TO CONTINUE</div></div>`);
+      d.onclick = () => { d.remove(); nextQ(); };
+    }, null);
     case 'roll': return enqueue(() => rollOverlay(f), 6200);
     case 'stars': return enqueue(() => overlay(`<div class="bigcard good"><h2>${esc(f.who)}</h2><div class="stars">${'⭐'.repeat(f.n)}${'<span style="opacity:.2">⭐</span>'.repeat(3 - f.n)}</div><div class="verdict pass">${['', 'ROUGH', 'SOLID', 'NAILED IT!'][f.n]}</div></div>`), 3000);
     case 'flash': return enqueue(() => { document.body.classList.add('flashred'); return () => document.body.classList.remove('flashred'); }, 1900);
@@ -162,7 +168,7 @@ function hypeDice(f) {
 }
 function diceOverlay(f) {
   if (f.table) return hypeDice(f);
-  const rm = overlay(`<div class="wt">${esc(f.title)}</div>${dieHtml(f.sides, '?')}<div class="wres"></div>`, 'solid');
+  const rm = overlay(`<div class="wt">${esc(f.title)}</div>${f.goal ? `<div class="goalDie">🎯 GOAL DIE: ${f.goal}+</div>` : ''}${dieHtml(f.sides, '?')}<div class="wres"></div>`, 'solid');
   const ov = document.querySelectorAll('.ovl'); const d = ov[ov.length - 1];
   tumble(d.querySelector('.die'), f.sides, f.v, DICE_MS - 900, () => {
     d.querySelector('.wres').innerHTML = esc(f.result || ''); SFX.play('good');
@@ -170,7 +176,7 @@ function diceOverlay(f) {
   return rm;
 }
 function multiDiceOverlay(f) {
-  const rm = overlay(`<div class="wt">${esc(f.title)}</div><div class="dicerow">${f.rows.map(r => `<div class="dcol"><img src="${r.av != null ? presetAvatar(r.av, r.uni, r.hair) : avatar(r.name)}">${dieHtml(20, '?')}<div class="dn2">${esc(r.name)}</div><div class="dtag ${r.hi ? 'hi' : ''}">&nbsp;</div></div>`).join('')}</div>`, 'solid');
+  const rm = overlay(`<div class="wt">${esc(f.title)}</div><div class="dicerow">${f.rows.map(r => `<div class="dcol"><img src="${r.av != null ? presetAvatar(r.av, r.uni, r.hair) : avatar(r.name)}">${r.goal ? `<div class="goalDie">🎯 ${r.goal}+</div>` : ''}${dieHtml(20, '?')}<div class="dn2">${esc(r.name)}</div><div class="dtag ${r.hi ? 'hi' : ''}">&nbsp;</div></div>`).join('')}</div>`, 'solid');
   const ov = document.querySelectorAll('.ovl'); const d = ov[ov.length - 1];
   d.querySelectorAll('.dcol').forEach((col, i) => {
     const r = f.rows[i];
@@ -183,7 +189,9 @@ function multiDiceOverlay(f) {
 function rollOverlay(f) {
   const r = f.r;
   const verdict = r.nat === 20 ? 'CRITICAL HIT!' : r.nat === 1 ? 'FUMBLE!' : r.pass ? 'SUCCESS' : 'FAILED';
+  const goal = Math.min(20, Math.max(2, r.dc - (r.total - r.d20)));
   const rm = overlay(`<div class="bigcard rollcard"><h2>${esc(f.who)} ${r.safe ? 'PLAYS IT SAFE 🛡️' : 'ROLLS THE d20'}</h2>
+    ${r.safe ? '' : `<div class="goalDie">🎯 GOAL DIE: ${goal}+</div>`}
     ${dieHtml(20, '?', 'big')}
     <div class="after" style="visibility:hidden">
     <div class="rollline">${r.parts.length ? r.parts.map(p => `<span class="${p[1] >= 0 ? 'up' : 'dn'}">${sign(p[1])}</span> ${mt(esc(p[0]))}`).join(' &nbsp; ') : 'no modifiers'}</div>
@@ -331,7 +339,9 @@ function renderResultCard(S) {
   const r = resultSummary(S), lootOf = id => LOOT.find(x => x.id === id);
   // one change per line, amount first: "−1 ⭐ Trust", "+ 📦 Pallet of Spares"
   const row = (cls, amt, what) => `<div class="rrow ${cls}"><b>${amt}</b><span>${what}</span></div>`;
+  const starRow = S.phase === 'node' && S.cur && S.cur.stars ? row('star', `+${S.cur.stars}`, '⭐ STARS EARNED') : '';
   const rows = [
+    ...(starRow ? [starRow] : []),
     ...r.meters.map(([k, d]) => row(d > 0 ? 'up' : 'dn', sign(d), `${METER[k].icon} ${METER[k].label}`)),
     ...r.loy.map(([who, d]) => row(d > 0 ? 'up' : 'dn', sign(d), `🤝 ${esc(who)} loyalty`)),
     ...r.gained.map(id => row('up', '+', `${lootOf(id).icon} ${esc(lootOf(id).name)}`)),
@@ -507,11 +517,11 @@ function renderManifest(S) {
           <div class="cct" style="--t:var(--warn)"><div class="ctl">⚠️ TENDENCY</div><div class="ctb">${esc(u.drain.name)}</div><div class="cts">${meterTag(u.drain.k, '−1')} every ${DIFFICULTY.drainEvery} stops</div></div>
         </div></div>
       <div class="orgline"></div>
-      <div class="orgrow">${S.party.map(p => `<div class="orgcard mini" style="border-color:${clsColor(p)}"><img src="${avatarOf(p)}"><div><div class="nm">${insignia(p)}${esc(rankName(p))}</div><div class="rk">${CLASS[p.cls].name}</div></div></div>`).join('')}</div>
+      <div class="orgrow">${patchOf(S) ? `<span class="pch on orgpatch" style="--c:${u.color}"><b>${patchOf(S).icon}</b>${esc(patchOf(S).name)}</span>` : ''}${S.party.map(p => `<div class="orgcard mini" style="border-color:${clsColor(p)}"><img src="${avatarOf(p)}"><div><div class="nm">${insignia(p)}${esc(rankName(p))}</div><div class="rk">${CLASS[p.cls].name}</div></div></div>`).join('')}</div>
       <div class="orgline"></div>
-      <div class="orgrow">${S.npcs.slice().sort((a, b) => rankIdx(a.rank) - rankIdx(b.rank)).map(n => { const t = TRAIT[n.trait]; return `<div class="orgcard"><img src="${avatar(n.name + n.rank)}"><div class="nm">${insignia(n.rank)}${esc(n.rank)} ${esc(n.name)}</div><div class="rk">${esc(n.pub)}</div><div class="rk" style="color:var(--good)">${t.icon} ${esc(t.name)}</div><div class="rk">${loyBandHtml(n.loy, isAlly(n), n.broken)}</div><div class="loy orgloy">${Array.from({ length: 5 }, (_, i) => `<i class="${i < n.loy ? 'on' : ''}"></i>`).join('')}</div>${traitInfo(n, isAlly(n), (S.traitDone || {})[n.slot]).map(([k, x]) => `<div class="rk ${k}">${mt(esc(x))}</div>`).join('')}</div>`; }).join('')}</div>
+      <div class="orgrow">${S.npcs.slice().sort((a, b) => rankIdx(a.rank) - rankIdx(b.rank)).map(n => { const t = TRAIT[n.trait]; return `<div class="orgcard"><img src="${avatar(n.name + n.rank)}"><div class="rk orgpub">${esc(n.pub)}</div><div class="orgfooter"><div class="nm">${insignia(n.rank)}${esc(n.rank)} ${esc(n.name)}</div><div class="orgability"><div class="rk orgtrait" style="color:var(--good)">${t.icon} ${esc(t.name)}</div><div class="orgdetails">${traitInfo(n, isAlly(n), (S.traitDone || {})[n.slot]).map(([k, x]) => `<div class="rk ${k}">${mt(esc(x))}</div>`).join('')}</div></div><div class="rk orgloyband">${loyBandHtml(n.loy, isAlly(n), n.broken)}</div><div class="loy orgloy">${Array.from({ length: 5 }, (_, i) => `<i class="${i < n.loy ? 'on' : ''}"></i>`).join('')}</div></div></div>`; }).join('')}</div>
     </div>
-    ${patchOf(S) ? `<div class="patchrow"><span class="sectlbl">🎖️ YOUR TEAM PATCH</span><span class="pch on" style="--c:${u.color}"><b>${patchOf(S).icon}</b>${esc(patchOf(S).name)}</span></div>` : ''}</div>`;
+    </div>`;
 }
 // Team patch = team name: its own screen after the squadron reveal, before the org chart
 function renderPatch(S) {
@@ -592,15 +602,16 @@ function renderMap(S) {
       <rect x="${x - 40}" y="${y - 40}" width="80" height="80" fill="${nd.visited ? '#2a2a10' : '#1b1b4a'}" stroke="${here ? '#fff' : open ? nt.color : nd.visited ? '#ffd23f' : '#3a3a8a'}" stroke-width="${open || here ? 7 : 5}">
       ${open ? '<animate attributeName="stroke-opacity" values="1;0.2;1" dur="1s" repeatCount="indefinite"/>' : ''}</rect>
       <text x="${x}" y="${y + 15}" font-size="42" text-anchor="middle">${nt.icon}</text>
+      ${['elite', 'spot'].includes(nd.type) ? `<text x="${x + 29}" y="${y + 31}" font-size="20" text-anchor="middle" aria-label="Guaranteed loot">🎁</text>` : ''}
       <text x="${x}" y="${top ? y - 50 : y + 62}" font-size="10" fill="${nt.color}" text-anchor="middle" font-family="'Press Start 2P'">${esc(label)}</text>
       ${vs.map((p, j) => { const ix = x - 40 + j * 21, iy = top ? y + 44 : y - 64; return `<rect x="${ix - 2}" y="${iy - 2}" width="24" height="24" fill="${clsColor(p)}"/><image href="${avatarOf(p)}" x="${ix}" y="${iy}" width="20" height="20" style="image-rendering:pixelated"/>${p.cls === 'fc' ? `<text x="${ix + 10}" y="${top ? iy + 36 : iy - 4}" font-size="13" text-anchor="middle">👑</text>` : ''}`; }).join('')}
       ${nd.done ? `<text x="${x + 32}" y="${y - 26}" font-size="26" text-anchor="middle">✅</text>` : ''}</g>`;
   }));
-  return `<div style="display:flex;flex-direction:column;height:100%;gap:10px"><div class="ptitle" style="font-size:20px">${teamTag(S) ? esc(teamTag(S)) + ': ' : ''}${wpo.length ? `${CHECKPOINT[wpo[0].kind].icon} PICK YOUR ${CHECKPOINT[wpo[0].kind].short} WAYPOINT` : 'YOUR ROUTE'} <span class="ptsub">· vote on your phone 📱${wpo.length && wpo.length > 1 ? ' · it also locks in your path' : ''}</span>${S.branch ? ' · 🌿 BRANCH PLAN: ANY NEXT STOP' : ''}</div>
+  return `<div style="display:flex;flex-direction:column;height:100%;gap:10px"><div class="ptitle" style="font-size:20px">${teamTag(S) ? esc(teamTag(S)) + ': ' : ''}${S.bossReady ? '👹 THE IG IS NEXT · vote on your phone when ready' : wpo.length ? `${CHECKPOINT[wpo[0].kind].icon} PICK YOUR ${CHECKPOINT[wpo[0].kind].short} WAYPOINT` : 'YOUR ROUTE'} <span class="ptsub">${S.bossReady ? '' : `· vote on your phone 📱${wpo.length && wpo.length > 1 ? ' · it also locks in your path' : ''}`}</span>${S.branch ? ' · 🌿 BRANCH PLAN: ANY NEXT STOP' : ''}</div>
     <div class="mapwrap"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${lines}
       <g><rect x="${startX - 34}" y="${H / 2 - 34}" width="68" height="68" fill="#14143a" stroke="#7dff6b" stroke-width="5"/><text x="${startX}" y="${H / 2 + 13}" font-size="36" text-anchor="middle">🛫</text><text x="${startX}" y="${H / 2 + 58}" font-size="10" fill="#7dff6b" text-anchor="middle" font-family="'Press Start 2P'">START</text></g>
       ${nodes}
-      <g><rect x="${bossX - 48}" y="${H / 2 - 48}" width="96" height="96" fill="#3a0010" stroke="#ff2e63" stroke-width="7"/><text x="${bossX}" y="${H / 2 + 18}" font-size="52" text-anchor="middle">👹</text><text x="${bossX}" y="${H / 2 + 72}" font-size="10" fill="#ff2e63" text-anchor="middle" font-family="'Press Start 2P'">THE IG</text></g>
+      <g><rect x="${bossX - 48}" y="${H / 2 - 48}" width="96" height="96" fill="${S.bossReady ? '#5a1020' : '#3a0010'}" stroke="${S.bossReady ? '#ffd23f' : '#ff2e63'}" stroke-width="${S.bossReady ? 10 : 7}">${S.bossReady ? '<animate attributeName="stroke-opacity" values="1;0.35;1" dur="1s" repeatCount="indefinite"/>' : ''}</rect><text x="${bossX}" y="${H / 2 + 18}" font-size="52" text-anchor="middle">👹</text><text x="${bossX}" y="${H / 2 + 72}" font-size="10" fill="${S.bossReady ? '#ffd23f' : '#ff2e63'}" text-anchor="middle" font-family="'Press Start 2P'">THE IG</text></g>
     </svg></div>
     ${renderPowerups(S)}</div>`;
 }
@@ -637,7 +648,7 @@ function renderNode(S) {
       if (!c.rollerLocked) return `<div class="rollbig">🗳️ WHO ROLLS ${esc(what)}? <span>vote on your phone 📱</span></div>${rollerVoteHtml(S, i => rollerOdds(S, i), 'r')}`;
       const p = rollPreview(), r = c.roller;
       const need = Math.min(20, Math.max(2, p.dc - p.total));
-      return `<div class="rollbig">🎲 ${esc((rankName(S.party[r]) || '?').toUpperCase())} ROLLS ${esc(what)} ${sign(p.total)} · NEEDS <b>${need}+</b> <span>(${(21 - need) * 5}%)</span></div>`; })()
+      return `<div class="rollbig">🎲 ${esc((rankName(S.party[r]) || '?').toUpperCase())} ROLLS ${esc(what)} ${sign(p.total)} · GOAL DIE <b>${need}+</b> <span>(${(21 - need) * 5}%)</span></div>`; })()
     : c.step === 'stars' ? `<div class="banner gold">🎤 DIALOGUE ENCOUNTER: ${c.lead != null ? `${esc(rankName(S.party[c.lead]).toUpperCase())} DOES THE TALKING!` : 'SPIN TO SEE WHO TALKS...'} The GM plays the other side.</div>` : '';
   let result = '';
   if (c.step === 'done') {
@@ -656,9 +667,9 @@ function renderNode(S) {
     ${hint}${renderPowerups(S)}
     <div class="choices" ${c.choice != null ? 'style="grid-template-columns:1fr"' : ''}>${m.choices.map((ch, i) => c.choice != null && c.choice !== i ? '' : `<div class="choice ${c.choice === i ? 'picked' : ''} ${ch.req && !gateOpen(ch.req) ? 'locked' : ''} ${ch.mic ? 'hasmic' : ''}">
       <div class="key">${'ABCD'[i]}</div><div><div class="ct">${esc(fill(S, ch.t))}</div>${ch.trap && benderTell(S) ? '<div class="req" style="color:var(--warn)">⚠️ SMELLS LIKE A SHORTCUT</div>' : ''}${ch.req ? `<div class="req">🔐 NEEDS ${ch.req.stat} +${ch.req.min}${gateOpen(ch.req) ? '' : ' · LOCKED'}</div>` : ''}
-      ${c.step === 'done' && c.choice === i ? `<div class="arrows realres"><b>RESULT:</b> ${effChips(Object.fromEntries(resultSummary(S).meters))}</div>` : !arrowsHidden(S) ? `<div class="arrows">${arrows(choiceShow(ch))}</div>` : ''}
+      ${c.step === 'done' && c.choice === i ? `<div class="arrows realres"><b>RESULT:</b> ${resultChips(S)}</div>` : !arrowsHidden(S) ? `<div class="arrows">${arrows(choiceShow(ch))}</div>` : ''}
       ${c.intel ? `<div class="intel">🔎 ${effHtml(specText(S, ch))}</div>` : ''}</div>
-      ${ch.mic ? '<div class="micbadge">🎤 ACT IT OUT</div>' : ''}${voteDots(S, i)}</div>`).join('')}</div>
+      ${ch.mic ? '<div class="micbadge">🎤 ACT IT OUT</div>' : ''}${ch.kind === 'check' || ch.check ? '<div class="dicebadge">🎲 ROLL</div>' : ''}${voteDots(S, i)}</div>`).join('')}</div>
     ${c.step === 'brief' ? `<div class="sub" style="font-size:22px">${c.type === 'spot' ? '🔦 One cadet decides alone · everyone else stays silent · ' : ''}🎤 ACT IT OUT = you play the scene · 🔐 = needs a stat · <span class="up">▲</span> raises · <span class="dn">▼</span> lowers · ❔ = depends</div>` : ''}
     ${result}</div>`;
 }
@@ -701,20 +712,24 @@ function renderLevel(S) {
 function renderBoss(S) {
   const Bs = S.boss; if (!Bs) return '';
   let center = '';
-  if (Bs.stage === 'intro') center = `<div class="box" style="font-size:28px">The Inspector General has arrived.<br><br>📋 The audit checks your integrity first. Then <b>three rounds</b>. Each round the IG telegraphs an attack, and every cadet picks ONE on their phone:<br><br><b>🗡️ PRESS</b>: roll your best stat to hit the IG<br><b>🛡️ DEFEND</b>: block 2 of the IG's attack</div>`;
+  if (Bs.stage === 'vouch') {
+    const v = Bs.vouchCurrent || (Bs.vouches || [])[Bs.vouchIdx], npc = v && v.slot ? S.npcs.find(n => n.slot === v.slot) : null;
+    center = `<div class="box vouchbox"><b>🤝 SUPPORT ARRIVES</b>${v ? `<div class="vouchscene"><img class="vouchactor" src="${npc ? avatar(npc.name + npc.rank) : avatar(S.cc)}"><span class="vouchimpact">💥</span><span class="vouchtarget">👹</span></div><h3>${esc(Bs.vouchCurrent ? Bs.vouchCurrent.name : v.name)}</h3><div>${esc(Bs.vouchCurrent ? Bs.vouchCurrent.why : 'Ready to step in')}</div>` : ''}<small>${Bs.vouchKO ? 'The Inspector General is down.' : 'Watch each ally and commander take their turn.'}</small></div>`;
+  }
+  if (Bs.stage === 'intro') center = `<div class="box" style="font-size:28px">The Inspector General has arrived. Clear the integrity audit, then choose one squadron action together each round.<br><br><b>🗡️ TEAM ATTACK</b>: one d20 from your strongest available cadet<br><b>🛡️ TEAM DEFEND</b>: block 2 of the IG's attack</div>`;
   if (Bs.atk && Bs.stage !== 'done') center += `<div class="tele">🗡️ IG ATTACK: ${esc(Bs.atk.name)} · ${meterTag(Bs.atk.k, `−${Bs.atk.n}`)} at the end of the round<br><span style="font-size:11px;color:#fff">each 🛡️ Defend blocks 2</span></div>`;
-  if (Bs.stage === 'hotseat' && !Bs.p2.who) center += `<div class="box" style="font-size:28px">🎲 Everyone rolls a d20. The two LOWEST rolls face the Inspector's questions...</div>`;
+  if (Bs.stage === 'hotseat' && !Bs.p2.who) center += `<div class="box" style="font-size:28px">🎲 Every active cadet rolls a d20. The LOWEST active roll faces one question for ${esc(UNITS.find(u => u.id === S.unit).sq)}...</div>`;
   else if (Bs.stage === 'hotseat') center += `<div class="box">${Bs.p2.who.map((w, j) => `<div style="margin:6px 0"><b style="color:var(--gold)">${esc(rankName(S.party[w]))}:</b> "${esc(Bs.p2.q[j])}" ${Bs.p2.stars[j] ? '⭐'.repeat(Bs.p2.stars[j]) : ''}</div>`).join('')}</div>`;
-  if (Bs.stage === 'act') center += `<div class="box" style="font-size:24px">📱 PICK YOUR ACTION ON YOUR PHONE · Press target ${examDC(Bs)}${Bs.adverse ? ' · −1 every roll (Adverse Finding)' : ''}
-    <div class="bossacts">${S.party.map((p, i) => `<div class="${Bs.acts[i] ? 'ok' : ''}">${esc(rankName(p))}: ${isOut(S, i) ? (p.fired ? '🪓 fired' : '📵 meeting') : Bs.acts[i] ? '✅ LOCKED' : '⏳ choosing...'}</div>`).join('')}</div></div>`;
+  if (Bs.stage === 'act') center += `<div class="box" style="font-size:24px">🤝 TEAM DECISION · Attack ${Object.values(Bs.votes).filter(v => v === 'press').length} · Defend ${Object.values(Bs.votes).filter(v => v === 'defend').length} · ${Bs.teamAction ? `GM locked ${Bs.teamAction.toUpperCase()}` : 'vote on your phone'}<br>Press target ${examDC(Bs)}${Bs.adverse ? ' · −1 every roll (Adverse Finding)' : ''}</div>`;
   return `<div class="boss">
-    <div class="bossart"><canvas id="bossCv" width="32" height="32"></canvas>${teamTag(S) ? `<div class="sub" style="color:var(--gold)">vs ${esc(teamTag(S))}</div>` : ''}<div class="ptitle" style="font-size:16px;color:var(--bad);text-shadow:none">${BOSS.name}</div><div class="sub">${BOSS.title}</div>
+    <div class="bossart ${Bs.hp <= 0 ? 'defeated' : ''}"><canvas id="bossCv" width="32" height="32"></canvas>${Bs.hp <= 0 ? '<div class="banner gold">💀 IG DEFEATED</div>' : ''}${teamTag(S) ? `<div class="sub" style="color:var(--gold)">vs ${esc(teamTag(S))}</div>` : ''}<div class="ptitle" style="font-size:16px;color:var(--bad);text-shadow:none">${BOSS.name}</div><div class="sub">${BOSS.title}</div>
       <div class="hpbar"><i style="width:${Math.max(0, Math.min(100, Bs.hp / Bs.max * 100))}%"></i></div><div class="hptxt">HP ${Bs.hp} / ${Bs.max}</div>
       ${Bs.adverse ? '<div class="banner" style="margin-top:8px">🚨 ADVERSE FINDING</div>' : ''}</div>
     <div><div class="phases">${BOSS_ROUNDS.map((r, i) => `<span class="${Bs.round === i + 1 && Bs.stage !== 'done' ? 'on' : Bs.round > i + 1 || Bs.stage === 'done' ? 'done' : ''}">${i + 1}. ${r.name}</span>`).join('')}</div>
       ${center}
       ${Bs.result ? `<div class="banner gold" style="font-size:20px">${esc(Bs.result)}</div>` : ''}
-      <div class="blog">${Bs.log.slice(-5).map(l => `<div>${esc(l)}</div>`).join('')}</div></div></div>`;
+      <div class="blog">${Bs.log.slice(-5).map(l => `<div>${esc(l)}</div>`).join('')}</div></div>
+    <div class="boss-support"><b>🤝 VOUCHING FOR THE FLIGHT</b>${(Bs.supporters || []).map(v => `<span class="supporter">${v.kind === 'cc' ? '🎖️' : '🤝'} ${esc(v.name)}</span>`).join('') || '<span class="supporter">No allies or commander support</span>'}</div></div>`;
 }
 
 // The grade is built up: each score line ticks in, then the total, a drumroll, and the letter slams down.

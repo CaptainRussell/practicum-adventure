@@ -94,7 +94,7 @@ function onClient(conn, d) {
       if (!ok) return netSendTo(cid);
       return apply(() => { me[k] = val || ''; });
     }
-    case 'up': if (S.phase !== 'levelup' || !CLASS[me.cls].ups.some(u => u.id === d.v)) return netSendTo(cid);
+    case 'up': if (me.fired || S.phase !== 'levelup' || !CLASS[me.cls].ups.some(u => u.id === d.v)) return netSendTo(cid);
       return apply(() => { me.up = d.v; });
     case 'vote': {
       if (S.party[slot] && S.party[slot].fired) return netSendTo(cid); // relieved of command: no more votes
@@ -102,7 +102,7 @@ function onClient(conn, d) {
       const c = S.cur; let ok = false;
       // in a meeting: no vote this stop, and none on the route right after being pulled in
       if (isOut(S, slot) || (S.phase === 'map' && slot === S.offlineNext)) return netSendTo(cid);
-      if (S.phase === 'map') ok = available().some(([t, i]) => `${t},${i}` === String(d.v)) || wpOptions().some(o => o.key === String(d.v));
+      if (S.phase === 'map') ok = available().some(([t, i]) => `${t},${i}` === String(d.v)) || wpOptions().some(o => o.key === String(d.v)) || (S.bossReady && String(d.v) === 'boss');
       else if (S.phase === 'unit' && !S.unitRolled) ok = UNITS.some(u => u.id === String(d.v));
       else if (S.phase === 'patch' && !S.patch) ok = patchFree(S, String(d.v)); // team patch vote (GM locks the winner)
       else if (S.phase === 'node' && c && (c.step === 'choose' || c.step === 'who') && (c.type === 'rest' || c.type === 'depot'))
@@ -134,12 +134,11 @@ function onClient(conn, d) {
       if (S.phase !== 'node' || !c || c.step !== 'roll' || !c.rollerLocked || c.roller !== slot || spinning() || isOut(S, slot)) return netSendTo(cid);
       return apply(() => resolveRoll(slot, {}));
     }
-    case 'bact': { // boss: this cadet's action for the round (null clears it)
+    case 'bact': { // boss: this cadet votes for one shared team action
       if (S.phase !== 'boss' || !S.boss || S.boss.stage !== 'act' || spinning()) return netSendTo(cid);
-      if (d.v == null) return apply(() => { delete S.boss.acts[slot]; });
       const a = d.v && typeof d.v === 'object' ? { type: String(d.v.type) } : null;
       if (!a || !bossActOk(slot, a)) return netSendTo(cid);
-      return apply(() => { S.boss.acts[slot] = a; });
+      return apply(() => { S.boss.votes[slot] = a.type; });
     }
     case 'kit': { // the cadet opened their kit and came back to the game tab
       if (S.phase !== 'kit' || slot == null || !S.party[slot] || S.party[slot].kitOk) return netSendTo(cid);
@@ -152,6 +151,7 @@ function onClient(conn, d) {
       return;
     }
     case 'req': {
+      if (me.fired) return netSendTo(cid);
       const kinds = { ability: 'use their ability' };
       const k = String(d.v || '');
       let what = kinds[k];
@@ -184,7 +184,7 @@ function publicView(slot) {
     npcs: (S.npcs || []).map(n => ({ slot: n.slot, rank: n.rank, name: n.name, pub: n.pub, loy: n.loy, out: n.out, broken: n.broken, ally: isAlly(n), trait: n.trait, done: !!(S.traitDone || {})[n.slot] })),
     unitPicked: !!S.unitRolled, benderTell: benderTell(S),
     map: S.map ? S.map.tiers.map(t => t.map(n => ({ type: n.type, done: n.done, visited: n.visited }))) : null, pos: S.pos, links: S.map ? S.map.links : null, levelAfter: S.map ? S.map.levelAfter || 3 : 3,
-    avail: S.phase === 'map' ? available().map(([t, i]) => `${t},${i}`) : [],
+    avail: S.phase === 'map' ? available().map(([t, i]) => `${t},${i}`) : [], bossReady: !!S.bossReady,
     wpOpts: S.phase === 'map' ? wpOptions().map(o => ({ key: o.key, icon: CHECKPOINT[o.kind].icon, name: CHECKPOINT[o.kind].name, then: `${o.then.icon} ${o.then.name}` })) : [],
     votes: S.votes || {}, voters: votingOpen(S) ? S.party.filter((_, i) => !isOut(S, i) && !(S.phase === 'map' && i === S.offlineNext)).length : 0,
     actor: S.actor || null, danger: dangerInfo(S), actorTable: S.actor && !spinning() ? actorTable(S) : null,
@@ -223,17 +223,16 @@ function publicView(slot) {
             return { t: `Tackle it (${mm.tackle.stat} roll)`, html: tackleRows(mm), tackle: true }; })()] : []) : null,
       tackle: inj.stage === 'tackle' ? { stat: mm.tackle.stat, dc: mm.tackle.dc + DIFFICULTY.dcPlus, roller: inj.rollerLocked ? inj.roller : null, vote: !inj.rollerLocked, m: mm.tackle.m,
         odds4: S.party.map((_, i) => isOut(S, i) ? null : tackleOdds(S, mm, i)),
-        bonus: S.party.map((_, i) => rollBonus(i, mm.tackle.stat, mm.tackle.m)), spec: S.party.map((_, i) => isSpec(i, mm.tackle.m)) } : null };
+      bonus: S.party.map((_, i) => rollBonus(i, mm.tackle.stat, mm.tackle.m) + leanBonus(S) + pendingCheckBonus(S)), spec: S.party.map((_, i) => isSpec(i, mm.tackle.m)) } : null };
   }
   if (S.boss) {
-    const Bs = S.boss, others = Object.entries(Bs.acts).filter(([s2]) => +s2 !== slot).map(([, a]) => a);
+    const Bs = S.boss, actionVotes = Object.values(Bs.votes || {});
     v.boss = { hp: Bs.hp, max: Bs.max, round: Bs.round, stage: Bs.stage, atk: Bs.atk, adverse: Bs.adverse, weak: Bs.weak, dc: examDC(Bs),
       roundName: Bs.round ? BOSS_ROUNDS[Bs.round - 1].name : null,
       who: Bs.p2.who, q: Bs.p2.who ? Bs.p2.q : null, best: slot != null && S.party[slot] ? (() => { const st = bestStat(slot); return { stat: st, v: statOf(slot, st) + leanBonus(S) }; })() : null,
-      my: slot != null ? Bs.acts[slot] || null : null, myText: slot != null && Bs.acts[slot] ? bossActText(slot, Bs.acts[slot]) : null,
-      locked: S.party.map((_, i) => !!Bs.acts[i]),
-      takenStats: others.filter(a => a.type === 'press').map(a => a.stat), allyTaken: others.some(a => a.type === 'ally'),
-      allies: (S.npcs || []).filter(n => isAlly(n) && !Bs.allyUsed[n.slot]).map(n => ({ slot: n.slot, name: `${n.rank} ${n.name}` })),
+      my: slot != null ? (Bs.votes || {})[slot] || null : null, myText: slot != null && (Bs.votes || {})[slot] ? bossActText(Bs.votes[slot]) : null,
+      locked: S.party.map((_, i) => !!(Bs.votes || {})[i]), votes: { press: actionVotes.filter(a => a === 'press').length, defend: actionVotes.filter(a => a === 'defend').length },
+      supporters: Bs.supporters || [], vouchCurrent: Bs.vouchCurrent || null,
       log: Bs.log.slice(-6), result: Bs.result || null };
   }
   return v;

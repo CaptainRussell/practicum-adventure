@@ -45,7 +45,7 @@ integrity trap to see the Game Over path.
 | Map (×5-7) | All vote; split the vote once | Click the winner | Vote avatars on the projector; 🗳️ counts on the console |
 | Mission | Vote on a choice, vote for the roller; roller taps ROLL | Choose the voted letter, lock the roller | Odds text matches the result; phone arrows match the projector |
 | 🎤 encounter | Act it out | Rate stars | Phones show "act it out" |
-| Loot / fumble | Assigned cadet taps d4 / wheel | Continue | Rotation of turns feels fair |
+| Loot / fumble | Spotlight and elite loot goes straight to a loot wheel; basic scenarios do not drop loot; fumbles use their wheel | Continue | Guaranteed event loot and assigned turns feel fair |
 | Inject | Assigned cadet rolls the d6, another spins the wheel; vote on the response | Apply winner | Wheel result matches the applied effect |
 | Requests | From MY KIT: ask for ability, a perk, an item | Approve / Dismiss in the sidebar | Each request does what it says |
 | Level up (after stop 3, or 4 on 7 stops) | Each phone picks an upgrade | Confirm | |

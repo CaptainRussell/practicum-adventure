@@ -18,7 +18,7 @@ const DIFFICULTY = {
   bossAttack: 4,   // the IG hits your weakest meter this hard after each phase
   examDC: 15,      // boss: target for a cadet's Press roll (3 lower if The Witness was handled)
   intent: 20,      // Commander's Intent: priority meter 7+ at the end = +20 points, under 4 = -20
-  vouch: 3,        // boss: commander vouches (⭐ 7+) = IG -3 HP; under the bus (⭐ 3-) = IG +3 HP
+  vouch: 3,        // boss: commander intent meter 7+ vouches (IG -3 HP); 3 or less throws the flight under the bus (IG +3 HP)
   adverseHeal: 4,  // boss: a meter hits 0 = Adverse Finding, IG heals this much
   witnessHp: 2,    // boss: each broken Unit member (loyalty 0) adds this much IG HP
   spotlights: 2,   // 🔦 Spotlight stops placed on the map (only for classes in the party)
@@ -60,7 +60,7 @@ const CLASSES = [
   { id: 'fc', color: '#ffd23f', name: 'FLIGHT COMMANDER', icon: '👑', rank: 'Capt', rankLong: 'Captain', guards: '🎯 + tie-breaks', spec: ['mis'],
     stats: { CMD: 3, CHA: 1, INS: 1, GRIT: 2 },
     ability: null, abilityText: 'Command Token: Rock, Paper, Rank. Any tied vote is resolved by your choice.',
-    perks: [ { id: 'lean', icon: '📖', name: 'Lean on Experience', text: 'Passive: every d20 roll gets +1' },
+    perks: [ { id: 'lean', icon: '📖', name: 'Lean on Experience', text: 'Passive: every d20 roll gets +2' },
              { id: 'hold', icon: '🛡️', name: 'Hold the Line', text: 'Once: when a meter hits 0, raise it to 3 before the Crisis Event strikes' } ],
     ups:   [ { id: 'battle', name: 'Battle-Tested', text: '+1 CMD and +1 GRIT', stats: { CMD: 1, GRIT: 1 } },
              { id: 'huddle', name: 'Huddle', text: 'Right now: +1 to every meter', now: { mis: 1, mor: 1, tru: 1, res: 1 } } ] },
@@ -95,7 +95,7 @@ const CLASSES = [
   { id: 'plans', color: '#ff7ae0', name: 'PLANS OFFICER', icon: '🧠', rank: '2d Lt', rankLong: 'Second Lieutenant', guards: '📦', spec: ['res'],
     stats: { CMD: 1, CHA: 1, INS: 3, GRIT: 1 },
     ability: { id: 'foresight', icon: '🔮', auto: true, name: 'Foresight', short: 'Passive: injects never come from the Wheel of Failure', text: 'Passive: injects never come from the Wheel of Failure (a Failure roll on the d6 lands on the Wheel of Meh instead)' },
-    perks: [ { id: 'prepo', icon: '🗃️', name: 'Pre-Positioned Supplies', text: 'Once, at a BX: the next purchase costs no 📦' },
+    perks: [ { id: 'prepo', icon: '🗃️', name: 'Pre-Positioned Supplies', text: 'Passive: all purchases at the BX cost no 📦' },
              { id: 'emergency', icon: '💵', name: 'Emergency Fund', text: 'Once: +3 📦 right now' } ],
     ups:   [ { id: 'contingency', name: 'Contingency Plan', text: 'All 📦 losses reduced by 1 (min 1)' },
              { id: 'cell', name: 'Planning Cell', text: 'Right now: +3 📦', now: { res: 3 } } ] },
@@ -485,7 +485,7 @@ const MISSIONS = [
       { t: 'Make {B} the official enemy force next exercise', tags: ['idea'], kind: 'check',
         check: { stat: 'INS', dc: 13, m: 'mis', pass: { mis: 2, mor: 2, tru: -1, ach: 'ideas' }, fail: { tru: -2, mor: 1, ach: 'ideas' } } },
     ] },
-  { id: 'M17', title: 'ASLEEP AT THE WHEEL', sob: 'Accountability · Fatigue', icon: '🛻', home: ['gg', 'wk', 'sr'],
+  { id: 'M17', title: 'ASLEEP AT THE WHEEL', sob: 'Accountability · Fatigue', icon: '🚗', home: ['gg', 'wk', 'sr'],
     text: 'Hour 14 of a 12-hour shift. {B} fell asleep driving on the flightline and rear-ended a parked aircraft. Nobody was hurt, but the jet is grounded for repairs. {C}: "Write it up as a brake failure. That truck\'s ancient anyway."',
     choices: [
       { t: 'Write it up as a brake failure', trap: true, kind: 'fx',
@@ -853,7 +853,8 @@ const GM_CARDS = [
 ];
 
 /* ---------------- loot ----------------
-   Each run's loot pool = the 4 generic items + the squadron's own 4 (home). Every item in the pool is
+   Spotlight and elite stops guarantee a drop; basic scenarios do not. The wheel picks from that run's remaining pool.
+   Each run's loot pool = the generic items + the squadron's own items (home). Every item in the pool is
    equally likely, and an item leaves the pool once it drops (no repeats in a run).
    use.type: check {n}  = +n on the next d20 check (armed before the roll)
              star       = +1 star on a 🎤 encounter (armed before the rating)
@@ -923,9 +924,9 @@ const FUMBLES = [
 const MYSTERY = [
   { id: 'crisis', name: 'SCENARIO',      icon: '⚔️', color: '#ff5d5d' },
   { id: 'elite',  name: 'ELITE SCENARIO', icon: '💀', color: '#c36bff' },
+  { id: 'rest',   name: 'REST STOP',     icon: '🏕️', color: '#7dff6b' },
+  { id: 'depot',  name: 'BASE EXCHANGE', icon: '🛒', color: '#3fd8ff' },
   { id: 'loot',   name: 'FREE LOOT',     icon: '🎁', color: '#ffd23f' },
-  { id: 'bad',    name: 'BAD INJECT',    icon: '💥', color: '#ff9f43' },
-  { id: 'good',   name: 'GOOD INJECT',   icon: '🍀', color: '#7dff6b' },
   { id: 'wing',   name: 'WING CC VISIT', icon: '🦅', color: '#3fd8ff' },
 ];
 // badge: 'cc' = shown with the commander's badge instead of the emoji
@@ -1008,21 +1009,20 @@ const NODE_TYPES = {
 
 /* ---------------- boss ---------------- */
 const BOSS = { name: 'LT COL CACIC', title: 'THE INSPECTOR GENERAL', hp: DIFFICULTY.bossHp };
-// Three rounds. Each round the IG telegraphs an attack on the lowest of its target meters
-// (DIFFICULTY.bossAttack); round 2 starts with the hot-seat interview.
+// Three telegraphed rounds. Each round the IG attacks a targeted meter; round 2 starts with the hot-seat interview.
 const BOSS_ROUNDS = [
   { name: 'THE AUDIT',          icon: '📋', atk: 'RECORDS REVIEW',  targets: ['tru', 'res'] },
   { name: 'THE INTERVIEW',      icon: '🎤', atk: 'HARD QUESTIONS',  targets: ['mor', 'tru'] },
   { name: 'NO-NOTICE EXERCISE', icon: '🚨', atk: 'EXERCISE INJECT', targets: ['mis', 'mor'] },
 ];
-const BOSS_QUESTIONS = [
-  'Walk me through how your Airmen know what is expected of them.',
-  'Tell me about the last time you gave someone hard feedback.',
-  "Who's responsible when a task you delegated fails?",
-  'How do you know your people are motivated, and not just compliant?',
-  "What's an idea from a junior Airman you actually implemented?",
-  'Tell me about a time you had to choose between the mission and doing the right thing.',
-];
+const BOSS_QUESTIONS = {
+  wk: 'Your aircraft have a tight launch schedule. How do you know the team is ready to release a jet safely, and who can stop the line?',
+  gg: 'Your defenders are covering long shifts across the installation. How do you know critical posts are covered without burning out the team?',
+  pp: 'A network outage is affecting the wing. How do you prioritize restoration, communicate the risk, and verify service is actually back?',
+  sr: 'A mission needs parts that are not on hand. How do you make the tradeoff visible and keep the unit supplied without hiding risk?',
+  sa: 'Your analysis points to a threat the customer does not expect. How do you explain your confidence and what would change your assessment?',
+  ch: 'Your services team is short-staffed during a busy day. How do you protect people and service quality while setting priorities?',
+};
 const TRAP_FLAGS = ['FALSIFIED_RECORDS', 'COVERED_UP', 'FALSE_RECEIPT', 'HID_DUI', 'IGNORED_FIGHT', 'FALSE_MISHAP', 'FALSE_ARMORY', 'COVERED_DV', 'INFLATED_METRIC', 'OFF_BOOKS',
   'COVERED_SPILL', 'FOOD_SAFETY', 'FALSE_PT', 'FALSE_INSPECTION', 'FALSE_DEPLOY', 'PENCIL_WHIP'];
 const FLAG_TEXT = {
