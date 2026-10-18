@@ -39,7 +39,8 @@
 <body>
 <header>
   <h1>🧪 Test Bench</h1>
-  <a class="btn pri" href="index.html" target="practicumGM">1 · Open GM console</a>
+  <a class="btn pri" id="openGM" href="index.html" target="practicumGM">1 · Open GM console</a>
+  <a class="btn" id="practiceMode" href="bench.html?practice=boss">🧪 Boss Practice</a>
   <button class="pri" id="connect">2 · Connect phones</button>
   <button id="rejoin" title="Reload every phone (use after New run in the GM console)">🔁 Rejoin all</button>
   <span>Cadets:</span>
@@ -49,8 +50,8 @@
 </header>
 <main id="main" class="both">
   <section class="frame" id="projFrame">
-    <h2>🖥️ Projector <span class="sp"></span><button id="projReload">reload</button><a class="btn" href="index.html#player" target="_blank">pop out</a></h2>
-    <div class="scaler" data-w="1280" data-h="720"><iframe id="proj" src="index.html#player" title="Projector"></iframe></div>
+    <h2>🖥️ Projector <span class="sp"></span><button id="projReload">reload</button><a class="btn" id="projPop" href="index.html#player" target="_blank">pop out</a></h2>
+    <div class="scaler" data-w="1280" data-h="720"><iframe id="proj" title="Projector"></iframe></div>
   </section>
   <section id="phoneRow" class="phones"></section>
   <section class="frame">
@@ -61,14 +62,27 @@
 <script>
 const PHONES = 4, PW = 390, PH = 780;
 const $ = s => document.querySelector(s);
+const practice = new URLSearchParams(location.search).get('practice') === 'boss';
+const gmUrl = practice ? 'index.html?practice=boss' : 'index.html';
+const projectorUrl = gmUrl + '#player';
+const roomKey = practice ? 'sq_practice_room' : 'sq_room';
+$('#openGM').href = gmUrl;
+$('#openGM').target = practice ? 'practicumPracticeGM' : 'practicumGM';
+$('#proj').src = projectorUrl; $('#projPop').href = projectorUrl;
+if (practice) {
+  document.title = 'Practicum Adventure · Boss Practice';
+  document.querySelector('h1').textContent = '🧪 Boss Practice · no leaderboard';
+  $('#openGM').textContent = '1 · Open boss practice GM';
+  $('#practiceMode').href = 'bench.html'; $('#practiceMode').textContent = 'Normal test bench';
+}
 const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { } } };
 let connected = false;
 
 // names persist between sessions
 for (let i = 0; i < PHONES; i++) { const el = $('#n' + i), k = 'tb_name' + i; if (ls.get(k)) el.value = ls.get(k); el.oninput = () => ls.set(k, el.value.trim()); }
 
-function room() { return ls.get('sq_room'); }
-function phoneUrl(i) { return `join.html?room=${encodeURIComponent(room())}&name=${encodeURIComponent($('#n' + i).value.trim() || 'P' + (i + 1))}&cid=p${i + 1}&auto=1`; }
+function room() { return ls.get(roomKey); }
+function phoneUrl(i) { return `join.html?room=${encodeURIComponent(room())}&name=${encodeURIComponent($('#n' + i).value.trim() || 'P' + (i + 1))}&cid=p${i + 1}&auto=1${practice ? '&practice=boss' : ''}`; }
 
 function buildPhones() {
   const row = $('#phoneRow');
@@ -98,14 +112,14 @@ function status() {
   $('#status').innerHTML = r ? `Room <b>${r}</b> · ${connected ? 'phones connected' : 'phones idle'}` : '<span class="warn">No room yet: open the GM console first</span>';
 }
 // the GM console writes sq_room; "New room code" in the GM sidebar changes it
-addEventListener('storage', e => { if (e.key === 'sq_room') { status(); if (connected) buildPhones(); } });
+addEventListener('storage', e => { if (e.key === roomKey) { status(); if (connected) buildPhones(); } });
 
 $('#connect').onclick = () => {
   if (!room()) return alert('Open the GM console first (button 1). It creates the room.');
   connected = true; buildPhones(); status();
 };
 $('#rejoin').onclick = () => { if (connected) reloadAll(); };
-$('#projReload').onclick = () => { $('#proj').src = 'index.html#player'; };
+$('#projReload').onclick = () => { $('#proj').src = projectorUrl; };
 $('#phoneRow').onclick = e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.reload != null) reloadPhone(+b.dataset.reload);

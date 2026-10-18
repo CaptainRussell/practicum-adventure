@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><base href="../"><title>IG layout review</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css">
+<style>body{margin:0;overflow:auto}.review-tools{padding:8px 12px;background:#24243c;font:14px/1.4 sans-serif;position:relative;z-index:20}.review-case{position:absolute;left:-15000px;top:60px;visibility:hidden}.review-case.selected{position:relative;left:0;top:0;visibility:visible}.review-case .pl{height:100%}#review-status{margin:6px 0;color:#a7ff66}select{padding:5px}#review-errors{color:#ff8796}</style></head>
+<body class="player"><div class="review-tools"><label>Phase <select id="review-phase"></select></label><label> Size <select id="review-size"><option>1100x620</option><option>960x540</option><option>1280x720</option></select></label><div id="review-status">Checking…</div><div id="review-errors"></div></div><div id="review-cases"></div>
+<script src="data.js"></script><script src="app.js"></script><script src="player.js"></script>
+<script>
+// Isolated rendering only: no connections, saved runs, scores, or GM actions.
+initGM = async function () {
+  S = newState(); S.practiceConfig = {unit:'pp', preset:'supported', exact:true}; S.muted = true;
+  startBossPractice();
+  const base = JSON.parse(JSON.stringify(S));
+  const stages = ['opening','vouch','intro','integrityStrike','auditResult','intent','hotseatRolls','hotseat','interviewResult','act','playerResult','enemy','resolved','done'];
+  const sizes = [[1100,620],[960,540],[1280,720]], errors = [];
+  const phaseSelect = document.querySelector('#review-phase');
+  stages.forEach(stage => phaseSelect.add(new Option(stage, stage)));
+  phaseSelect.value = 'hotseat';
+  for (const [width,height] of sizes) for (const stage of stages) {
+    S = JSON.parse(JSON.stringify(base)); const b = S.boss;
+    b.stage = stage==='hotseatRolls' ? 'hotseat' : stage; b.round = stages.indexOf(stage) >= 5 ? (stage==='done' ? 3 : 2) : 0;
+    b.atk = b.round ? {k:'mor', n:4, name:'HARD QUESTIONS'} : null;
+    b.vouchCurrent = b.vouches[0]; b.vouchCurrent.actualDamage = 3; b.vouchIdx = 1;
+    b.hp = stage==='done' ? 0 : 18; b.result = '🏆 OUTSTANDING';
+    b.auditResult = {damage:8,strong:4}; b.attackDamage = 1; b.attackBlocked = 2;
+    b.turnResult = {action:'press',damage:2}; b.interviewDamage = 2;
+    b.p2 = {who:[1],q:[BOSS_QUESTIONS.pp],stars:[0],rolls:[10,3,14,9],settled:[true,true,true,true]};
+    if (stage==='hotseatRolls') b.p2.who = null;
+    b.votes = {0:'press',1:'press',2:'press',3:'press'};
+    const box = document.createElement('section'); box.className = 'review-case';
+    box.dataset.stage = stage; box.dataset.size = `${width}x${height}`;
+    box.style.width = width+'px'; box.style.height = height+'px';
+    box.innerHTML = `<div class="pl boss-view"><div class="stage full"><div class="main">${renderBoss(S)}</div></div></div>`;
+    document.querySelector('#review-cases').appendChild(box); drawBoss(box.querySelector('canvas'));
+    if (stage==='vouch') {
+      const person = document.createElement('div'); person.className = 'combat-person';
+      person.innerHTML = `<img src="${avatar('BendingerSrA')}" alt=""><b>SrA Bendinger</b>`;
+      box.querySelector('.combat-arena').appendChild(person);
+    }
+  }
+  await document.fonts.ready;
+  await Promise.all([...document.images].map(img => img.decode().catch(()=>{})));
+  const inside = (a,b) => a.left>=b.left-2 && a.right<=b.right+2 && a.top>=b.top-2 && a.bottom<=b.bottom+2;
+  for (const box of document.querySelectorAll('.review-case')) {
+    const label = `${box.dataset.size}/${box.dataset.stage}`, arena = box.querySelector('.combat-arena').getBoundingClientRect();
+    for (const el of box.querySelectorAll('.combat-patch,.combat-team-meters,.combat-ig canvas,.combat-ig-hp,.combat-person')) {
+      if (!inside(el.getBoundingClientRect(),arena)) errors.push(label+': outside arena '+el.className);
+    }
+    const stage = box.querySelector('.battle-stage').getBoundingClientRect(), details = box.querySelector('.battle-details').getBoundingClientRect();
+    if (stage.bottom>details.top+2) errors.push(label+': arena overlaps narration');
+    if (!inside(details,box.getBoundingClientRect())) errors.push(label+': narration outside frame');
+    for (const el of box.querySelectorAll('.meter .lbl,.boss-phase-track>span')) if (el.scrollWidth>el.clientWidth+2) errors.push(label+': text overflow '+el.textContent);
+    const root = box.querySelector('.battle-stage'), hp = Number(root.querySelector('.combat-hp').textContent); setCombatHP(root,0,26);
+    if (!root.querySelector('.combat-ig').classList.contains('combat-ig-defeated')) errors.push(label+': knockout not gray');
+    setCombatHP(root,hp,26);
+  }
+  function select() {
+    document.querySelectorAll('.review-case').forEach(box => box.classList.toggle('selected',box.dataset.stage===phaseSelect.value && box.dataset.size===document.querySelector('#review-size').value));
+  }
+  phaseSelect.onchange=select; document.querySelector('#review-size').onchange=select; select();
+  document.querySelector('#review-status').textContent = `${stages.length*sizes.length} phase/size combinations checked; ${errors.length} layout issues. Killing-blow grayscale checked in each frame.`;
+  document.querySelector('#review-errors').textContent = errors.join(' | ');
+};
+</script></body></html>

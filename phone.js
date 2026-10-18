@@ -4,7 +4,9 @@
    view of the game. Everything a cadet taps is a request; the GM console
    checks it and stays in charge of the game.
    ===================================================================== */
-const PHONE_PREFIX = 'afas3410-sq-';
+const PHONE_PREFIX = IS_BOSS_PRACTICE ? 'afas3410-practice-' : 'afas3410-sq-';
+const PHONE_ROOM_KEY = IS_BOSS_PRACTICE ? 'sq_practice_phone_room' : 'sq_phone_room';
+const PHONE_JOINED_KEY = IS_BOSS_PRACTICE ? 'sq_practice_joined' : 'sq_joined';
 const PH = { peer: null, conn: null, v: null, status: 'idle', err: '', ended: false, tab: 'game', lastHello: 0, toast: '' };
 
 function initPhone() {
@@ -15,11 +17,11 @@ function initPhone() {
   const testCid = qs.get('cid');
   PH.cid = testCid ? 'test-' + testCid : localStorage.getItem('sq_cid') || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
   if (!testCid) localStorage.setItem('sq_cid', PH.cid);
-  PH.room = (qs.get('room') || localStorage.getItem('sq_phone_room') || '').toUpperCase();
+  PH.room = (qs.get('room') || localStorage.getItem(PHONE_ROOM_KEY) || '').toUpperCase();
   PH.name = qs.get('name') || localStorage.getItem('sq_phone_name') || '';
   document.addEventListener('click', onTap);
   phRender();
-  if ((qs.get('auto') || sessionStorage.getItem('sq_joined')) && PH.room && PH.name) phConnect();
+  if ((qs.get('auto') || sessionStorage.getItem(PHONE_JOINED_KEY)) && PH.room && PH.name) phConnect();
 }
 
 /* ---------------- connection ---------------- */
@@ -42,7 +44,7 @@ function phDial() {
   if (!PH.peer || PH.peer.disconnected) return;
   const c = PH.peer.connect(PHONE_PREFIX + PH.room.toLowerCase(), { reliable: true });
   PH.conn = c;
-  c.on('open', () => { PH.status = 'live'; sessionStorage.setItem('sq_joined', '1'); phSend({ t: 'hello', name: PH.name }); phRender(); });
+  c.on('open', () => { PH.status = 'live'; sessionStorage.setItem(PHONE_JOINED_KEY, '1'); phSend({ t: 'hello', name: PH.name }); phRender(); });
   c.on('data', phData);
   c.on('close', () => {
     if (PH.ended) return;
@@ -54,15 +56,15 @@ function phSend(o) { o.cid = PH.cid; try { PH.conn && PH.conn.open && PH.conn.se
 function phData(d) {
   if (!d) return;
   if (d.t === 'bye') {
-    PH.ended = true; PH.status = 'ended'; PH.err = d.why === 'removed' ? 'The GM removed you from this party.' : 'The GM started a new game.';
-    sessionStorage.removeItem('sq_joined');
+    PH.ended = true; PH.status = 'ended'; PH.err = d.why === 'removed' ? 'Captain Russell removed you from this party.' : 'Captain Russell started a new game.';
+    sessionStorage.removeItem(PHONE_JOINED_KEY);
     try { PH.conn.close(); } catch (e) { }
     return phRender();
   }
   if (d.t === 'view') {
     const prev = PH.v; PH.v = d.v;
     // not seated yet but the party is still forming: ask again (after a new run)
-    if (d.v.you == null && ['title', 'join', 'intro', 'avatars', 'party'].includes(d.v.phase) && Date.now() - PH.lastHello > 3000) { PH.lastHello = Date.now(); phSend({ t: 'hello', name: PH.name }); }
+    if (d.v.you == null && ['title', 'join', 'welcome', 'intro', 'avatars', 'roster', 'party'].includes(d.v.phase) && Date.now() - PH.lastHello > 3000) { PH.lastHello = Date.now(); phSend({ t: 'hello', name: PH.name }); }
     const myTurn = v => v && v.you != null && ((v.cur && v.cur.step === 'roll' && v.cur.roller === v.you) || (v.actor && v.actor.slot === v.you));
     if (myTurn(d.v) && !myTurn(prev)) { try { navigator.vibrate && navigator.vibrate([120, 60, 120]); } catch (e) { } }
     phRender();
@@ -78,7 +80,7 @@ function onTap(e) {
       PH.room = ($('#phRoom').value || '').trim().toUpperCase();
       PH.name = ($('#phName').value || '').trim();
       if (PH.room.length < 4 || !PH.name) { PH.err = 'Enter the 4-letter room code and your last name.'; PH.status = 'idle'; return phRender(); }
-      localStorage.setItem('sq_phone_room', PH.room); localStorage.setItem('sq_phone_name', PH.name);
+      localStorage.setItem(PHONE_ROOM_KEY, PH.room); localStorage.setItem('sq_phone_name', PH.name);
       return phConnect();
     }
     case 'rejoin': PH.ended = false; return phConnect();
@@ -88,14 +90,14 @@ function onTap(e) {
     case 'av': PH.toLook = true; return phSend({ t: 'av', v: +arg }); // after the pick, glide down to uniform / hair
     case 'vote': return phSend({ t: 'vote', v: /^\d+$/.test(arg) ? +arg : arg });
     case 'roll': b.disabled = true; return phSend({ t: 'roll' });
+    case 'hotseatRoll': b.disabled = true; return phSend({ t: 'hotseatRoll' });
     case 'act': b.disabled = true; return phSend({ t: 'act', v: arg });
     case 'rvote': return phSend({ t: 'rvote', v: +arg });
-    case 'bact': { // boss action: "press" · "defend" · "clear"
-      if (arg === 'clear') return phSend({ t: 'bact', v: null });
+    case 'bact': { // boss team vote: "press" · "defend"
       const [type, x] = arg.split(':');
       return phSend({ t: 'bact', v: { type } });
     }
-    case 'req': phSend({ t: 'req', v: arg }); phToast('Request sent to the GM'); return;
+    case 'req': phSend({ t: 'req', v: arg }); phToast('Request sent to Captain Russell'); return;
   }
 }
 function phToast(t) { PH.toast = t; phRender(); setTimeout(() => { PH.toast = ''; phRender(); }, 2200); }
@@ -111,12 +113,11 @@ const cls3 = (sel, need) => (sel ? 'sel' : need ? 'need' : '');
 const guideLink = '<a class="ph-link" href="guide.html" target="_blank">📖 Open the Field Guide</a>';
 const voted = v => v.votes && v.votes[v.you] != null;
 // vote count only: ties are the GM's call (the 👑 next to the Flight Commander's vote shows their pick)
-const tieLine = v => (v.voters ? `<div class="ph-note">✋ ${Object.keys(v.votes || {}).length}/${v.voters} voted</div>` : '');
-// voter names in their class colour; the Flight Commander's vote carries the 👑 (Rock, Paper, Rank)
-const voterHtml = (v, names) => names.map(nm => { const k = v.party.findIndex(q => rankName(q) === nm), p = v.party[k], fc = k >= 0 && k === v.crown; return `<span class="${fc && v.tie ? 'tieglow' : ''}" style="color:${clsColor(p)}">${fc ? '👑 ' : ''}${esc(nm)}</span>`; }).join(', ');
+const tieLine = (v, showTie = false) => (v.voters ? `<div class="ph-note">✋ ${Object.keys(v.votes || {}).length}/${v.voters} voted${showTie && v.crown != null && v.crown >= 0 ? ' · the 👑 breaks ties.' : ''}</div>` : '');
 // this cadet can't act: in a meeting this stop, or relieved of command for good
 const outMe = v => v.you != null && (v.offline === v.you || !!(v.party[v.you] && v.party[v.you].fired));
-const myUsable = v => (v.usable || []).filter(u => u.who == null || u.who === v.you);
+const firedMe = v => v.you != null && !!(v.party[v.you] && v.party[v.you].fired);
+const myUsable = v => firedMe(v) ? [] : (v.usable || []).filter(u => u.who == null || u.who === v.you);
 
 function phRender() {
   const app = $('#app');
@@ -126,12 +127,14 @@ function phRender() {
   else {
     const v = PH.v, me = v.you != null ? v.party[v.you] : null;
     // the 🎒 KIT tab starts glowing on the Check Your Kit screen, not before
-    const preKit = ['title', 'join', 'intro', 'avatars', 'party', 'perks'].includes(v.phase);
-    const kitGlow = me && me.cls && PH.tab !== 'kit' && me.perk && !preKit && (v.phase === 'kit' ? !me.kitOk : !PH.kitSeen);
-    const note = v.notice ? `<div class="ph-card ph-result"><div class="ph-h" style="margin-top:0">${v.notice.icon} ${esc(v.notice.title)}</div>${mt(esc(v.notice.text))}<div class="ph-note">Waiting for the GM to continue...</div></div>` : '';
-    const body = PH.tab === 'kit' ? phKit(v, me) : PH.tab === 'org' ? phOrg(v) : note + phActor(v) + phGame(v, me) + phNow(v, me);
+    const preKit = ['title', 'join', 'welcome', 'intro', 'avatars', 'roster', 'party', 'perks', 'unit', 'patch', 'itemsBriefing'].includes(v.phase);
+    const kitGlow = me && !me.fired && me.cls && PH.tab !== 'kit' && me.perk && !preKit && (v.phase === 'kit' ? !me.kitOk : !PH.kitSeen);
+    const note = v.notice ? `<div class="ph-card ph-result"><div class="ph-h" style="margin-top:0">${v.notice.icon} ${esc(v.notice.title)}</div>${mt(esc(v.notice.text))}<div class="ph-note">Waiting for Captain Russell to continue...</div></div>` : '';
+    const gameBody = note + phActor(v) + phGame(v, me) + phNow(v, me);
+    const gameGlow = PH.tab !== 'game' && !v.spinning && /class="[^"]*\bneed\b/.test(gameBody);
+    const body = PH.tab === 'kit' ? phKit(v, me) : PH.tab === 'org' ? phOrg(v) : gameBody;
     app.innerHTML = `<div class="ph-wrap">${phHeader(v, me)}${body}</div>
-      <div class="ph-tabs"><button class="${PH.tab === 'game' ? 'on' : ''} ${PH.tab === 'kit' && PH.kitBack ? 'glow' : ''}" data-p="tab" data-a="game">🎮 GAME</button><button class="${PH.tab === 'kit' ? 'on' : ''} ${kitGlow ? 'glow' : ''}" data-p="tab" data-a="kit">🎒 KIT</button><button class="${PH.tab === 'org' ? 'on' : ''}" data-p="tab" data-a="org" ${v.unit ? '' : 'disabled'}>🏢 ORG</button></div>
+      <div class="ph-tabs"><button class="${PH.tab === 'game' ? 'on' : ''} ${gameGlow || (PH.tab === 'kit' && PH.kitBack) ? 'glow' : ''}" data-p="tab" data-a="game">🎮 GAME</button><button class="${PH.tab === 'kit' ? 'on' : ''} ${kitGlow ? 'glow' : ''}" data-p="tab" data-a="kit">🎒 KIT</button><button class="${PH.tab === 'org' ? 'on' : ''}" data-p="tab" data-a="org" ${v.unit ? '' : 'disabled'}>🏢 ORG</button></div>
       ${PH.toast ? `<div class="ph-toast">${esc(PH.toast)}</div>` : ''}`;
   }
   fitLines(app); // long effect lines (big names) shrink to fit their button
@@ -143,7 +146,7 @@ function phRender() {
 function phJoinScreen() {
   const msg = {
     connecting: '🟡 Connecting...', lost: '🟡 Connection lost, reconnecting...',
-    noroom: "🔴 Room not found. Check the code on the projector (the GM console must be open).",
+    noroom: "🔴 Room not found. Check the code on the projector (Captain Russell’s console must be open).",
     error: `🔴 Connection problem (${esc(PH.err)}). Retrying...`, ended: `⚪ ${esc(PH.err)}`,
   }[PH.status] || (PH.err ? `🔴 ${esc(PH.err)}` : '');
   return `<div class="ph-wrap"><div class="logo" style="font-size:34px;text-align:center;margin:24px 0">PRACTICUM<br>ADVENTURE</div>
@@ -157,18 +160,12 @@ function phJoinScreen() {
 
 function phHeader(v, me) {
   const cls = me && CLASS[me.cls];
-  const u = v.unit && UNITS.find(x => x.id === v.unit);
   return `<div class="ph-head">
       ${me && me.av != null ? `<img src="${avatarOf(me)}">` : '<div class="ph-noav">?</div>'}
-      <div style="flex:1"><div class="ph-nm">${me ? insignia(me) : ''}${esc(me ? rankName(me) : PH.name)}</div>
-      <div class="ph-cl">${me ? (cls ? `${cls.name}${me.fired ? ' · 🪓 FIRED' : ''}${v.you === v.crown ? ' · 👑' : ''}` : 'No position yet') : 'Spectator'}${v.team ? ` · ${v.patch ? v.patch.icon + ' ' : ''}${esc(v.team.toUpperCase())}` : ''}</div>
+      <div style="flex:1"><div class="ph-nm">${me ? insignia(me) : ''}${esc(me ? rankName(me) : PH.name)}${me && v.you === v.crown ? ' 👑' : ''}</div>
+      <div class="ph-cl">${me ? (cls ? `${cls.name}${me.fired ? ' · 🪓 FIRED' : ''}` : 'No position yet') : 'Spectator'}${v.team ? ` · ${v.patch ? v.patch.icon + ' ' : ''}${esc(v.team.toUpperCase())}` : ''}</div>
 </div>
-      <span class="ph-dot" title="connected">●</span></div>
-    ${v.unit ? `<div class="ph-meters">${METERS.map(m => { const x = v.meters[m.k], b = meterBand(x); const intent = v.ccInfo && v.ccInfo.intent === m.k;
-      // hidden meters: a small band word unless a DEOCS Survey is running (only the projector's band pulses)
-      if (!v.deocs) return `<div style="--c:${m.color}"><div class="ph-ml">${meterIcon(m)}</div><div class="ph-mn" style="color:${m.color}">${m.name}${intent ? '<br><small class="ph-int">INTENT</small>' : ''}</div><div class="ph-band ${b.cls}">${b.word}</div></div>`;
-      return `<div style="--c:${m.color}"><div class="ph-ml">${meterIcon(m)} ${x}</div><div class="ph-mn" style="color:${m.color}">${m.name}${intent ? '<br><small class="ph-int">INTENT</small>' : ''}</div><div class="ph-bar"><i style="width:${x * 10}%"></i></div></div>`; }).join('')}</div>
-      ${v.deocs && !['results', 'debrief'].includes(v.phase) ? `<div class="ph-note" style="text-align:center">📋 DEOCS Survey: exact numbers${v.deocsLeft ? ` for ${v.deocsLeft} more stop${v.deocsLeft === 1 ? '' : 's'}` : ' (last stop)'}</div>` : ''}` : ''}`;
+      <span class="ph-dot" title="connected">●</span></div>`;
 }
 
 // The big "your turn" button for whatever random event this cadet owns right now
@@ -182,9 +179,9 @@ function phActor(v) {
 
 // GAME tab: only what you can use RIGHT NOW (everything else lives in the KIT tab)
 function phNow(v, me) {
-  if (!me || !me.cls || ['title', 'join', 'intro', 'party', 'perks', 'kit', 'avatars', 'results', 'debrief'].includes(v.phase)) return '';
+  if (!me || !me.cls || ['title', 'join', 'welcome', 'intro', 'party', 'perks', 'kit', 'avatars', 'roster', 'results', 'debrief'].includes(v.phase)) return '';
   const list = myUsable(v); if (!list.length) return '';
-  return `<div class="ph-h" style="color:var(--gold)">⚡ YOU CAN USE NOW</div>` + list.map(u => pbtn('req', u.req, `${u.icon} <b>${esc(u.label)}</b>${u.who != null ? ' <small>(yours)</small>' : ' <small>(team)</small>'}<br><small>${mt(esc(u.hint))} · tap to ask the GM</small>`, { cls: 'avail' + (u.hot ? ' hot' : '') })).join('');
+  return `<div class="ph-h" style="color:var(--gold)">⚡ YOU CAN USE NOW</div>` + list.map(u => pbtn('req', u.req, `${u.icon} <b>${esc(u.label)}</b>${u.who != null ? ' <small>(yours)</small>' : ' <small>(team)</small>'}<br><small>${mt(esc(u.hint))} · tap to ask Captain Russell</small>`, { cls: 'avail' + (u.hot ? ' hot' : '') })).join('');
 }
 
 function phResult(v) {
@@ -195,59 +192,69 @@ function phResult(v) {
     ...r.loy.map(([w, d]) => `<div class="${d > 0 ? 'up' : 'dn'}"><b>${sign(d)}</b> 🤝 ${esc(w)} loyalty</div>`),
     ...r.gained.map(id => `<div class="up"><b>+</b> ${lootOf(id).icon} ${esc(lootOf(id).name)}</div>`),
     ...r.lost.map(id => `<div><b>-</b> ${lootOf(id).icon} ${esc(lootOf(id).name)} <small>used</small></div>`),
+    ...(r.reductions || []).map(r => `<div class="loss-reduction">${esc(lossReductionText(r))}</div>`),
   ];
-  return `<div class="ph-card ph-result"><div class="ph-h" style="margin-top:0">RESULT</div><b>${esc(r.head)}</b>${rows.length ? `<div class="ph-rrows">${rows.join('')}</div>` : '<div class="ph-note">No change to your meters.</div>'}<div class="ph-note">Waiting for the GM to continue...</div></div>`;
+  return `<div class="ph-card ph-result"><div class="ph-h" style="margin-top:0">RESULT</div><b>${esc(r.head)}</b>${rows.length ? `<div class="ph-rrows">${rows.join('')}</div>` : '<div class="ph-note">No change to your meters.</div>'}<div class="ph-note">Waiting for Captain Russell to continue...</div></div>`;
 }
 
+function phItemAward(v, award) {
+  const item = (v.itemInfo || []).find(l => l.id === award?.id) || LOOT.find(l => l.id === award?.id);
+  const dropped = LOOT.find(l => l.id === award?.dropped);
+  if (!item) return '';
+  return `<div class="ph-h">${item.icon} ${esc(item.name.toUpperCase())}</div><div class="ph-card ph-center"><b>Added to your team’s items (${award.count}/3).</b><br>${mt(esc(fill(v, item.text)))}</div>${dropped ? `<div class="ph-warn">🎒 Bag full: dropped ${dropped.icon} ${esc(dropped.name)}.</div>` : ''}<div class="ph-card">${esc(INTRO_ITEMS)}</div>`;
+}
 function phGame(v, me) {
   if (v.you == null) return `<div class="ph-card">👀 You're watching as a spectator. Keep your eyes on the projector!</div>
-    <div class="ph-card">📱 <b>Already playing on another device</b> (dead battery, new phone)? Tell the GM: they can move this device into your seat.</div>${guideLink}`;
+    <div class="ph-card">📱 <b>Already playing on another device</b> (dead battery, new phone)? Tell Captain Russell to move this device into your seat.</div>${guideLink}`;
   switch (v.phase) {
-    case 'title': case 'join': case 'intro':
-      return `<div class="ph-card">✅ You're in, <b>${esc(me.name)}</b>!<br><br>Watch the projector while the GM explains the game. Next you pick your character icon, then your position.</div>${guideLink}`;
+    case 'title': case 'join': case 'welcome': case 'intro':
+      return `<div class="ph-card">✅ You're in, <b>${esc(me.name)}</b>!<br><br>Watch the projector while Captain Russell explains the game. ${me.av == null ? 'Choose your character icon before the three-job overview. You will pick your position after the briefing.' : 'Your icon is ready. You will pick your position after the briefing.'}</div>${v.phase === 'intro' && v.introPage >= 2 ? `<div class="ph-card"><b>${['JOB 1 · INTEGRITY FIRST', 'JOB 2 · LOYALTY & UNIT COHESION', 'JOB 3 · THE FOUR METERS'][v.introPage - 2]}</b><br>${esc(v.introPage === 2 ? INTRO_INTEGRITY : v.introPage === 3 ? INTRO_LOYALTY : INTRO_RANGES + ' ' + INTRO_METER_SCALE)}</div>` : ''}${guideLink}`;
     case 'party': return phParty(v, me);
+    case 'roster': return `<div class="ph-h">CHOOSE THE GAME’S NAMES</div>${tieLine(v)}` + ROSTER_OPTIONS.map((r,i) => pbtn('vote',r.id,`<span class="roster-phone-option">${rosterPin(r)}<span><b>${i+1}. ${esc(r.name)}</b><br><small>${esc(r.rank)}</small></span></span>`,{cls:cls3(String((v.votes||{})[v.you])===r.id,!voted(v))})).join('');
     case 'perks': { const cls = CLASS[me.cls];
-      return `<div class="ph-h">🎁 PICK YOUR PERK</div><div class="ph-card">${clsIcon(me.cls, 20)} <b>${esc(rankName(me))}</b>, pick ONE perk for your ${cls.name}. Each perk works once per game.</div>`
+      return `<div class="ph-h">🎁 PICK YOUR PERK · ${esc(cls.name)}</div>`
         + cls.perks.map(p => pbtn('perk', p.id, `${p.icon} <b>${esc(p.name)}</b><br><small>${useHtml(p.text)}</small>`, { cls: cls3(me.perk === p.id, !me.perk) })).join('')
-        + (me.perk ? '<div class="ph-card ph-center">✅ Locked in. Waiting for the rest of the team...</div>' : ''); }
-    case 'kit': return me.kitOk ? '<div class="ph-card ph-center">✅ Kit checked. Your kit is always one tap away in the 🎒 KIT tab.<br><br>Waiting for the rest of the team...</div>'
-      : '<div class="ph-h">🎒 CHECK YOUR KIT</div><div class="ph-card">Before you pick a squadron, look at what you\'re bringing: your position, stats, ability and perk.</div><div class="ph-point"><b>Tap the glowing 🎒 KIT tab at the bottom of the screen.</b><div class="ph-arrow">👇</div></div>';
+        + (me.perk ? `<div class="ph-card ph-center">✅ Locked in. ${v.party.every(p => p.perk) ? 'Waiting on Captain Russell.' : 'Waiting for the rest of the team...'}</div>` : ''); }
+    case 'kit': return me.kitOk ? `<div class="ph-card ph-center">✅ Kit checked. Your kit is always one tap away in the 🎒 KIT tab.<br><br>${v.party.every(p => p.kitOk) ? 'Waiting on Captain Russell.' : 'Waiting for the rest of the team...'}</div>`
+      : '<div class="ph-h">🎒 CHECK YOUR KIT</div><div class="ph-card">Review your position, stats, ability, perk and team items—including your 📋 DEOCS Survey.</div><div class="ph-point"><b>Tap the glowing 🎒 KIT tab at the bottom of the screen.</b><div class="ph-arrow">👇</div></div>';
     case 'avatars': return `<div class="ph-h">PICK YOUR CHARACTER ICON</div><div class="ph-note">Your icon also sets your gender in the game.</div>` + AV_GROUPS.map(G => `<div class="ph-h">${G.label}</div><div class="ph-avgrid">${G.idx.map(k => {
       const who = v.party.find(p => p.av === k); const mine = me.av === k;
       return `<button class="ph-av ${mine ? 'sel' : me.av == null && !who ? 'need' : ''}" data-p="av" data-a="${k}" ${who && !mine ? 'disabled' : ''}><img src="${who ? avatarOf(who) : presetAvatar(k)}"><span>${avNum(k)}${who && !mine ? ' · ' + esc(rankName(who)) : ''}</span></button>`; }).join('')}</div>`).join('') + phLook(me);
     case 'unit': {
-      if (v.unitPicked) { const u = UNITS.find(x => x.id === v.unit); return `<div class="ph-card ph-center"><span style="font-size:48px">${u.icon}</span><br><b>${u.name}</b><br>${u.sq}</div>
-      <div class="ph-warn">⚠️ SQUADRON WARNING: ${esc(u.drain.name)}<br><small>${esc(u.drain.text)}. ${meterTag(u.drain.k, '−1')} every ${DIFFICULTY.drainEvery} stops. It comes with this unit.</small></div>`; }
+      if (v.unitPicked) { const u = UNITS.find(x => x.id === v.unit), deployed = v.unit === 'ch' && (v.npcs || []).find(n => n.slot === 'D'); return `<div class="ph-card ph-center"><span style="font-size:48px">${u.icon}</span><br><b>${u.name}</b><br>${u.sq}${deployed ? `<br><b>🧑‍🤝‍🧑 DEPLOYED UNTIL AFTER THE INSPECTION:</b> ${esc(deployed.rank)} ${esc(deployed.name)}` : ''}</div>
+      <div class="ph-warn">SQUADRON PENALTY<br><small>${esc(squadPenaltyText(u.id, v))}</small></div>`; }
       const votes = v.votes || {};
-      return `<div class="ph-h">✋ CHOOSE YOUR SQUADRON</div><div class="ph-note">Details are on the projector. Vote as a team; the 👑 breaks ties.</div>${tieLine(v)}` + UNITS.map(u => {
-        const voters = Object.keys(votes).filter(s2 => String(votes[s2]) === u.id).map(s2 => v.party[+s2] && rankName(v.party[+s2])).filter(Boolean);
-        return pbtn('vote', u.id, `${u.icon} <b>${esc(u.sq)}</b>${voters.length ? `<div class="ph-voters">✋ ${voterHtml(v, voters)}</div>` : ''}`, { cls: cls3(String(votes[v.you]) === u.id, !voted(v)) });
+      return `<div class="ph-h">✋ CHOOSE YOUR SQUADRON</div>${tieLine(v, true)}` + unitPickOrder(v).map(u => {
+        return pbtn('vote', u.id, `${u.icon} <b>${esc(u.sq)}</b>`, { cls: cls3(String(votes[v.you]) === u.id, !voted(v)) });
       }).join(''); }
-    case 'patch': { // team patch: a team vote, like the squadron (the GM locks in the winner)
+    case 'patch': { // team patch: a team vote, like the squadron (Captain Russell locks in the winner)
       const votes = v.votes || {};
       const pick = v.patch ? `<div class="ph-card ph-center">🎖️ TEAM PATCH LOCKED IN<br><span style="font-size:40px">${v.patch.icon}</span><br><b>${esc(v.patch.name)}</b></div>`
-        : `<div class="ph-h">✋ VOTE ON YOUR TEAM PATCH</div><div class="ph-note">The patch is your team's name on the leaderboard. Vote as a team; the 👑 breaks ties.</div>${tieLine(v)}<div class="ph-row">${(v.patches || []).map(p => {
-          const voters = Object.keys(votes).filter(s2 => String(votes[s2]) === p.id).map(s2 => v.party[+s2] && rankName(v.party[+s2])).filter(Boolean);
-          return pbtn('vote', p.id, `<span style="font-size:34px">${p.icon}</span><br><small>${esc(p.name)}${p.taken ? '<br>TAKEN' : ''}</small>${voters.length ? `<div class="ph-voters">✋ ${voterHtml(v, voters)}</div>` : ''}`, { cls: cls3(String(votes[v.you]) === p.id, !voted(v) && !p.taken), dis: p.taken });
+        : `<div class="ph-h">✋ VOTE ON YOUR TEAM PATCH</div><div class="ph-note">The patch is your team's name on the leaderboard. Choosing one also gives the team a 📋 DEOCS Survey item. Vote as a team; the 👑 breaks ties.</div>${tieLine(v)}<div class="ph-row">${(v.patches || []).map(p => {
+          return pbtn('vote', p.id, `<span style="font-size:34px">${p.icon}</span><br><small>${esc(p.name)}${p.taken ? '<br>TAKEN' : ''}</small>`, { cls: cls3(String(votes[v.you]) === p.id, !voted(v) && !p.taken), dis: p.taken });
         }).join('')}</div>`;
       return pick; }
+    case 'itemsBriefing': return phItemAward(v, { id: 'deocs', count: v.items.length });
+    case 'itemAward': return phItemAward(v, v.itemAward);
     case 'manifest': return `${v.patch ? `<div class="ph-card ph-center"><span style="font-size:34px">${v.patch.icon}</span><br><b>${esc(v.patch.name)}</b></div>` : ''}
       <div class="ph-card ph-center">🏢 Your org chart is on the projector, and in the <b>ORG</b> tab below any time.</div>` + phOrg(v);
+    case 'mapRoll': return `<div class="ph-h">🎲 GENERATING YOUR ROUTE</div><div class="ph-card ph-center">Watch the projector while the route is rolled. Your first stop will appear here when the seed locks in.</div>`;
     case 'map': {
-      const votes = v.votes || {}, away = v.offlineNext === v.you;
-      const wps = (v.wpOpts || []).map(o => { const voters = Object.keys(votes).filter(s => String(votes[s]) === o.key).map(s => v.party[+s] && rankName(v.party[+s])).filter(Boolean);
-        return pbtn('vote', o.key, `${o.icon} <b>${esc(o.name)}</b> <small>then → ${esc(o.then)}</small>${voters.length ? `<div class="ph-voters">✋ ${voterHtml(v, voters)}</div>` : ''}`, { cls: cls3(String(votes[v.you]) === o.key, !voted(v) && !away), dis: away }); }).join('');
-      if (wps) return `<div class="ph-h">${v.wpOpts[0].icon} PICK YOUR WAYPOINT</div><div class="ph-note">${v.wpOpts.length > 1 ? 'The waypoint you pick also locks in your path to the next stop.' : 'Your path is set: tap to head into it.'}</div>${away ? '<div class="ph-warn">📵 You can\'t vote right now.</div>' : ''}${tieLine(v)}` + wps;
-      return `<div class="ph-h">WHERE TO NEXT?</div>${away ? '<div class="ph-warn">📵 You\'re stuck in a meeting: no vote on the route, and you\'re offline next stop.</div>' : ''}${v.branch ? '<div class="ph-note">🌿 Branch Plan: any stop in the next column.</div>' : ''}${tieLine(v)}` + (v.avail || []).map(key => {
+      const votes = v.votes || {}, fired = firedMe(v), away = v.offlineNext === v.you || fired;
+      const awayNote = fired ? '🪓 You were relieved: no more votes.' : '📵 You can\'t vote right now.';
+      const wps = (v.wpOpts || []).map(o => {
+        return pbtn('vote', o.key, `${o.icon} <b>${esc(o.name)}</b>`, { cls: cls3(!away && String(votes[v.you]) === o.key, !voted(v) && !away), dis: away }); }).join('');
+      if (wps) return `<div class="ph-h">${v.wpOpts[0].icon} PICK YOUR WAYPOINT</div><div class="ph-note">${fired ? 'Your team is choosing the route.' : v.wpOpts.length > 1 ? 'The waypoint you pick also locks in your path to the next stop.' : 'Your path is set: tap to head into it.'}</div>${away ? `<div class="ph-warn">${awayNote}</div>` : ''}${tieLine(v)}` + wps;
+      if (v.bossReady) {
+        return `<div class="ph-h">${igIcon()} FINAL STOP: THE INSPECTOR GENERAL</div><div class="ph-note">The route is complete. Vote when your team is ready to enter the inspection.</div>${away ? `<div class="ph-warn">${awayNote}</div>` : ''}${tieLine(v)}` + pbtn('vote', 'boss', `🥊 <b>ENTER THE IG INSPECTION</b>`, { cls: cls3(!away && String(v.votes && v.votes[v.you]) === 'boss', !voted(v) && !away), dis: away }); }
+      return `<div class="ph-h">WHERE TO NEXT?</div>${away ? `<div class="ph-warn">${fired ? awayNote : '📵 You\'re stuck in a meeting: no vote on the route, and you\'re offline next stop.'}</div>` : ''}${v.branch ? '<div class="ph-note">🌿 Branch Plan: any stop in the next column.</div>' : ''}${tieLine(v)}` + (v.avail || []).map(key => {
         const [t, i] = key.split(',').map(Number), n = v.map[t][i], nt = NODE_TYPES[n.type];
-        const voters = Object.keys(votes).filter(s => String(votes[s]) === key).map(s => v.party[+s] && rankName(v.party[+s])).filter(Boolean);
-        const nxt = v.links && v.map[t + 1] ? (v.links[t][i] || []).map(j => NODE_TYPES[v.map[t + 1][j].type].icon).join(' ') : '👹';
-        return pbtn('vote', key, `${nt.icon} <b>${nt.name}</b> <small>then → ${nxt}</small>${voters.length ? `<div class="ph-voters">✋ ${voterHtml(v, voters)}</div>` : ''}`, { cls: cls3(String(votes[v.you]) === key, !voted(v) && !away), dis: away });
+        return pbtn('vote', key, `${nt.icon} <b>${nt.name}</b>${['elite', 'spot'].includes(n.type) ? ' 🎁' : ''}`, { cls: cls3(!away && String(votes[v.you]) === key, !voted(v) && !away), dis: away });
       }).join('');
     }
     case 'node': return phNode(v, me);
     case 'inject': return phInject(v);
-    case 'levelup': return `<div class="ph-h">⬆️ LEVEL UP!</div><div class="ph-card">Pick one upgrade for your ${CLASS[me.cls].name}:</div>
+    case 'levelup': if (me.fired) return `<div class="ph-h">⬆️ LEVEL UP!</div><div class="ph-warn">🪓 You were relieved. No upgrade or passive effects.</div>`; return `<div class="ph-h">⬆️ LEVEL UP!</div><div class="ph-card">Pick one upgrade for your ${CLASS[me.cls].name}:</div>
       ${CLASS[me.cls].ups.map(u => pbtn('up', u.id, `<b>${esc(u.name)}</b><br><small>${mt(esc(u.text))}</small>`, { cls: cls3(me.up === u.id, !me.up) })).join('')}`;
     case 'boss': return phBoss(v, me);
     case 'results': return phFinal(v);
@@ -265,7 +272,7 @@ function phFinal(v) {
   const key = v.final.total + v.final.g;
   if (PH.finalKey !== key) { PH.finalKey = key; PH.finalSeen = Date.now(); setTimeout(phRender, PHONE_REVEAL_MS + 50); }
   if (Date.now() - PH.finalSeen < PHONE_REVEAL_MS) return `<div class="ph-card ph-center">🥁 The board is deliberating...<br><br>Eyes on the projector!</div>`;
-  return `<div class="ph-card ph-center"><div class="grade" style="font-size:110px">${esc(v.final.g)}</div><div class="ph-h">${esc(v.final.title)}</div>${v.final.total} PTS · ${v.ach.length} 🏅</div>`;
+  return `<div class="ph-card ph-center"><div class="grade" style="font-size:110px">${esc(v.final.g)}</div>${v.final.total} PTS · ${v.ach.length} 🏅</div>`;
 }
 
 // uniform + hair colour, under the icon grid once an icon is picked (cosmetic only)
@@ -281,7 +288,7 @@ function phLook(me) {
 function phParty(v, me) {
   let h = '';
   h += `<div class="ph-h">${me.cls ? 'YOUR POSITION' : 'PICK YOUR POSITION'}</div><div class="ph-note">Tap a position to pick it. Full details are on the projector.</div>`;
-  h += CLASSES.map(c => {
+  h += positionPickOrder(v).map(c => {
     const who = v.party.find(p => p.name && p.cls === c.id), mine = me.cls === c.id;
     const tag = who && !mine ? ` <small>${who.av != null ? `<img src="${avatarOf(who)}" style="width:20px;height:20px;image-rendering:pixelated;vertical-align:middle"> ` : ''}${esc(rankName(who))}</small>` : '';
     return pbtn('cls', c.id, `<span class="ph-ci">${clsIcon(c.id, 26)}</span><b>${c.name}</b> <small>${c.rank}</small>${tag}${mine ? ' ✅' : ''}`, { cls: cls3(mine, !me.cls && !who), dis: who && !mine });
@@ -294,7 +301,7 @@ function phRoute(v) {
   // the stops the team actually took, then what's left
   return `<div class="ph-route">${v.map.map((tier, t) => { const k = tier.findIndex(n => n.visited); const n = tier[k >= 0 ? k : 0];
     // 🎡 after the stops where an inject hits
-    return `<span class="${k >= 0 ? (n.done ? 'done' : 'here') : ''}">${k >= 0 ? NODE_TYPES[n.type].icon : '❔'}<small>${t + 1}</small></span>${injectAfter(t) ? '<b>›</b><span class="inj">🎡<small>INJ</small></span>' : ''}${t === (v.levelAfter || 3) - 1 ? '<b>›</b><span class="inj lvl">⬆️<small>LVL</small></span>' : ''}`; }).join('<b>›</b>')}<b>›</b><span>👹<small>IG</small></span></div>`;
+    return `<span class="${k >= 0 ? (n.done ? 'done' : 'here') : ''}">${k >= 0 ? NODE_TYPES[n.type].icon : '❔'}<small>${t + 1}</small></span>${injectAfter(t) ? '<b>›</b><span class="inj">🎡<small>INJ</small></span>' : ''}${t === (v.levelAfter || 3) - 1 ? '<b>›</b><span class="inj lvl">⬆️<small>LVL</small></span>' : ''}`; }).join('<b>›</b>')}<b>›</b><span>${igIcon()}<small>IG</small></span></div>`;
 }
 
 // ORG tab: the commander and the Unit
@@ -302,8 +309,8 @@ function phOrg(v) {
   if (!v.unit) return `<div class="ph-card">Your org chart appears once the squadron is rolled.</div>`;
   const u = UNITS.find(x => x.id === v.unit), cc = v.ccInfo;
   return `<div class="ph-h">🤝 YOUR UNIT${v.patch ? ` <small class="ph-legend">${v.patch.icon} ${esc(v.patch.name)}</small>` : ''}</div>
-    <div class="ph-npc cc"><b>${npcIns(v.cc, 18)} ${esc(v.cc)}</b> <small>Squadron CC</small>
-      <div><small>Intent ${meterTag(cc.intent)} · 👍 ${esc(cc.pos.name)} · <span style="${cc.negOff ? 'text-decoration:line-through;opacity:.5' : ''}">👎 ${esc(cc.neg.name)}</span> · ⚠️ ${esc(u.drain.name)}</small></div></div>
+    <div class="ph-npc cc"><b>${npcIns(v.cc, 18)} ${esc(v.cc)}</b> <small>${ccBadge(14)} Squadron CC</small>
+      <div><small>Intent ${meterTag(cc.intent)} · 👍 ${esc(cc.pos.name)} · <span style="${cc.negOff ? 'text-decoration:line-through;opacity:.5' : ''}">👎 ${esc(cc.neg.name)}</span></small><div class="ph-note">Squadron penalty: ${esc(squadPenaltyText(v.unit, v))}</div></div></div>
     ${v.npcs.slice().sort((a, b) => rankIdx(a.rank) - rankIdx(b.rank)).map(n => { const t = TRAIT[n.trait]; return `<div class="ph-npc ${n.ally ? 'ally' : ''}"><b>${insignia(n.rank, 18)}${esc(n.rank)} ${esc(n.name)}</b>${n.ally ? ' 🤝' : ''}${n.broken ? ' 💔' : ''}${n.gone ? ' (GONE)' : n.out ? ' (OUT)' : ''}
       ${t ? `<div><small>${t.icon} ${esc(t.name)}${n.done ? ' ✅' : ''}</small></div>${traitInfo(n, n.ally, n.done).map(([k, x]) => `<div class="ph-trait ${k}"><small>${mt(esc(x))}</small></div>`).join('')}` : ''}
       <div class="loyrow"><div class="loy">${Array.from({ length: 5 }, (_, i) => `<i class="${i < n.loy ? 'on' : ''}"></i>`).join('')}</div>${loyBandHtml(n.loy, n.ally, n.broken)}</div></div>`; }).join('')}`;
@@ -311,24 +318,25 @@ function phOrg(v) {
 
 function phNode(v, me) {
   const c = v.cur; if (!c) return '';
+  if (isFreeLoot(c)) return `<div class="ph-h">🎁 FREE LOOT</div><div class="ph-card ph-center">An item for the team. No purchase needed.</div>`;
   if (c.type === 'rest' || c.type === 'depot') {
     const head = `<div class="ph-h">${c.type === 'rest' ? '🏕️ REST STOP: PICK ONE' : c.step === 'who' ? '🛒 WHO PAYS? (team decides)' : '🛒 BASE EXCHANGE (BX): ONE PURCHASE'}</div>`;
-    if (c.step === 'train') return head + `<div class="ph-card ph-center">📚 Training slot: tell the GM who trains which stat.</div>`;
-    if ((c.step !== 'choose' && c.step !== 'who') || !v.options) return head + (phResult(v) || `<div class="ph-card ph-center">✅ ${esc(c.result || '')}</div>`);
-    const votes = v.votes || {};
-    return head + tieLine(v) + v.options.map(o => {
-      const voters = Object.keys(votes).filter(s => String(votes[s]) === o.key).map(s => v.party[+s] && rankName(v.party[+s])).filter(Boolean);
-      return pbtn('vote', o.key, `${o.html}${voters.length ? `<div class="ph-voters">✋ ${voterHtml(v, voters)}</div>` : ''}`, { cls: cls3(String(votes[v.you]) === o.key, !voted(v) && !o.dis), dis: o.dis });
+    const crunch = v.preIGRest ? '<div class="ph-warn">🕒 TIME CRUNCH · PRE-IG REST −50%</div>' : '';
+    if (c.step === 'train') return head + crunch + `<div class="ph-card ph-center">📚 Training slot: tell Captain Russell who trains which stat.</div>`;
+    if ((c.step !== 'choose' && c.step !== 'who') || !v.options) return head + crunch + (phResult(v) || `<div class="ph-card ph-center">✅ ${esc(c.result || '')}</div>`);
+    const votes = v.votes || {}, inactive = outMe(v);
+    return head + crunch + tieLine(v) + v.options.map(o => {
+      return pbtn('vote', o.key, `${o.html}`, { cls: cls3(!inactive && String(votes[v.you]) === o.key, !voted(v) && !o.dis && !inactive), dis: o.dis || inactive });
     }).join('');
   }
   if (c.type === 'unknown') return `<div class="ph-card ph-center">❓ UNKNOWN TERRITORY<br>A d6 decides what happens...</div>`;
   const m = v.mission; if (!m) return '';
   const offline = outMe(v);
   const spot = c.type === 'spot', mine = spot && c.slot === v.you, watching = spot && !mine;
-  let top = `<div class="ph-h">${c.type === 'crisisEvent' ? '🚨 ' : c.type === 'elite' ? '💀 ' : spot ? '🔦 ' : ''}${esc(m.icon)} ${esc(m.title)}</div>`;
+  let top = `<div class="ph-h">${c.type === 'crisisEvent' ? '🚨 ' : c.type === 'elite' ? '💀 ' : spot ? '🔦 ' : ''}${sceneIcon(m,22)} ${esc(m.title)}</div>`;
   if (spot) top += mine ? `<div class="ph-warn" style="background:var(--accent);color:#000">🔦 SPOTLIGHT ON YOU: you decide alone. Your team can't help.</div>`
     : `<div class="ph-card ph-center">🔦 SPOTLIGHT: <b>${esc(rankName(v.party[c.slot]))}</b> decides alone.<br><b>Stay silent.</b> Watch how they handle it.</div>`;
-  if (m.cc) top += `<div class="ph-card ph-center">🎖️ Commander encounter: <b>${esc(v.cc)}</b></div>`;
+  if (m.cc) top += `<div class="ph-card ph-center">${ccBadge(18)} Commander encounter: <b>${esc(v.cc)}</b></div>`;
   if (m.compartmented && c.step === 'brief') top += `<div class="ph-card ph-center">🔍 Compartmented: no arrows. Decide on the facts.</div>`;
   top += c.step === 'brief' || c.choice == null || !m.choices[c.choice] ? `<details class="ph-more ph-card"><summary>📺 Situation on the screen · tap to read it here</summary><div style="margin-top:6px">${esc(m.text)}</div></details>`
     : `<div class="ph-card"><small>Your team chose</small><br><b>${'ABCD'[c.choice]}. ${esc(m.choices[c.choice].t)}</b>${m.realres ? `<div class="ph-arw"><b>Result:</b> ${m.realres}</div>` : ''}</div>`;
@@ -349,7 +357,7 @@ function phNode(v, me) {
   }
   if (c.step === 'stars') {
     const lead = c.lead != null ? v.party[c.lead] : null;
-    return top + `<div class="ph-card ph-center">🎤 ACT IT OUT: ${lead ? (c.lead === v.you ? '<b style="color:var(--gold)">YOU talk!</b>' : `<b>${esc(rankName(lead))}</b> talks`) : 'who talks?'}</div>`;
+    return top + `<div class="ph-card ph-center">🎤 ACT IT OUT: ${lead ? (c.lead === v.you ? '<b style="color:var(--gold)">YOU talk!</b>' : `<b>${esc(rankName(lead))}</b> talks`) : 'who talks?'}<br>Captain Russell plays: ${esc(m.choices[c.choice]?.roleplay || 'the other side')}.</div>`;
   }
   if (c.step === 'done') {
     if (v.result) return top + phResult(v);
@@ -358,29 +366,26 @@ function phNode(v, me) {
     return top + `<div class="ph-card ph-center">${v.spinning ? '🎲 ...' : esc(res)}</div>`;
   }
   // brief: vote (in a spotlight only the spotlighted cadet's buttons work)
-  const votes = v.votes || {};
+      const votes = v.votes || {};
   return top + (spot ? '' : tieLine(v)) +
     m.choices.map((ch, i) => {
-      const voters = Object.keys(votes).filter(s => votes[s] === i).map(s => v.party[+s] && rankName(v.party[+s])).filter(Boolean);
-      const dis = offline || watching || ch.locked;
+      const dis = offline || watching;
       return `<button class="ph-btn ph-choice ${cls3(votes[v.you] === i, !voted(v) && !dis)}" data-p="vote" data-a="${i}" ${dis ? 'disabled' : ''}>
-        <span class="ph-key">${'ABCD'[i]}</span> ${esc(ch.t)}${ch.mic ? '<span class="ph-mic">🎤 ACT IT OUT</span>' : ''}
+        <span class="ph-key">${'ABCD'[i]}</span> ${esc(ch.t)}${ch.mic ? '<span class="ph-mic">🎤 ACT IT OUT</span>' : ''}${ch.checkLabel ? `<span class="ph-mic">🎲 ROLL · ${esc(ch.checkLabel)}</span>` : ''}
         ${ch.smell ? '<div class="ph-req" style="color:var(--warn)">⚠️ Your Rule Bender says: this one smells like a shortcut</div>' : ''}
-        ${ch.req ? `<div class="ph-req">🔐 Needs ${ch.req.stat} +${ch.req.min}${ch.locked ? ': nobody on the team has it' : ''}</div>` : ''}
         ${ch.show ? `<div class="ph-arw">${arrows(ch.show)}</div>` : ''}
         ${ch.intel ? `<div class="ph-intel">🔎 ${effHtml(ch.intel)}</div>` : ''}
-        ${voters.length && !spot ? `<div class="ph-voters">✋ ${voterHtml(v, voters)}</div>` : ''}</button>`;
+        </button>`;
     }).join('');
 }
 
 // The roller vote (scenario checks and Tackle it): each cadet with their bonus and odds
 function phRollerVote(v, st, odds, offline) {
   const votes = v.votes || {};
-  return `<div class="ph-h">🗳️ WHO ROLLS ${esc(st || '')}?</div><div class="ph-note">Vote for the roller. The GM locks in the winner, then they roll.</div>${tieLine(v)}` + v.party.map((p, i) => {
+  return `<div class="ph-h">🗳️ WHO ROLLS ${esc(st || '')}?</div><div class="ph-note">Vote for the roller. Captain Russell locks in the winner, then they roll.</div>${tieLine(v)}` + v.party.map((p, i) => {
     const o = odds && odds[i]; if (!o) return '';
-    const voters = Object.keys(votes).filter(s => String(votes[s]) === 'r' + i).map(s => v.party[+s] && rankName(v.party[+s])).filter(Boolean);
-    return pbtn('rvote', i, `${insignia(p)}<b>${esc(rankName(p))}</b>${i === v.you ? ' <small>(you)</small>' : ''}<br><small>${esc(o.stat)} ${sign(o.bonus)}${o.spec ? ' ★' : ''} · needs ${o.need}+ (${(21 - o.need) * 5}%)</small>${voters.length ? `<div class="ph-voters">✋ ${voterHtml(v, voters)}</div>` : ''}`,
-      { cls: cls3(String(votes[v.you]) === 'r' + i, !voted(v) && !offline), dis: offline });
+    return pbtn('rvote', i, `${insignia(p)}<b>${esc(rankName(p))}</b>${i === v.you ? ' <small>(you)</small>' : ''}<br><small>${esc(o.stat)} ${sign(o.bonus)}${o.spec ? ' ★' : ''} · needs ${o.need}+ (${(21 - o.need) * 5}%)</small>`,
+      { cls: cls3(!offline && String(votes[v.you]) === 'r' + i, !voted(v) && !offline), dis: offline });
   }).join('');
 }
 
@@ -400,60 +405,69 @@ function phInject(v) {
     return head + `<div class="ph-card ph-center">💪 Tackle: d20 + <b>${t.stat}</b> vs ${t.dc}<br><small>Roller: ${esc(who ? rankName(who) : '?')} (${bon(t.roller)})</small></div>`;
   }
   if (i.stage !== 'result' || !i.options) return head;
-  const votes = v.votes || {};
+  const votes = v.votes || {}, inactive = outMe(v);
   return head + tieLine(v) + i.options.map((o, k) => {
-    const voters = Object.keys(votes).filter(s => votes[s] === k).map(s => v.party[+s] && rankName(v.party[+s])).filter(Boolean);
-    return pbtn('vote', k, `<span class="ph-key">${o.tackle ? '💪' : 'AB'[k] || k + 1}</span> <b>${esc(o.t)}</b><br><small>${o.html}</small>${voters.length ? `<div class="ph-voters">✋ ${voterHtml(v, voters)}</div>` : ''}`, { cls: cls3(votes[v.you] === k, !voted(v)) });
+    return pbtn('vote', k, `<span class="ph-key">${o.tackle ? '💪' : 'AB'[k] || k + 1}</span> <b>${esc(o.t)}</b><br><small>${o.html}</small>`, { cls: cls3(!inactive && votes[v.you] === k, !voted(v) && !inactive), dis: inactive });
   }).join('');
 }
 
 function phBoss(v, me) {
   const b = v.boss; if (!b) return '';
-  let h = `<div class="ph-h">👹 ${b.round ? `ROUND ${b.round}: ${esc(b.roundName)}` : BOSS.name}</div><div class="ph-card">IG HP ${b.hp}/${b.max}${b.atk && b.stage !== 'done' ? ` · <span style="color:var(--bad)">🗡️ ${meterTag(b.atk.k, `−${b.atk.n}`)} this round</span>` : ''}<div class="ph-bar" style="--c:var(--bad)"><i style="width:${Math.min(100, b.hp / b.max * 100)}%"></i></div>
-    ${b.adverse ? '<small style="color:var(--bad)">🚨 Adverse Finding: −1 on every roll</small>' : ''}</div>`;
-  if (b.stage === 'intro') h += `<div class="ph-card">The Inspector General has arrived. The audit checks your integrity first. Then three rounds: each round you pick ONE action on this phone.</div>`;
-  if (b.stage === 'hotseat') {
-    if (!b.who) h += `<div class="ph-card ph-center">🎤 THE INTERVIEW: everyone rolls; the two lowest face the IG's questions...</div>`;
-    else { const j = b.who.indexOf(v.you);
-      h += j >= 0 ? `<div class="ph-warn">🔥 YOU'RE IN THE HOT SEAT</div><div class="ph-situ">"${esc(b.q[j])}"</div>` : `<div class="ph-card">😮‍💨 You're safe. ${b.who.map(w => esc(rankName(v.party[w]))).join(' and ')} face the IG.</div>`; }
-  }
+  let h = `<div class="ph-h">${b.round ? `ROUND ${b.round} · ` : ''}${esc(b.stageLabel || 'INSPECTION')}</div>`;
+  const recap = () => `<div class="ph-card">${(b.recap || []).map(line => `<div>${igText(line)}</div>`).join('')}</div>`;
   if (b.stage === 'act') {
-    const my = b.my;
-    if (outMe(v)) return h + `<div class="ph-warn">${me && me.fired ? '🪓 You were relieved: no action.' : "📵 You're in a meeting: no action this round."}</div>`;
-    h += my ? `<div class="ph-card ph-center">✅ Locked: <b>${esc(b.myText)}</b><br><small>Tap another action to switch, until the GM resolves the round.</small></div>`
-      : `<div class="ph-note">Pick ONE (secret until the GM resolves the round).</div>`;
-    const bs = b.best || { stat: 'CMD', v: 0 }, pct = (21 - Math.min(20, Math.max(2, b.dc - bs.v + (b.adverse ? 1 : 0)))) * 5;
-    h += pbtn('bact', 'press', `🗡️ <b>PRESS</b> <small>(${bs.stat} +${bs.v}, ${pct}% to hit for 2)</small><br><small>Roll your best stat against the IG</small>`, { cls: 'ph-bossbtn ' + cls3(my && my.type === 'press', !my) });
-    h += pbtn('bact', 'defend', `🛡️ <b>DEFEND</b><br><small>Block 2 of the IG's attack this round</small>`, { cls: 'ph-bossbtn ' + cls3(my && my.type === 'defend', !my) });
-    if (my) h += pbtn('bact', 'clear', '↩️ Clear my action');
-    h += `<div class="ph-note">Team: ${v.party.map((p, k) => `${esc(p.name)} ${b.locked[k] ? '✅' : '⏳'}`).join(' · ')}</div>`;
+    const my = b.my, p = b.attackPreview;
+    h += `<div class="ph-card">${igIcon()} Next IG attack: <b>${esc(b.atk.name)}</b><br>${meterTag(b.atk.k, `−${b.atk.n}`)} incoming before Block and loss reducers.</div>`;
+    if (outMe(v)) return h + `<div class="ph-warn">${me?.fired ? 'You were relieved: no vote.' : 'You are in a meeting: no vote.'}</div>`;
+    h += `<div class="ph-note">Choose one team action. ✋ ${b.votes.press + b.votes.defend} voted${my ? `<br>Your choice: ${my === 'press' ? 'ATTACK' : 'DEFEND'}` : ''}</div>`;
+    h += pbtn('bact', 'press', `🗡️ <b>ATTACK · 2 DAMAGE</b><br><small>${p ? `${esc(p.name)} · d20 ${p.need}+ (${p.chance}%)<br>Critical: 4 damage · miss: 0<br>If IG survives: ${esc(METER[b.atk.k].label)} −${b.attackLoss ?? b.atk.n}${p.item ? '<br>Includes ' + esc(LOOT.find(l => l.id === p.item).name) : ''}` : 'No cadet available'}</small>`, { cls: 'ph-bossbtn ' + cls3(my === 'press', !my), dis: !p });
+    h += pbtn('bact', 'defend', `🛡️ <b>DEFEND · 2 BLOCK</b><br><small>No roll. Your ${esc(METER[b.atk.k].label)} loss: ${b.defendLoss ?? Math.max(0, b.atk.n - 2)} (after loss reducers).<br>Block expires after this round.</small>`, { cls: 'ph-bossbtn ' + cls3(my === 'defend', !my) });
+    return h;
   }
-  if (b.stage === 'resolved' || b.stage === 'done') h += `<div class="ph-card"><small>${b.log.map(esc).join('<br>')}</small></div>`;
-  if (b.result) h += `<div class="ph-card ph-center">${esc(b.result)}</div>`;
-  return h;
+  if (b.stage === 'opening') {
+    const effect = b.openingCurrent;
+    h += `<div class="ph-card">${effect ? `${effect.icon} <b>${esc(effect.name)}</b><br>${esc(effect.why)}<br><b>${effect.amount < 0 ? `💥 ${esc(rankName(v.party[effect.cadet]))} deals ${effect.actualDamage} damage` : `IG +${effect.amount} bonus HP`}</b>` : `The IG starts at ${b.max} base HP. Opening effects resolve before Support.`}</div>`;
+  } else if (b.stage === 'vouch') h += `<div class="ph-card">${b.vouchCurrent ? `${esc(b.vouchCurrent.name)}<br>${esc(b.vouchCurrent.why)}` : 'Allies and the commander act before The Audit.'}</div>`;
+  else if (b.stage === 'intro') h += `<div class="ph-card">📋 The IG checks integrity and readiness. Read the result on the projector.</div>`;
+  else if (b.stage === 'intent') h += `<div class="ph-card">${igIcon()} ${esc(b.atk.name)}<br>${meterTag(b.atk.k, `−${b.atk.n}`)} incoming before Block and loss reducers.<br><br>Your team acts first.${b.round === 2 ? ' The Hot Seat comes first this round.' : ''}</div>`;
+  else if (b.stage === 'hotseat') {
+    if (b.interviewConsequences?.length) h += `<div class="ph-card">${b.interviewConsequences.map(line => esc(line)).join('<br>')}</div>`;
+    if (!b.who) {
+      const roll = b.hotSeatRolls?.[v.you];
+      h += `<div class="ph-card ph-center">🎲 Each cadet rolls. The lowest roll answers the IG.</div>`;
+      if (roll?.active) h += !roll.rolled ? pbtn('hotseatRoll', '', '🎲 ROLL YOUR d20', { cls: 'ph-bossbtn need' }) : `<div class="ph-card ph-center">${roll.settled ? `You rolled <b>${roll.value}</b>. Waiting for the other rolls.` : 'Your die is rolling…'}</div>`;
+    }
+    else h += b.who.includes(v.you) ? `<div class="ph-warn">🎤 YOUR HOT SEAT</div><div class="ph-situ">${esc(b.q[b.who.indexOf(v.you)])}</div><div class="ph-note">Act it out · 1–3 stars deal 1–3 damage.</div>` : `<div class="ph-card">🎤 ${b.who.map(w => esc(rankName(v.party[w]))).join(', ')} faces the IG.</div>`;
+  } else if (['auditResult', 'interviewResult', 'playerResult', 'resolved'].includes(b.stage)) {
+    h += recap();
+    if (b.stage === 'playerResult') h += `<div class="ph-note">${b.hp <= 0 ? 'IG defeated. Its attack is cancelled.' : 'Team action complete. The IG attacks next.'}</div>`;
+  } else if (b.stage === 'enemy') h += `<div class="ph-card">${igIcon()} IG TURN<br>${esc(b.atk.name)}<br>${b.atk.n} incoming − ${Math.min(b.atk.n, b.block)} Block<br>${b.enemyForecast?.reduction ? `${esc(lossReductionText(b.enemyForecast.reduction))}<br>` : ''}<b>${meterTag(b.atk.k, `−${b.enemyForecast?.loss ?? Math.max(0, b.atk.n - b.block)}`)}</b></div>`;
+  else if (b.stage === 'done') h += `<div class="ph-card ph-center">${esc(b.result)}</div>`;
+  return h + `<div class="ph-note">IG: <b class="${b.hp > b.max ? 'over-base' : ''}">${b.hp}</b>/${b.max} HP · Waiting for Captain Russell</div>`;
 }
 
 // KIT tab: your class, and everything you or the team could use (gold = usable now)
 function phKit(v, me) {
   if (!me || !me.cls) return `<div class="ph-card">Pick a position first.</div>`;
+  if (me.fired) return `<div class="ph-h">${clsIcon(me.cls, 24)} YOUR KIT · INACTIVE</div><div class="ph-warn">🪓 You were relieved. Your abilities, perks, and upgrades no longer support the flight.</div>`;
   const c = CLASS[me.cls], perk = c.perks.find(p => p.id === me.perk), up = c.ups.find(u => u.id === me.up);
   const now = {}; myUsable(v).forEach(u => { now[u.req] = u; });
   const row = (req, icon, name, text, state) => {
     const u = req && now[req];
-    if (u) return pbtn('req', req, `${icon} <b>${esc(name)}</b> <span class="ph-tag">USE NOW</span><br><small>${mt(esc(u.hint))} · tap to ask the GM</small>`, { cls: 'avail' + (u.hot ? ' hot' : '') });
+    if (u) return pbtn('req', req, `${icon} <b>${esc(name)}</b> <span class="ph-tag">USE NOW</span><br><small>${mt(esc(u.hint))} · tap to ask Captain Russell</small>`, { cls: 'avail' + (u.hot ? ' hot' : '') });
     const tag = useBadge(state) || (state ? `<span class="ph-tag off">${state.toUpperCase()}</span>` : '');
     return `<div class="ph-kitrow ${state === 'used' ? 'used' : ''}">${icon} <b>${esc(name)}</b> ${tag}<br><small>${mt(esc(useSplit(text).text))}</small></div>`;
   };
-  let h = (PH.kitBack ? '<div class="ph-point">✅ This is your kit: check it any time during the game.<br><b>Now tap the glowing 🎮 GAME tab at the bottom to go back.</b><div class="ph-arrow">👇</div></div>' : '') + `<div class="ph-h">${clsIcon(me.cls, 24)} ${c.name}</div><div class="ph-note">Rank: ${c.rankLong} · Specialty: ${mt(c.guards)} (+1 on those checks)</div>
+  let h = (PH.kitBack ? '<div class="ph-point">✅ This is your kit: check it any time during the game.<br><b>Now tap the glowing 🎮 GAME tab at the bottom to go back.</b><div class="ph-arrow">👇</div></div>' : '') + `<div class="ph-h">${clsIcon(me.cls, 24)} ${c.name}</div><div class="ph-note">Rank: ${c.rankLong}<br>Focus: ${esc(c.focus)}<br>Check bonus: +1 on ${(c.spec || []).map(k => meterTag(k)).join(' ')} checks</div>
     <div class="ph-card"><div class="stats">${STATS.map(s => `<div>${s}<b>+${me.st ? me.st[s] : c.stats[s]}</b></div>`).join('')}</div>
       <small>${STATS.map(s => `<b>${s}</b> ${STAT_INFO[s].name}: ${STAT_INFO[s].text}`).join('<br>')}</small></div>`;
   h += `<div class="ph-h">🎒 YOUR KIT <small class="ph-legend">gold = usable now</small></div>`;
-  if (c.ability) h += row('ability', clsIcon(me.cls, 20), c.ability.name, c.ability.text, c.ability.auto ? (v.ccInfo && v.ccInfo.negOff ? 'active' : 'passive') : me.used ? 'used' : 'once');
+  if (c.ability) h += row('ability', clsIcon(me.cls, 20), c.ability.name, c.ability.text, c.ability.auto ? 'passive' : me.used ? 'used' : 'once');
   else h += row(null, '👑', 'Command Token', c.abilityText, 'passive');
   if (perk) h += row('perk:' + perk.id, perk.icon || '🎁', perk.name, perk.text, me.perkUsed ? 'used' : useSplit(perk.text).kind || 'once');
   if (up) h += row(null, '⬆️', up.name, up.text, 'upgrade');
   h += `<div class="ph-h">🧺 TEAM ITEMS (${(v.itemInfo || []).length}/3)</div>`;
   h += (v.itemInfo || []).length ? v.itemInfo.map(l => row('item:' + l.id, l.icon, l.name, l.text, '')).join('')
-    : `<div class="ph-note">None yet (the bag holds 3). Loot drops from crises, crits and the BX.</div>`;
+    : `<div class="ph-note">None yet (the bag holds 3). Loot is guaranteed after spotlight and elite events, but basic scenarios do not drop loot.</div>`;
   return h;
 }

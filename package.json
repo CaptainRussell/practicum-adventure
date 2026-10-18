@@ -1,0 +1,24 @@
+{
+  "name": "afas-3410-practicum",
+  "version": "1.0.0",
+  "description": "Practicum Adventure local graphics build",
+  "scripts": {
+    "build:dice": "node tools/build-dice.cjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CaptainRussell/practicum-adventure.git"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/CaptainRussell/practicum-adventure/issues"
+  },
+  "homepage": "https://github.com/CaptainRussell/practicum-adventure#readme",
+  "dependencies": {
+    "@3d-dice/dice-box-threejs": "0.0.12"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  },
+  "private": true
+}

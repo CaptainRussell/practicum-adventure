@@ -9,18 +9,19 @@
    leave this window.
    ===================================================================== */
 const NET = { peer: null, conns: {}, status: 'off', err: '' };
-const ROOM_PREFIX = 'afas3410-sq-';
+const ROOM_PREFIX = IS_BOSS_PRACTICE ? 'afas3410-practice-' : 'afas3410-sq-';
+const ROOM_STORAGE_KEY = IS_BOSS_PRACTICE ? 'sq_practice_room' : 'sq_room';
 
 function roomCode() {
-  let c = localStorage.getItem('sq_room');
-  if (!c) { c = Array.from({ length: 4 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ'[rnd(23)]).join(''); localStorage.setItem('sq_room', c); }
+  let c = localStorage.getItem(ROOM_STORAGE_KEY);
+  if (!c) { c = Array.from({ length: 4 }, () => 'ABCDEFGHJKMNPQRSTUVWXYZ'[rnd(23)]).join(''); localStorage.setItem(ROOM_STORAGE_KEY, c); }
   return c;
 }
 function siteBase() {
   if (/^https?:/.test(location.protocol)) return location.href.split('#')[0].split('?')[0].replace(/[^/]*$/, '');
   return localStorage.getItem('sq_site') || '';
 }
-function joinUrl() { const b = siteBase(); return b ? `${b}join.html?room=${roomCode()}` : ''; }
+function joinUrl() { const b = siteBase(); return b ? `${b}join.html?room=${roomCode()}${IS_BOSS_PRACTICE ? '&practice=boss' : ''}` : ''; }
 
 function netStart() {
   if (NET.peer && !NET.peer.destroyed) return;
@@ -52,7 +53,7 @@ function seatsFull() {
 function phonesOnline() { return Object.keys(NET.conns).length; }
 
 /* ---- incoming ---- */
-const JOINABLE = ['title', 'join', 'intro', 'avatars', 'party'];
+const JOINABLE = ['title', 'join', 'welcome', 'intro', 'avatars', 'roster', 'party'];
 function slotOf(cid) { const c = (S.clients || {})[cid]; return c ? c.slot : null; }
 function onClient(conn, d) {
   if (!d || !d.cid) return;
@@ -64,7 +65,9 @@ function onClient(conn, d) {
     if (!S.clients[cid]) {
       const name = String(d.name || '').trim().slice(0, 24) || 'Cadet';
       // seats fill while the party forms; anyone later is a spectator the GM can move into a seat (device transfer)
-      const slot = JOINABLE.includes(S.phase) ? S.party.findIndex(p => !p.name.trim()) : -1;
+      const occupied = new Set(Object.values(S.clients).map(c => c.slot).filter(slot => slot != null));
+      const matching = S.party.findIndex((p, i) => !occupied.has(i) && p.name.toLowerCase() === name.toLowerCase());
+      const slot = IS_BOSS_PRACTICE ? (matching >= 0 ? matching : S.party.findIndex((_, i) => !occupied.has(i))) : JOINABLE.includes(S.phase) ? S.party.findIndex(p => !p.name.trim()) : -1;
       if (slot >= 0) {
         S.party[slot].name = name;
         S.clients[cid] = { name, slot };
@@ -77,6 +80,8 @@ function onClient(conn, d) {
   }
   const slot = slotOf(cid);
   if (slot == null || !S.party[slot]) return;
+  // Match the GM's result hold: phones cannot start the next step before Next.
+  if ((S.gmNext || S.phase === 'itemAward') && ['vote', 'rvote', 'act', 'roll', 'bact', 'req'].includes(d.t)) return netSendTo(cid);
   const me = S.party[slot];
   const apply = fn => { snap(); const r = fn(); if (r === false) { hist.pop(); netSendTo(cid); return; } push(); };
   switch (d.t) {
@@ -90,11 +95,11 @@ function onClient(conn, d) {
       return apply(() => { me.av = d.v; me.g = AVATARS[d.v].g; });
     case 'look': { // uniform / hair colour (cosmetic), any time before the classes lock
       const [k, val] = String(d.v || '').split(':');
-      const ok = ['avatars', 'party'].includes(S.phase) && ((k === 'uni' && UNIFORMS.some(u => u.id === (val || ''))) || (k === 'hair' && HAIR_COLORS.some(h => h.id === (val || ''))));
+      const ok = ['avatars', 'roster', 'party'].includes(S.phase) && ((k === 'uni' && UNIFORMS.some(u => u.id === (val || ''))) || (k === 'hair' && HAIR_COLORS.some(h => h.id === (val || ''))));
       if (!ok) return netSendTo(cid);
       return apply(() => { me[k] = val || ''; });
     }
-    case 'up': if (S.phase !== 'levelup' || !CLASS[me.cls].ups.some(u => u.id === d.v)) return netSendTo(cid);
+    case 'up': if (me.fired || S.phase !== 'levelup' || !CLASS[me.cls].ups.some(u => u.id === d.v)) return netSendTo(cid);
       return apply(() => { me.up = d.v; });
     case 'vote': {
       if (S.party[slot] && S.party[slot].fired) return netSendTo(cid); // relieved of command: no more votes
@@ -102,14 +107,15 @@ function onClient(conn, d) {
       const c = S.cur; let ok = false;
       // in a meeting: no vote this stop, and none on the route right after being pulled in
       if (isOut(S, slot) || (S.phase === 'map' && slot === S.offlineNext)) return netSendTo(cid);
-      if (S.phase === 'map') ok = available().some(([t, i]) => `${t},${i}` === String(d.v)) || wpOptions().some(o => o.key === String(d.v));
+      if (S.phase === 'map') ok = available().some(([t, i]) => `${t},${i}` === String(d.v)) || wpOptions().some(o => o.key === String(d.v)) || (S.bossReady && String(d.v) === 'boss');
+      else if (S.phase === 'roster') ok = ROSTER_OPTIONS.some(r => r.id === String(d.v));
       else if (S.phase === 'unit' && !S.unitRolled) ok = UNITS.some(u => u.id === String(d.v));
-      else if (S.phase === 'patch' && !S.patch) ok = patchFree(S, String(d.v)); // team patch vote (GM locks the winner)
+      else if (S.phase === 'patch' && !S.patch) ok = patchFree(S, String(d.v)); // team patch vote (Captain Russell locks the winner)
       else if (S.phase === 'node' && c && (c.step === 'choose' || c.step === 'who') && (c.type === 'rest' || c.type === 'depot'))
         ok = stopOptions().some(o => o.key === String(d.v) && !o.dis);
       else if (S.phase === 'node' && c && c.step === 'brief' && curMission()) {
         const ch = curMission().choices[d.v];
-        ok = !!ch && !(ch.req && !gateOpen(ch.req)) && (c.type !== 'spot' || slot === c.slot); // spotlight: only that cadet decides
+        ok = !!ch && (c.type !== 'spot' || slot === c.slot); // spotlight: only that cadet decides
       }
       else if (S.inject && S.inject.stage === 'result' && S.inject.idx != null && !spinning()) {
         const mm = MURPHY[S.inject.idx], n = (mm.options || []).length;
@@ -134,12 +140,11 @@ function onClient(conn, d) {
       if (S.phase !== 'node' || !c || c.step !== 'roll' || !c.rollerLocked || c.roller !== slot || spinning() || isOut(S, slot)) return netSendTo(cid);
       return apply(() => resolveRoll(slot, {}));
     }
-    case 'bact': { // boss: this cadet's action for the round (null clears it)
+    case 'bact': { // boss: this cadet votes for one shared team action
       if (S.phase !== 'boss' || !S.boss || S.boss.stage !== 'act' || spinning()) return netSendTo(cid);
-      if (d.v == null) return apply(() => { delete S.boss.acts[slot]; });
       const a = d.v && typeof d.v === 'object' ? { type: String(d.v.type) } : null;
       if (!a || !bossActOk(slot, a)) return netSendTo(cid);
-      return apply(() => { S.boss.acts[slot] = a; });
+      return apply(() => { S.boss.votes[slot] = a.type; });
     }
     case 'kit': { // the cadet opened their kit and came back to the game tab
       if (S.phase !== 'kit' || slot == null || !S.party[slot] || S.party[slot].kitOk) return netSendTo(cid);
@@ -147,20 +152,25 @@ function onClient(conn, d) {
       return;
     }
     case 'team': { // any cadet can name the team while the party forms
-      if (!['title', 'join', 'intro', 'party', 'perks', 'kit', 'avatars'].includes(S.phase)) return netSendTo(cid);
+      if (!['title', 'join', 'welcome', 'intro', 'party', 'perks', 'kit', 'avatars', 'roster'].includes(S.phase)) return netSendTo(cid);
       S.callsign = String(d.v || '').trim().slice(0, 14); save(); push(true); renderGM();
       return;
     }
+    case 'hotseatRoll':
+      if (S.gmNext || S.notice) return netSendTo(cid);
+      return apply(() => bossHotSeat(slot));
     case 'req': {
+      if (me.fired) return netSendTo(cid);
       const kinds = { ability: 'use their ability' };
       const k = String(d.v || '');
+      if (!usableNow(S).some(u => u.req === k && (u.who == null || u.who === slot))) return netSendTo(cid);
       let what = kinds[k];
       if (k.startsWith('item:')) { const it = LOOT.find(l => l.id === k.slice(5)); if (it && S.items.includes(it.id)) what = `use the team's ${it.icon} ${it.name}`; }
       if (k.startsWith('perk:')) { const pk = CLASS[me.cls] && CLASS[me.cls].perks.find(p => p.id === k.slice(5)); if (pk && me.perk === pk.id) what = `use their perk: ${pk.name}`; }
       if (!what) return;
       S.requests = (S.requests || []).filter(r => !(r.slot === slot && r.kind === k));
       S.requests.push({ slot, kind: k, text: `${rankName(me)} wants to ${what}` });
-      toast('🙋', 'REQUEST SENT TO THE GM', `${rankName(me)}: ${what}`);
+      toast('🙋', 'REQUEST SENT TO CAPTAIN RUSSELL', `${rankName(me)}: ${what}`);
       sfx('click'); push(true); renderGM();
       return;
     }
@@ -172,23 +182,27 @@ function publicView(slot) {
   const m = S.phase === 'node' ? curMission() : null;
   const c = S.cur, u = unitObj();
   const v = {
-    phase: S.phase, introPage: S.introPage, you: slot, room: roomCode(), spinning: spinning(),
-    crown: crownIdx(S),
+    phase: S.phase, introPage: S.introPage, you: slot, room: roomCode(), spinning: spinning() || !!S.gmNext,
+    crown: crownIdx(S), positionOrder: S.positionOrder, unitOrder: S.unitOrder, rosterChoice: S.rosterChoice || null,
+    preIGRest: !!(S.unit === 'sr' && S.cur && S.cur.type === 'rest' && S.map && S.pos && S.pos.tier === S.map.tiers.length - 1),
+    commStopsRemaining: S.commStopsRemaining ?? 2, fssDeployedName: S.fssDeployedName || '', fssDeployedRank: S.fssDeployedRank || 'SrA',
     party: S.party.map((p, i) => ({ fired: !!p.fired, name: p.name, cls: p.cls, perk: p.perk, av: p.av, g: p.g || null, uni: p.uni || '', hair: p.hair || '', up: p.up, used: p.used, kitOk: !!p.kitOk,
       st: p.cls ? Object.fromEntries(STATS.map(x => [x, statOf(i, x)])) : null, perkUsed: !!(p.perk && S.flags['perkUsed_' + p.perk]) })),
     tokenHolder: S.tokenHolder, offline: S.offline, offlineNext: S.offlineNext, unit: S.unit, cc: S.cc, notice: S.notice || null,
+    mapSeed: S.mapSeed, mapRoll: S.mapRoll || 0,
     branch: !!S.branch, objectives: S.phase === 'intro' || S.phase === 'debrief',
     myGrade: slot != null && S.grades && S.grades[slot] && S.grades[slot].shown ? S.grades[slot] : null,
     ccInfo: u ? { pos: u.cc.pos, neg: u.cc.neg, negOff: !!S.flags.ccNegOff, intent: u.cc.intent } : null,
     meters: S.meters, deocs: deocsOn(S), deocsLeft: deocsLeft(S), items: S.items,
-    npcs: (S.npcs || []).map(n => ({ slot: n.slot, rank: n.rank, name: n.name, pub: n.pub, loy: n.loy, out: n.out, broken: n.broken, ally: isAlly(n), trait: n.trait, done: !!(S.traitDone || {})[n.slot] })),
+    itemAward: S.itemAward ? { id: S.itemAward.id, count: S.itemAward.count, dropped: S.itemAward.dropped } : null,
+    npcs: (S.npcs || []).map(n => ({ slot: n.slot, rank: n.rank, name: n.name, pub: n.pub, loy: n.loy, out: n.out, gone: !!n.gone, deceased: !!n.deceased, broken: n.broken, ally: isAlly(n), trait: n.trait, done: !!(S.traitDone || {})[n.slot] })),
     unitPicked: !!S.unitRolled, benderTell: benderTell(S),
     map: S.map ? S.map.tiers.map(t => t.map(n => ({ type: n.type, done: n.done, visited: n.visited }))) : null, pos: S.pos, links: S.map ? S.map.links : null, levelAfter: S.map ? S.map.levelAfter || 3 : 3,
-    avail: S.phase === 'map' ? available().map(([t, i]) => `${t},${i}`) : [],
+    avail: S.phase === 'map' ? available().map(([t, i]) => `${t},${i}`) : [], bossReady: !!S.bossReady,
     wpOpts: S.phase === 'map' ? wpOptions().map(o => ({ key: o.key, icon: CHECKPOINT[o.kind].icon, name: CHECKPOINT[o.kind].name, then: `${o.then.icon} ${o.then.name}` })) : [],
     votes: S.votes || {}, voters: votingOpen(S) ? S.party.filter((_, i) => !isOut(S, i) && !(S.phase === 'map' && i === S.offlineNext)).length : 0,
-    actor: S.actor || null, danger: dangerInfo(S), actorTable: S.actor && !spinning() ? actorTable(S) : null,
-    usable: usableNow(S),
+    actor: S.gmNext ? null : S.actor || null, danger: dangerInfo(S), actorTable: S.actor && !spinning() && !S.gmNext ? actorTable(S) : null,
+    usable: S.gmNext ? [] : usableNow(S),
     itemInfo: (S.items || []).map(id => { const l = LOOT.find(x => x.id === id); return { id, icon: l.icon, name: l.name, text: fill(S, l.text), color: lootColor(l) }; }),
     ach: S.ach, final: S.final ? { g: S.final.grade.g, title: S.final.grade.title, total: S.final.total } : null,
     team: S.callsign || '', patch: patchOf(S), patches: S.phase === 'patch' ? (PATCHES[S.unit] || []).map(p => ({ ...p, taken: !patchFree(S, p.id) })) : null, tie: voteTie(S) ? tieText(S) : null,
@@ -198,8 +212,8 @@ function publicView(slot) {
   if (S.phase === 'node' && c && (c.type === 'rest' || c.type === 'depot') && (c.step === 'choose' || c.step === 'who'))
     v.options = stopOptions().map(o => ({ key: o.key, html: mt(esc(o.label)), dis: !!o.dis }));
   if (c && S.phase === 'node') {
-    v.cur = { type: c.type, step: c.step, choice: c.choice, roller: c.rollerLocked ? c.roller : null, rollerVote: c.step === 'roll' && !c.rollerLocked, lead: c.lead ?? null, result: c.result || null, stars: c.stars || null,
-      slot: c.type === 'spot' ? c.slot : null, trade: c.trade || null,
+    v.cur = { type: c.type, step: c.step, choice: c.choice, intel: !!c.intel, intelRisk: c.intelRisk || '', roller: c.rollerLocked ? c.roller : null, rollerVote: c.step === 'roll' && !c.rollerLocked, lead: c.lead ?? null, result: c.result || null, stars: c.stars || null,
+      slot: c.type === 'spot' ? c.slot : null, trade: c.trade || null, freeLoot: isFreeLoot(c),
       roll: c.rollRes ? { d20: c.rollRes.d20, total: c.rollRes.total, dc: c.rollRes.dc, pass: c.rollRes.pass, nat: c.rollRes.nat, safe: !!c.rollRes.safe } : null,
       check: c.step === 'roll' && c.spec && c.spec.check ? { stat: c.spec.check.stat } : null };
     if (c.step === 'roll' && c.spec && c.spec.check) {
@@ -209,10 +223,11 @@ function publicView(slot) {
         stats: st && st !== 'LOYB' ? S.party.map((_, i) => rollBonus(i, st, c.spec.check.m)) : null,
         spec: st && st !== 'LOYB' ? S.party.map((_, i) => isSpec(i, c.spec.check.m)) : null });
     }
-    if (m) v.mission = { title: m.title, icon: m.icon, sob: m.sob, text: fill(S, m.text), cc: !!m.cc, loss: m.loss ? fill(S, m.loss) : null, help: !!m.help,
+    if (m) { const actOut = isActOutEncounter(S, m); v.mission = { title: m.title, icon: m.icon, iconRank: m.iconRank || null, badge: m.badge || null, sob: m.sob, text: fill(S, m.text), cc: !!m.cc, loss: m.loss ? fill(S, m.loss) : null, help: !!m.help,
       realres: c.step === 'done' ? effChips(Object.fromEntries(resultSummary(S).meters)) : null,
-      compartmented: arrowsHidden(S), choices: m.choices.map(ch => ({ t: fill(S, ch.t), show: arrowsHidden(S) ? null : choiceShow(ch), mic: !!ch.mic, intel: c.intel ? specText(S, ch) : null,
-        req: ch.req || null, locked: !!(ch.req && !gateOpen(ch.req)), smell: !!(ch.trap && benderTell(S)) })) };
+      compartmented: arrowsHidden(S), choices: m.choices.map(ch => ({ t: fill(S, ch.t), roleplay: actOut && ch.roleplay ? fill(S, ch.roleplay) : null, show: arrowsHidden(S) ? null : choiceShow(ch), mic: actOut, checkLabel: choiceCheckLabel(S, ch), intel: c.intel ? specText(S, ch) : null,
+        smell: !!(ch.trap && benderTell(S)) })) };
+    }
   }
   if (S.phase === 'inject' && S.inject) {
     const inj = S.inject, mm = inj.idx != null && !spinning() ? MURPHY[inj.idx] : null;
@@ -223,17 +238,24 @@ function publicView(slot) {
             return { t: `Tackle it (${mm.tackle.stat} roll)`, html: tackleRows(mm), tackle: true }; })()] : []) : null,
       tackle: inj.stage === 'tackle' ? { stat: mm.tackle.stat, dc: mm.tackle.dc + DIFFICULTY.dcPlus, roller: inj.rollerLocked ? inj.roller : null, vote: !inj.rollerLocked, m: mm.tackle.m,
         odds4: S.party.map((_, i) => isOut(S, i) ? null : tackleOdds(S, mm, i)),
-        bonus: S.party.map((_, i) => rollBonus(i, mm.tackle.stat, mm.tackle.m)), spec: S.party.map((_, i) => isSpec(i, mm.tackle.m)) } : null };
+      bonus: S.party.map((_, i) => rollBonus(i, mm.tackle.stat, mm.tackle.m) + leanBonus(S) + pendingCheckBonus(S)), spec: S.party.map((_, i) => isSpec(i, mm.tackle.m)) } : null };
   }
   if (S.boss) {
-    const Bs = S.boss, others = Object.entries(Bs.acts).filter(([s2]) => +s2 !== slot).map(([, a]) => a);
+    const Bs = S.boss, actionVotes = Object.values(Bs.votes || {});
     v.boss = { hp: Bs.hp, max: Bs.max, round: Bs.round, stage: Bs.stage, atk: Bs.atk, adverse: Bs.adverse, weak: Bs.weak, dc: examDC(Bs),
+      openingCurrent: Bs.openingCurrent || null, openingCount: (Bs.opening || []).length, openingIndex: Bs.openingIdx || 0,
+      hotSeatRolls: S.party.map((p, i) => ({ active: !!p.name && !p.fired, value: Bs.p2.settled?.[i] ? Bs.p2.rolls?.[i] : null, rolled: Bs.p2.rolls?.[i] != null, settled: !!Bs.p2.settled?.[i] })), hotSeatTied: !!Bs.p2.tied,
       roundName: Bs.round ? BOSS_ROUNDS[Bs.round - 1].name : null,
+      interviewConsequences: Bs.interviewConsequences || [], stageLabel: bossStageLabel(Bs), attackPreview: bossAttackPreview(S), block: Bs.block || 0,
+      attackLoss: Bs.atk ? meterLossPreview(Bs.atk.k, Bs.atk.n).loss : null,
+      defendLoss: Bs.atk ? meterLossPreview(Bs.atk.k, Math.max(0, Bs.atk.n - 2)).loss : null,
+      enemyForecast: Bs.atk ? meterLossPreview(Bs.atk.k, Math.max(0, Bs.atk.n - (Bs.block || 0))) : null,
+      attackDamage: Bs.attackDamage, attackBlocked: Bs.attackBlocked || 0, recap: bossRecap(Bs),
+      teamAction: Bs.teamAction || null, supportIndex: Bs.vouchIdx || 0, supportCount: (Bs.vouches || []).length,
       who: Bs.p2.who, q: Bs.p2.who ? Bs.p2.q : null, best: slot != null && S.party[slot] ? (() => { const st = bestStat(slot); return { stat: st, v: statOf(slot, st) + leanBonus(S) }; })() : null,
-      my: slot != null ? Bs.acts[slot] || null : null, myText: slot != null && Bs.acts[slot] ? bossActText(slot, Bs.acts[slot]) : null,
-      locked: S.party.map((_, i) => !!Bs.acts[i]),
-      takenStats: others.filter(a => a.type === 'press').map(a => a.stat), allyTaken: others.some(a => a.type === 'ally'),
-      allies: (S.npcs || []).filter(n => isAlly(n) && !Bs.allyUsed[n.slot]).map(n => ({ slot: n.slot, name: `${n.rank} ${n.name}` })),
+      my: slot != null ? (Bs.votes || {})[slot] || null : null, myText: slot != null && (Bs.votes || {})[slot] ? bossActText(Bs.votes[slot]) : null,
+      locked: S.party.map((_, i) => !!(Bs.votes || {})[i]), votes: { press: actionVotes.filter(a => a === 'press').length, defend: actionVotes.filter(a => a === 'defend').length },
+      supporters: Bs.supporters || [], vouchCurrent: Bs.vouchCurrent || null,
       log: Bs.log.slice(-6), result: Bs.result || null };
   }
   return v;
@@ -275,7 +297,7 @@ act('moveSeat', a => {
   log('Device transfer', `${rankName(p) || p.name} moved to a new device`); toast('📱', 'DEVICE TRANSFER', `${rankName(p) || p.name} is back in the game`);
 });
 act('reqNo', k => { (S.requests || []).splice(+k, 1); });
-act('newRoom', () => { if (!confirm('Make a new room code? Connected phones will need to rejoin.')) return false; netStop(); localStorage.removeItem('sq_room'); try { NET.peer.destroy(); } catch (e) { } NET.peer = null; setTimeout(netStart, 300); });
+act('newRoom', () => { if (!confirm('Make a new room code? Connected phones will need to rejoin.')) return false; netStop(); localStorage.removeItem(ROOM_STORAGE_KEY); try { NET.peer.destroy(); } catch (e) { } NET.peer = null; setTimeout(netStart, 300); });
 act('dropPhones', () => { if (!confirm('Disconnect every phone?')) return false; netStop(); S.clients = {}; });
 act('kick', i => {
   const cid = Object.keys(S.clients || {}).find(k => S.clients[k].slot === +i);

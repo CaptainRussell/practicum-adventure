@@ -1,0 +1,27 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><base href="../"><title>Example team results</title></head><body>
+<p>Preparing the completed automated game’s results sheet…</p>
+<script src="data.js"></script><script src="app.js"></script><script src="results-report.js"></script><script src="team-report-layout.js"></script>
+<script>
+// Isolated review fixture: never starts networking or changes saved game state.
+initGM = async function () {
+  const example = new URLSearchParams(location.search).get('case');
+  const variant = ['loss','victory'].includes(example) ? `-${example}` : '';
+  const response = await fetch(`tools/report-example${variant}-state.json`);
+  if (!response.ok) throw new Error('Generate the example state with tools/run-balance.cjs first.');
+  S = await response.json();
+  const exampleNames = ['Able','Baker','Charlie','Dog'];
+  S.party.forEach((p,i) => p.name = exampleNames[i] || p.name);
+  const report = teamReportModel(S);
+  const html = renderTeamReport(report);
+  document.open(); document.write(html); document.close();
+  document.querySelector('.eyebrow').textContent += ' · AUTOMATED EXAMPLE';
+  await prepareTeamReport(document);
+  const toolbar = document.querySelector('.toolbar');
+  const modelButton = document.createElement('button'); modelButton.textContent = 'Download example data';
+  modelButton.onclick = () => download('team-results-example.json', JSON.stringify(report,null,2), 'application/json');
+  toolbar.appendChild(modelButton);
+  const htmlButton = document.createElement('button'); htmlButton.textContent = 'Download print-ready HTML';
+  htmlButton.onclick = () => download('team-results-example.html', '<!doctype html>'+document.documentElement.outerHTML, 'text/html');
+  toolbar.appendChild(htmlButton);
+};
+</script></body></html>

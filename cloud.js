@@ -26,6 +26,7 @@ const CL = { last: 0, tried: 0, err: '', busy: false, timer: null }; // last = l
 function cloudConfigured() { return !!(CLOUD.projectId && CLOUD.apiKey); }
 // local test builds don't touch the real board unless asked to
 function cloudOn() {
+  if (IS_BOSS_PRACTICE) return false;
   if (!cloudConfigured()) return false;
   const local = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
   return !local || /[?&]cloud=1\b/.test(location.search);
@@ -102,24 +103,38 @@ async function cloudSync() {
       if (!mine || JSON.stringify(CLOUD_FIELDS.map(k => mine[k])) !== JSON.stringify(CLOUD_FIELDS.map(k => r[k]))) { byDate.set(r.date, r); changed = true; }
     });
     const have = new Set(remote.map(r => r.date)), seen = new Set(cloudSeen());
-    // missing from the cloud: a run we changed or never uploaded goes up; one we saw there before was deleted there, so drop it
+    // Pending local edits go up even when an older cloud copy exists. Missing unseen runs upload;
+    // a run deleted from the cloud after a prior sync stays deleted.
     const toSend = [];
     [...byDate.values()].forEach(r => {
-      if (!r.date || have.has(r.date)) return;
-      if (pend.includes(r.date) || !seen.has(r.date)) toSend.push(r);
+      if (!r.date) return;
+      if (pend.includes(r.date)) { toSend.push(r); return; }
+      if (have.has(r.date)) return;
+      if (!seen.has(r.date)) toSend.push(r);
       else { byDate.delete(r.date); seen.delete(r.date); changed = true; }
     });
     remote.forEach(r => r.date && seen.add(r.date));
     if (changed) saveBoard([...byDate.values()]);
-    const left = [];
-    for (const r of toSend) { try { await cloudUpload(r); seen.add(r.date); } catch (e) { left.push(r.date); CL.err = String(e.message || e); } }
+    const left = [], uploaded = new Map();
+    const fingerprint = r => JSON.stringify(toFields(r));
+    for (const r of toSend) {
+      const version = fingerprint(r);
+      try { await cloudUpload(r); seen.add(r.date); uploaded.set(r.date, version); }
+      catch (e) { left.push(r.date); CL.err = String(e.message || e); }
+    }
+    // Saves may arrive while an upload is in flight. Only acknowledge the exact
+    // version sent; keep newer edits and newly queued runs for the next sync.
+    const latest = new Map(loadBoard().map(r => [r.date, r]));
+    cloudPending().forEach(date => {
+      if (!uploaded.has(date) || (latest.has(date) && fingerprint(latest.get(date)) !== uploaded.get(date))) left.push(date);
+    });
     setCloudSeen([...seen]); setCloudPending(left);
     if (!left.length) CL.err = '';
     CL.last = Date.now();
   } catch (e) { CL.err = String(e.message || e); }
   CL.busy = false;
   if (typeof push === 'function') push(true); // redraw the board, the projector and the status line
-  if (CL.again) cloudSync();
+  if (CL.again) return cloudSync();
 }
 // a run was just saved: mark it for upload and sync now
 function cloudQueue(date) { if (!cloudOn() || !date) return; setCloudPending(cloudPending().concat(date)); cloudSync(); }
